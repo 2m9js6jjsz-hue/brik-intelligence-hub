@@ -67,6 +67,8 @@
       line-height: 1.5;
     }
     #app { display: none; }
+    .secondary { background: transparent; color: #ffbd95; border: 1px solid #657578; margin-top: 12px; }
+    #message { overflow-wrap: anywhere; }
   </style>
 </head>
 <body>
@@ -89,6 +91,17 @@
       <button id="loginButton" type="submit">
         Iniciar sesión
       </button>
+      <button id="forgotButton" type="button" class="secondary">Olvidé mi contraseña / Crear contraseña</button>
+    </form>
+
+    <form id="recovery" style="display:none">
+      <h2>Establecer contraseña</h2>
+      <p class="subtitle">Escribe una nueva contraseña para tu cuenta.</p>
+      <label for="newPassword">Nueva contraseña (mínimo 8 caracteres)</label>
+      <input id="newPassword" type="password" minlength="8" required autocomplete="new-password">
+      <label for="confirmPassword">Confirmar contraseña</label>
+      <input id="confirmPassword" type="password" minlength="8" required autocomplete="new-password">
+      <button id="savePassword" type="submit">Guardar contraseña</button>
     </form>
 
     <section id="app">
@@ -111,77 +124,116 @@
     const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_7b3VggTO4Rg3zPSplD1stQ_HfWYKWyb';
 
     const form = document.querySelector('#login');
+    const recovery = document.querySelector('#recovery');
     const app = document.querySelector('#app');
     const message = document.querySelector('#message');
     const loginButton = document.querySelector('#loginButton');
+    const savePassword = document.querySelector('#savePassword');
+    const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+    let recovering = false;
 
-    if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
-      message.textContent =
-        'Pendiente de configurar la conexión con Supabase.';
-    } else {
-      const supabase = createClient(
-        SUPABASE_URL,
-        SUPABASE_PUBLISHABLE_KEY
-      );
-
-      async function refresh() {
-        const { data: { user }, error } =
-          await supabase.auth.getUser();
-
-        let authorized = false;
-
-        if (!error && user) {
-          const result = await supabase
-            .from('brik_profiles')
-            .select('role')
-            .eq('user_id', user.id)
-            .eq('role', 'admin')
-            .maybeSingle();
-
-          authorized = !result.error && !!result.data;
-        }
-
-        form.style.display = authorized ? 'none' : 'block';
-        app.style.display = authorized ? 'block' : 'none';
-
-        if (user && !authorized) {
-          message.textContent =
-            'Tu cuenta no tiene acceso de administración.';
-        }
-      }
-
-      form.addEventListener('submit', async event => {
-        event.preventDefault();
-        loginButton.disabled = true;
-        message.textContent = 'Verificando acceso...';
-
-        const { error } =
-          await supabase.auth.signInWithPassword({
-            email: document.querySelector('#email').value,
-            password: document.querySelector('#password').value
-          });
-
-        if (error) {
-          message.textContent =
-            'No fue posible iniciar sesión. Revisa tus datos.';
-        } else {
-          message.textContent = '';
-          await refresh();
-        }
-
-        loginButton.disabled = false;
-      });
-
-      document.querySelector('#logoutButton')
-        .addEventListener('click', async () => {
-          await supabase.auth.signOut();
-          app.style.display = 'none';
-          form.style.display = 'block';
-          message.textContent = 'Sesión cerrada.';
-        });
-
-      refresh();
+    function show(view) {
+      form.style.display = view === 'login' ? 'block' : 'none';
+      recovery.style.display = view === 'recovery' ? 'block' : 'none';
+      app.style.display = view === 'app' ? 'block' : 'none';
     }
+
+    async function refresh() {
+      if (recovering) return;
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error || !user) { show('login'); return; }
+      const result = await supabase.from('brik_profiles')
+        .select('role').eq('user_id', user.id).eq('role', 'admin').maybeSingle();
+      if (result.error || !result.data) {
+        show('login');
+        message.textContent = 'Sesión iniciada, pero tu usuario no tiene permiso de administración. Revisa tu perfil en Supabase.';
+      } else {
+        show('app');
+        message.textContent = '';
+      }
+    }
+
+    // El enlace de Supabase activa PASSWORD_RECOVERY y permite updateUser.
+    supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        recovering = true;
+        show('recovery');
+        message.textContent = 'Enlace validado. Ahora crea tu contraseña.';
+      }
+    });
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      loginButton.disabled = true;
+      message.textContent = 'Verificando acceso...';
+      try {
+        const { error } = await supabase.auth.signInWithPassword({
+          email: document.querySelector('#email').value.trim(),
+          password: document.querySelector('#password').value
+        });
+        if (error) message.textContent = 'No fue posible iniciar sesión. Revisa el correo y la contraseña.';
+        else await refresh();
+      } catch (e) { message.textContent = 'No se pudo conectar. Intenta nuevamente.'; }
+      finally { loginButton.disabled = false; }
+    });
+
+    document.querySelector('#forgotButton').addEventListener('click', async () => {
+      const email = document.querySelector('#email').value.trim();
+      if (!email || !document.querySelector('#email').checkValidity()) {
+        message.textContent = 'Primero escribe tu correo electrónico en el campo superior.';
+        return;
+      }
+      const button = document.querySelector('#forgotButton');
+      button.disabled = true;
+      message.textContent = 'Solicitando correo de recuperación...';
+      try {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + window.location.pathname
+        });
+        message.textContent = error
+          ? 'No se pudo solicitar el correo: ' + error.message
+          : 'Si la cuenta existe, recibirás un correo. Abre el enlace más reciente para establecer tu contraseña.';
+      } catch (e) { message.textContent = 'Error de conexión. Intenta nuevamente.'; }
+      finally { button.disabled = false; }
+    });
+
+    recovery.addEventListener('submit', async event => {
+      event.preventDefault();
+      const password = document.querySelector('#newPassword').value;
+      const confirm = document.querySelector('#confirmPassword').value;
+      if (password !== confirm) {
+        message.textContent = 'Las contraseñas no coinciden.';
+        return;
+      }
+      savePassword.disabled = true;
+      message.textContent = 'Guardando contraseña...';
+      try {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) { message.textContent = 'No se pudo guardar: ' + error.message; return; }
+        recovering = false;
+        history.replaceState(null, '', window.location.pathname);
+        message.textContent = 'Contraseña guardada correctamente.';
+        await refresh();
+      } catch (e) { message.textContent = 'Error de conexión. Intenta nuevamente.'; }
+      finally { savePassword.disabled = false; }
+    });
+
+    document.querySelector('#logoutButton').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      recovering = false;
+      show('login');
+      message.textContent = 'Sesión cerrada.';
+    });
+
+    // Si el enlace expiró, Supabase devuelve el error en la URL.
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    if (params.get('error_description')) {
+      message.textContent = 'El enlace venció o no es válido. Solicita uno nuevo desde esta pantalla.';
+      history.replaceState(null, '', window.location.pathname);
+    }
+    // La sesión se restaura al iniciar; el evento PASSWORD_RECOVERY tiene prioridad.
+    setTimeout(() => { if (!recovering) refresh(); }, 350);
+
   </script>
 </body>
 </html>
