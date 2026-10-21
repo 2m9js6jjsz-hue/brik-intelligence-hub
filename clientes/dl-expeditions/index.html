@@ -107,6 +107,14 @@
     .prospect-form button{grid-column:1/-1;width:auto;justify-self:start;margin:0;padding:12px 22px}
     .prospect-status{font-size:13px;line-height:1.5;min-height:20px;color:#365b65}
     @media(max-width:650px){.prospect-form{grid-template-columns:1fr}}
+    .booking-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin:18px 0 22px}
+    .booking-form label{margin:0;color:#33464d;font-size:12px;font-weight:700}
+    .booking-form input,.booking-form select{width:100%;margin-top:7px;padding:12px;border:1px solid #cfd7d8;border-radius:9px;background:#fff;color:#17252c;font-size:14px}
+    .booking-form button{grid-column:1/-1;width:auto;justify-self:start;margin:0;padding:12px 22px}
+    .booking-summary{grid-column:1/-1;background:#fff3e9;border:1px solid #f2c6a8;border-radius:10px;padding:13px;font-size:14px;color:#754326}
+    .booking-status{font-size:13px;line-height:1.5;min-height:22px;overflow-wrap:anywhere}
+    [hidden]{display:none!important}
+    @media(max-width:650px){.booking-form{grid-template-columns:1fr}}
     @media print{body.logged-in .dash-top,body.logged-in .dash-side,body.logged-in .dash-demo,body.logged-in .dash-head,body.logged-in .dash-foot,body.logged-in .quote-form,body.logged-in .hint,body.logged-in .nav-shade{display:none!important}body.logged-in .dash-layout{display:block}body.logged-in .dash-content{padding:0}.page{display:none!important}.page[data-section="cotizador"]{display:block!important}.quote-result{display:grid;grid-template-columns:1fr 1fr}.dash-panel{box-shadow:none;border:0}.quote-result .dash-stat{break-inside:avoid}}
   </style>
 </head>
@@ -154,11 +162,11 @@
         <button class="dash-nav" data-page="clientes" type="button">♧ &nbsp; Clientes</button>
         <button class="dash-nav" data-page="cotizador" type="button">▤ &nbsp; Cotizador</button>
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
-        <div class="nav-note">Prospectos conectados · otros módulos en demostración</div>
+        <div class="nav-note">Prospectos y reservas conectados · otros módulos en demostración</div>
       </nav><div class="dash-content">
         <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión de demostración</span></div>
-        <div class="dash-demo"><strong>ENTORNO DE PRUEBA</strong> — El acceso está conectado a Supabase. El módulo Prospectos consulta y registra datos en Supabase. Los demás indicadores y módulos continúan en demostración. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</div>
-        <section class="page active" data-section="inicio"><div class="dash-grid"><div class="dash-stat"><small>Prospectos</small><strong id="homeProspects">—</strong><span id="homeProspectsNote">Cargando datos de Supabase</span></div><div class="dash-stat"><small>Reservas confirmadas</small><strong>12</strong><span>Ejemplo ficticio</span></div><div class="dash-stat"><small>Ingresos</small><strong>$8,450</strong><span>USD · Ejemplo ficticio</span></div><div class="dash-stat"><small>Gastos</small><strong>$2,300</strong><span>USD · Ejemplo ficticio</span></div></div><div class="dash-panels"><div class="dash-panel"><h2>Ingresos por mes · Ejemplo</h2><div class="dash-bars"><div class="dash-bar-col"><div class="dash-bar" style="height:26%"></div><small>Ene</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:36%"></div><small>Feb</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:31%"></div><small>Mar</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:43%"></div><small>Abr</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:57%"></div><small>May</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:48%"></div><small>Jun</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:64%"></div><small>Jul</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:74%"></div><small>Ago</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:83%"></div><small>Sep</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:96%"></div><small>Oct</small></div></div><p>Gráfico ilustrativo. No representa ventas reales.</p></div><div class="dash-panel"><h2>Seguimiento comercial · Ejemplo</h2><div class="dash-row"><span>Prospectos en seguimiento</span><b>8</b></div><div class="dash-row"><span>Reservas confirmadas</span><b>12</b></div><div class="dash-row"><span>Pagos pendientes</span><b>3</b></div><div class="dash-row"><span>Expediciones en preparación</span><b>2</b></div></div></div></section>
+        <div class="dash-demo"><strong>ENTORNO DE PRUEBA</strong> — El acceso está conectado a Supabase. Prospectos y Reservas consultan y registran datos en Supabase. Los demás indicadores y módulos continúan en demostración. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</div>
+        <section class="page active" data-section="inicio"><div class="dash-grid"><div class="dash-stat"><small>Prospectos</small><strong id="homeProspects">—</strong><span id="homeProspectsNote">Cargando datos de Supabase</span></div><div class="dash-stat"><small>Reservas confirmadas</small><strong id="homeBookings">—</strong><span id="homeBookingsNote">Cargando datos de Supabase</span></div><div class="dash-stat"><small>Ingresos</small><strong>$8,450</strong><span>USD · Ejemplo ficticio</span></div><div class="dash-stat"><small>Gastos</small><strong>$2,300</strong><span>USD · Ejemplo ficticio</span></div></div><div class="dash-panels"><div class="dash-panel"><h2>Ingresos por mes · Ejemplo</h2><div class="dash-bars"><div class="dash-bar-col"><div class="dash-bar" style="height:26%"></div><small>Ene</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:36%"></div><small>Feb</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:31%"></div><small>Mar</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:43%"></div><small>Abr</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:57%"></div><small>May</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:48%"></div><small>Jun</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:64%"></div><small>Jul</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:74%"></div><small>Ago</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:83%"></div><small>Sep</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:96%"></div><small>Oct</small></div></div><p>Gráfico ilustrativo. No representa ventas reales.</p></div><div class="dash-panel"><h2>Seguimiento comercial · Ejemplo</h2><div class="dash-row"><span>Prospectos en seguimiento</span><b>8</b></div><div class="dash-row"><span>Reservas confirmadas</span><b>12</b></div><div class="dash-row"><span>Pagos pendientes</span><b>3</b></div><div class="dash-row"><span>Expediciones en preparación</span><b>2</b></div></div></div></section>
         <section class="page" data-section="prospectos"><div class="dash-panel">
           <div class="section-head"><h2>Seguimiento de prospectos</h2><span id="prospectCount" class="pill">Cargando...</span></div>
           <p>Registra oportunidades y consulta los prospectos guardados en Supabase. El acceso de consulta no permite registrar nuevos.</p>
@@ -173,12 +181,29 @@
           <div class="table-wrap"><table class="dash-table"><thead><tr><th>Prospecto</th><th>Canal</th><th>Expedición</th><th>Etapa</th><th>Registro</th></tr></thead><tbody id="prospectRows"><tr><td colspan="5">Inicia sesión para consultar los registros.</td></tr></tbody></table></div>
           <p class="hint">Los registros se guardan en la nube. Las etapas son etiquetas operativas; valida sus valores con las reglas de tu base de datos.</p>
         </div></section>
-        <section class="page" data-section="reservas"><div class="dash-panel"><div class="section-head"><h2>Reservas por expedición</h2><span class="pill">Muestra ficticia</span></div><div class="table-wrap"><table class="dash-table"><thead><tr><th>Reserva</th><th>Destino</th><th>Viajeros</th><th>Estado</th></tr></thead><tbody><tr><td>RES-001</td><td>Guatemala</td><td>2</td><td>Confirmada</td></tr><tr><td>RES-002</td><td>Guatemala</td><td>1</td><td>Pendiente</td></tr><tr><td>RES-003</td><td>Atacama</td><td>2</td><td>Solicitud</td></tr></tbody></table></div><p>En la siguiente etapa vincularemos reservas con prospectos, viajeros, expediciones y pagos.</p></div></section>
+        <section class="page" data-section="reservas"><div class="dash-panel">
+          <div class="section-head"><h2>Reservas por expedición</h2><span id="bookingCount" class="pill">Cargando...</span></div>
+          <p>Registra y consulta reservas reales de DL Expeditions. Los importes se expresan en pesos mexicanos (MXN). Las reservas no registran pagos automáticamente.</p>
+          <form id="bookingForm" class="booking-form" hidden>
+            <label>Expedición *<select id="bExpedition" required><option value="">Seleccionar expedición</option></select></label>
+            <label>Prospecto asociado (opcional)<select id="bProspect"><option value="">Sin prospecto asociado</option></select></label>
+            <label>Canal de venta *<select id="bChannel" required><option value="direct">Venta directa</option><option value="agency">Agencia</option></select></label>
+            <label id="bAgencyWrap" hidden>Agencia *<select id="bAgency"><option value="">Seleccionar agencia</option></select></label>
+            <label>Cantidad de viajeros *<input id="bTravelers" type="number" min="1" max="10000" step="1" value="1" required></label>
+            <label>Precio por viajero (MXN) *<input id="bPrice" type="number" min="0" step="0.01" value="0" required></label>
+            <label>Estado *<select id="bStatus" required><option value="pending">Pendiente</option><option value="deposit">Con anticipo</option><option value="confirmed">Confirmada</option><option value="cancelled">Cancelada</option></select></label>
+            <div class="booking-summary">Total estimado de la reserva: <strong id="bTotal">$0.00 MXN</strong></div>
+            <button id="saveBooking" type="submit">Guardar reserva</button>
+          </form>
+          <p id="bookingStatus" class="booking-status" role="status"></p>
+          <div class="table-wrap"><table class="dash-table"><thead><tr><th>Expedición</th><th>Prospecto</th><th>Canal</th><th>Viajeros</th><th>Precio unitario</th><th>Total</th><th>Estado</th><th>Registro</th></tr></thead><tbody id="bookingRows"><tr><td colspan="8">Inicia sesión para consultar las reservas.</td></tr></tbody></table></div>
+          <p class="hint">Solo administración puede registrar reservas. Los usuarios de consulta pueden verlas, sujeto a los permisos RLS de Supabase. Para cambiar estados o registrar pagos se habilitarán módulos específicos.</p>
+        </div></section>
         <section class="page" data-section="finanzas"><div class="dash-grid"><div class="dash-stat"><small>Ingresos</small><strong>$8,450</strong><span>USD · Ficticio</span></div><div class="dash-stat"><small>Gastos</small><strong>$2,300</strong><span>USD · Ficticio</span></div><div class="dash-stat"><small>Resultado</small><strong>$6,150</strong><span>USD · Diferencia ficticia</span></div><div class="dash-stat"><small>Pagos pendientes</small><strong>3</strong><span>Ejemplo ficticio</span></div></div><div class="dash-panel" style="margin-top:17px"><h2>Control de pagos y gastos</h2><p>Este módulo podrá conciliar anticipos, saldos, pagos a proveedores y gastos por expedición cuando configuremos la base de datos. Ningún importe mostrado aquí proviene de transacciones reales.</p></div></section>
         <section class="page" data-section="clientes"><div class="dash-panel"><h2>Clientes y viajeros</h2><p>Esta sección reunirá historial de viajes, reservas y preferencias de cada cliente, con acceso controlado. Por privacidad, el prototipo no contiene datos personales ni permite almacenarlos.</p><div class="empty-state">Aún no hay clientes reales conectados.</div></div></section>
         <section class="page" data-section="cotizador"><div class="dash-panel"><div class="section-head"><h2>Cotizador de expediciones</h2><span class="pill">Calculadora funcional</span></div><p>Introduce importes de prueba. El cálculo se realiza en este dispositivo; no se guarda en Supabase.</p><form id="quoteForm" class="quote-form"><label>Nombre de la expedición<input id="qName" value="Guatemala · Expedición piloto" maxlength="100" required></label><label>Moneda<select id="qCurrency"><option value="USD">USD</option><option value="MXN">MXN</option></select></label><label>Viajeros estimados<input id="qTravelers" type="number" min="1" max="10000" step="1" value="15" required></label><label>Costos fijos del grupo<input id="qFixed" type="number" min="0" step="0.01" value="1500" required></label><label>Costos variables por viajero<input id="qVariable" type="number" min="0" step="0.01" value="350" required></label><label>Otros costos del grupo<input id="qOther" type="number" min="0" step="0.01" value="250" required></label><label>Margen objetivo sobre ventas (%)<input id="qMargin" type="number" min="0" max="95" step="0.1" value="25" required></label><label>Precio de venta por viajero (opcional, para comparar)<input id="qPrice" type="number" min="0" step="0.01" placeholder="Precio propuesto"></label><div class="quote-actions"><button type="submit">Calcular cotización</button><button id="printQuote" type="button" class="outline-btn">Imprimir / guardar PDF</button></div></form><div id="quoteResult" class="quote-result" aria-live="polite"></div><p class="hint">El margen se calcula sobre el precio de venta, no como recargo sobre el costo. Los cálculos no incluyen impuestos, comisiones de cobro ni contingencias a menos que los incluyas en los costos.</p></div></section>
         <section class="page" data-section="reportes"><div class="dash-panel"><h2>Reportes y análisis</h2><p>Los reportes finales podrán mostrar conversión por canal, reservas por expedición, ocupación, ingresos, costos y rentabilidad. Por ahora se muestran únicamente indicadores ilustrativos en el panel principal.</p><div class="empty-state">Pendiente: conectar fuentes reales y validar definiciones de KPI.</div></div></section>
-        <p class="dash-foot">BRIK Intelligence Hub · Prospectos conectados a Supabase. Otros módulos ilustrativos. Verifica políticas RLS antes de utilizar datos personales reales.</p>
+        <p class="dash-foot">BRIK Intelligence Hub · Prospectos y reservas conectados a Supabase. Otros módulos ilustrativos. Verifica políticas RLS antes de utilizar datos personales reales.</p>
       </div></div>
     </section>
 
@@ -351,6 +376,103 @@
         await loadProspects();
         prospectStatus.textContent='Prospecto guardado correctamente en Supabase.';
       }catch(error){showProspectError(error);}finally{btn.disabled=false;}
+    });
+
+    // Reservas: todas las escrituras se someten a las políticas RLS de Supabase.
+    const bookingForm=document.querySelector('#bookingForm');
+    const bookingStatus=document.querySelector('#bookingStatus');
+    const bookingRows=document.querySelector('#bookingRows');
+    const bookingCount=document.querySelector('#bookingCount');
+    const bookingStatuses={pending:'Pendiente',deposit:'Con anticipo',confirmed:'Confirmada',cancelled:'Cancelada'};
+    const mxn=v=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(Number(v)||0);
+    let bookingExpeditions=new Map();
+    let bookingProspects=new Map();
+    let bookingAgencies=new Map();
+    function bookingError(err){bookingStatus.textContent='No se pudo completar la operación: '+(err?.message||'Error desconocido')+'. Verifica los permisos y los datos.';}
+    function updateBookingTotal(){
+      const n=Number(document.querySelector('#bTravelers').value);
+      const price=Number(document.querySelector('#bPrice').value);
+      document.querySelector('#bTotal').textContent=Number.isFinite(n*price)&&n>0&&price>=0?mxn(n*price):'Revisa los importes';
+    }
+    function syncBookingAgency(){
+      const agency=document.querySelector('#bChannel').value==='agency';
+      document.querySelector('#bAgencyWrap').hidden=!agency;
+      document.querySelector('#bAgency').required=agency;
+      if(!agency)document.querySelector('#bAgency').value='';
+    }
+    document.querySelector('#bChannel').addEventListener('change',syncBookingAgency);
+    document.querySelector('#bTravelers').addEventListener('input',updateBookingTotal);
+    document.querySelector('#bPrice').addEventListener('input',updateBookingTotal);
+    document.querySelector('#bExpedition').addEventListener('change',()=>{
+      const e=bookingExpeditions.get(document.querySelector('#bExpedition').value);
+      if(e&&Number(e.public_price_mxn)>0)document.querySelector('#bPrice').value=e.public_price_mxn;
+      updateBookingTotal();
+    });
+    async function loadBookings(){
+      bookingForm.hidden=currentRole!=='admin';
+      bookingStatus.textContent='Cargando reservas...';
+      const [expRes,proRes,agencyRes,bookingRes]=await Promise.all([
+        supabase.from('expeditions').select('id,name,public_price_mxn').order('name'),
+        supabase.from('prospects').select('id,alias,expedition_id').order('created_at',{ascending:false}).limit(500),
+        supabase.from('agencies').select('*').limit(500),
+        supabase.from('bookings').select('id,expedition_id,prospect_id,channel,agency_id,travelers,unit_price_mxn,status,created_at').order('created_at',{ascending:false}).limit(500)
+      ]);
+      const error=expRes.error||proRes.error||agencyRes.error||bookingRes.error;
+      if(error){bookingError(error);return;}
+      bookingExpeditions=new Map((expRes.data||[]).map(x=>[x.id,x]));
+      bookingProspects=new Map((proRes.data||[]).map(x=>[x.id,x]));
+      bookingAgencies=new Map((agencyRes.data||[]).map(x=>[x.id,x]));
+      const expSel=document.querySelector('#bExpedition'),proSel=document.querySelector('#bProspect'),agencySel=document.querySelector('#bAgency');
+      const previousExp=expSel.value;
+      expSel.replaceChildren(new Option('Seleccionar expedición',''));
+      for(const e of expRes.data||[])expSel.add(new Option(e.name,e.id));
+      if(bookingExpeditions.has(previousExp))expSel.value=previousExp;
+      proSel.replaceChildren(new Option('Sin prospecto asociado',''));
+      for(const p of proRes.data||[])proSel.add(new Option(p.alias,p.id));
+      agencySel.replaceChildren(new Option('Seleccionar agencia',''));
+      for(const a of agencyRes.data||[])agencySel.add(new Option(a.name||a.agency_name||a.nombre||a.id,a.id));
+      bookingRows.replaceChildren();
+      const records=bookingRes.data||[];
+      if(!records.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=8;td.textContent='Todavía no hay reservas registradas.';tr.appendChild(td);bookingRows.appendChild(tr);}
+      for(const b of records){
+        const tr=document.createElement('tr');
+        putCell(tr,bookingExpeditions.get(b.expedition_id)?.name||'Expedición no disponible');
+        putCell(tr,bookingProspects.get(b.prospect_id)?.alias||'—');
+        putCell(tr,b.channel==='agency'?'Agencia: '+(bookingAgencies.get(b.agency_id)?.name||bookingAgencies.get(b.agency_id)?.agency_name||'Registrada'):'Directa');
+        putCell(tr,b.travelers);putCell(tr,mxn(b.unit_price_mxn));putCell(tr,mxn(Number(b.travelers)*Number(b.unit_price_mxn)));
+        putCell(tr,bookingStatuses[b.status]||b.status);putCell(tr,b.created_at?new Date(b.created_at).toLocaleDateString('es-MX'):'—');
+        bookingRows.appendChild(tr);
+      }
+      bookingCount.textContent=records.length===500?'500 registros mostrados':`${records.length} reserva${records.length===1?'':'s'}`;
+      document.querySelector('#homeBookings').textContent=String(records.filter(x=>x.status==='confirmed').length)+(records.length===500?'+':'');
+      document.querySelector('#homeBookingsNote').textContent=records.length===500?'Confirmadas entre 500 registros':'Reservas confirmadas · Supabase';
+      bookingStatus.textContent=currentRole==='admin'?'Puedes registrar nuevas reservas.':'Acceso de consulta: no puedes registrar reservas.';
+      syncBookingAgency();updateBookingTotal();
+    }
+    bookingForm.addEventListener('submit',async event=>{
+      event.preventDefault();
+      if(currentRole!=='admin'){bookingStatus.textContent='No tienes permiso para registrar reservas.';return;}
+      if(!bookingForm.reportValidity())return;
+      const expId=document.querySelector('#bExpedition').value;
+      const prospectId=document.querySelector('#bProspect').value;
+      const channel=document.querySelector('#bChannel').value;
+      const agencyId=document.querySelector('#bAgency').value;
+      const travelers=Number(document.querySelector('#bTravelers').value);
+      const price=Number(document.querySelector('#bPrice').value);
+      if(!bookingExpeditions.has(expId)||!Number.isInteger(travelers)||travelers<1||!Number.isFinite(price)||price<0){bookingStatus.textContent='Revisa la expedición, cantidad de viajeros y precio.';return;}
+      if(channel==='agency'&&!bookingAgencies.has(agencyId)){bookingStatus.textContent='Selecciona una agencia registrada.';return;}
+      if(prospectId&&!bookingProspects.has(prospectId)){bookingStatus.textContent='Selecciona un prospecto válido.';return;}
+      if(prospectId&&bookingProspects.get(prospectId).expedition_id!==expId){bookingStatus.textContent='El prospecto seleccionado pertenece a otra expedición.';return;}
+      const payload={expedition_id:expId,prospect_id:prospectId||null,channel,agency_id:channel==='agency'?agencyId:null,travelers,unit_price_mxn:price,status:document.querySelector('#bStatus').value};
+      const button=document.querySelector('#saveBooking');button.disabled=true;
+      bookingStatus.textContent='Guardando reserva...';
+      try{
+        const {error}=await supabase.from('bookings').insert(payload);
+        if(error)throw error;
+        bookingForm.reset();
+        await loadBookings();
+        bookingStatus.textContent='Reserva guardada correctamente en Supabase.';
+      }catch(err){bookingError(err);}finally{button.disabled=false;}
     });
 
     // Navegación: no cambia la sesión de Supabase ni simula escrituras de datos.
