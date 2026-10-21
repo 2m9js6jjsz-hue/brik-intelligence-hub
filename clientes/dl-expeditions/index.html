@@ -67,6 +67,31 @@
       line-height: 1.5;
     }
     #app { display: none; }
+    body.logged-in {display:block; padding:0; background:#f3f1ee;color:#152127}
+    body.logged-in > main.card {width:100%;max-width:none;min-height:100vh;padding:0;border:0;border-radius:0;background:transparent}
+    body.logged-in > main.card > .logo,body.logged-in > main.card > .subtitle {display:none}
+    body.logged-in #message {margin:0;padding:0 20px}
+    .dashboard {font-family:Arial,sans-serif;color:#17252c}
+    .dash-top {background:#fff;display:flex;align-items:center;justify-content:space-between;gap:15px;padding:18px 28px;border-bottom:1px solid #e5e2dd}
+    .dash-brand {font-size:25px;font-weight:900;letter-spacing:-1px}.dash-brand span{color:#ef7c42}.dash-brand small{display:block;font-size:10px;letter-spacing:2px;color:#57646a}
+    .dash-user{display:flex;align-items:center;gap:12px;font-size:13px;color:#56646a}.dash-user button{width:auto;margin:0;padding:10px 14px;background:#17252c;color:white}
+    .dash-layout{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:calc(100vh - 78px)}
+    .dash-side{background:#16242b;color:#d5dcdd;padding:28px 15px}.dash-side h3{font-size:12px;letter-spacing:1.3px;padding:0 12px;color:#a8b4b8;margin:0 0 22px}
+    .dash-nav{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:transparent;color:#d5dcdd;border:0;border-radius:10px;margin:5px 0;padding:13px 12px;font-size:14px;font-weight:500}
+    .dash-nav.active{background:#f19761;color:#14242b}.dash-nav:disabled{opacity:.62;cursor:not-allowed}.dash-nav em{font-size:10px;font-style:normal;margin-left:auto;opacity:.8}
+    .dash-content{padding:30px;max-width:1280px;width:100%;margin:auto}.dash-kicker{font-size:11px;color:#d46c36;letter-spacing:2px;font-weight:bold}
+    .dash-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:24px}.dash-head h1{font-size:31px;margin:7px 0;color:#17252c}.dash-head p{color:#69777d;margin:0;font-size:14px}
+    .dash-demo{background:#fff3e9;color:#8a491f;border:1px solid #f2c6a8;padding:11px 14px;border-radius:10px;font-size:12px;margin-bottom:23px}
+    .dash-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px}.dash-stat,.dash-panel{background:white;border:1px solid #e7e4df;border-radius:16px;padding:21px;box-shadow:0 6px 18px #15212708}
+    .dash-stat small{color:#68767d;font-size:12px}.dash-stat strong{display:block;font-size:29px;margin:13px 0 7px}.dash-stat span{font-size:11px;color:#7b8a90}
+    .dash-panels{display:grid;grid-template-columns:1.45fr 1fr;gap:16px;margin-top:17px}.dash-panel h2{font-size:17px;margin:0 0 18px}.dash-panel p{font-size:13px;color:#64747a;line-height:1.6}
+    .dash-bars{display:flex;align-items:flex-end;gap:13px;height:170px;border-bottom:1px solid #d8dfdf;padding:15px 4px 0}.dash-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:7px}.dash-bar{width:70%;max-width:40px;background:#f19761;border-radius:6px 6px 0 0;min-height:3px}.dash-bar-col small{font-size:10px;color:#69777d}
+    .dash-row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #edf0f0;padding:12px 0;font-size:13px}.dash-row:last-child{border-bottom:0}.dash-row b{color:#20323b}
+    .dash-table{width:100%;border-collapse:collapse}.dash-table td,.dash-table th{padding:13px 9px;text-align:left;border-bottom:1px solid #edf0f0;font-size:12px;color:#36464c}.dash-table th{font-size:10px;color:#7a878c}
+    .dash-foot{font-size:12px;color:#77858b;margin:22px 0}.dash-mobile-nav{display:none}
+    @media(max-width:950px){.dash-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.dash-panels{grid-template-columns:1fr}.dash-layout{grid-template-columns:185px minmax(0,1fr)}.dash-content{padding:20px}}
+    @media(max-width:650px){.dash-top{padding:14px 17px}.dash-user{font-size:11px}.dash-user button{font-size:11px;padding:9px}.dash-layout{display:block}.dash-side{padding:10px 12px;display:flex;overflow-x:auto;gap:6px}.dash-side h3{display:none}.dash-nav{width:auto;flex:0 0 auto;padding:10px 12px;margin:0;font-size:12px}.dash-nav em{display:none}.dash-content{padding:19px 14px}.dash-head h1{font-size:25px}.dash-grid{gap:10px}.dash-stat{padding:16px}.dash-stat strong{font-size:24px}.dash-panel{padding:16px}}
+
     .secondary { background: transparent; color: #ffbd95; border: 1px solid #657578; margin-top: 12px; }
     #message { overflow-wrap: anywhere; }
   </style>
@@ -104,12 +129,36 @@
       <button id="savePassword" type="submit">Guardar contraseña</button>
     </form>
 
-    <section id="app">
-      <h2>Bienvenida a BRIK</h2>
-      <p class="subtitle">
-        Sesión de administración activa.
-      </p>
-      <button id="logoutButton">Cerrar sesión</button>
+    <section id="app" class="dashboard" aria-label="Panel de DL Expeditions">
+      <div class="dash-top"><div class="dash-brand">BRI<span>K.</span><small>INTELLIGENCE HUB</small></div><div class="dash-user"><span id="userLabel">DL Expeditions</span><button id="logoutButton" type="button">Cerrar sesión</button></div></div>
+      <div class="dash-layout">
+        <nav class="dash-side" aria-label="Secciones de la plataforma"><h3>DL EXPEDITIONS</h3>
+          <button class="dash-nav active" type="button" aria-current="page">⌂ &nbsp; Panel principal</button>
+          <button class="dash-nav" type="button" disabled>♙ &nbsp; Prospectos <em>Próximamente</em></button>
+          <button class="dash-nav" type="button" disabled>▣ &nbsp; Reservas <em>Próximamente</em></button>
+          <button class="dash-nav" type="button" disabled>◈ &nbsp; Pagos y gastos <em>Próximamente</em></button>
+          <button class="dash-nav" type="button" disabled>♧ &nbsp; Clientes <em>Próximamente</em></button>
+          <button class="dash-nav" type="button" disabled>▥ &nbsp; Reportes <em>Próximamente</em></button>
+        </nav>
+        <div class="dash-content">
+          <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p>DL Expeditions · Resumen comercial y financiero</p></div><div style="font-size:12px;color:#66757b">Octubre 2026 · Vista ilustrativa</div></div>
+          <div class="dash-demo"><strong>PROTOTIPO · DATOS FICTICIOS</strong> — Los indicadores y registros de esta pantalla son ejemplos de diseño, no información real de DL Expeditions. El acceso sí está conectado a Supabase.</div>
+          <div class="dash-grid">
+            <div class="dash-stat"><small>Prospectos</small><strong>24</strong><span>Ejemplo de registros comerciales</span></div>
+            <div class="dash-stat"><small>Reservas confirmadas</small><strong>12</strong><span>Ejemplo de reservas</span></div>
+            <div class="dash-stat"><small>Ingresos</small><strong>$8,450</strong><span>USD · Importe ficticio</span></div>
+            <div class="dash-stat"><small>Gastos</small><strong>$2,300</strong><span>USD · Importe ficticio</span></div>
+          </div>
+          <div class="dash-panels">
+            <div class="dash-panel"><h2>Ingresos por mes <span style="font-size:11px;color:#819096;font-weight:normal">· ejemplo en USD</span></h2><div class="dash-bars" role="img" aria-label="Gráfico ilustrativo de ingresos de enero a octubre">
+              <div class="dash-bar-col"><div class="dash-bar" style="height:26%"></div><small>Ene</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:36%"></div><small>Feb</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:31%"></div><small>Mar</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:43%"></div><small>Abr</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:57%"></div><small>May</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:48%"></div><small>Jun</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:64%"></div><small>Jul</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:74%"></div><small>Ago</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:83%"></div><small>Sep</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:96%"></div><small>Oct</small></div>
+            </div><p>Cuando conectemos los registros reales, esta gráfica mostrará los ingresos registrados por periodo.</p></div>
+            <div class="dash-panel"><h2>Seguimiento de expediciones</h2><div class="dash-row"><span>Prospectos en seguimiento</span><b>8</b></div><div class="dash-row"><span>Reservas confirmadas</span><b>12</b></div><div class="dash-row"><span>Pagos pendientes</span><b>3</b></div><div class="dash-row"><span>Expediciones en preparación</span><b>2</b></div><p>Todos los valores de esta sección son ficticios.</p></div>
+          </div>
+          <div class="dash-panel" style="margin-top:17px"><h2>Próximos movimientos · Ejemplos</h2><div style="overflow-x:auto"><table class="dash-table"><thead><tr><th>Referencia</th><th>Tipo</th><th>Expedición</th><th>Estado</th></tr></thead><tbody><tr><td>GUA-001</td><td>Prospecto</td><td>Guatemala</td><td>En seguimiento</td></tr><tr><td>GUA-002</td><td>Reserva</td><td>Guatemala</td><td>Confirmada</td></tr><tr><td>GUA-003</td><td>Pago</td><td>Guatemala</td><td>Pendiente</td></tr></tbody></table></div></div>
+          <p class="dash-foot">BRIK Intelligence Hub · Primera versión del panel privado. No introducir datos personales reales hasta configurar tablas y políticas de acceso.</p>
+        </div>
+      </div>
     </section>
 
     <p id="message" role="status"></p>
@@ -136,6 +185,7 @@
       form.style.display = view === 'login' ? 'block' : 'none';
       recovery.style.display = view === 'recovery' ? 'block' : 'none';
       app.style.display = view === 'app' ? 'block' : 'none';
+      document.body.classList.toggle('logged-in', view === 'app');
     }
 
     async function refresh() {
@@ -143,11 +193,13 @@
       const { data: { user }, error } = await supabase.auth.getUser();
       if (error || !user) { show('login'); return; }
       const result = await supabase.from('brik_profiles')
-        .select('role').eq('user_id', user.id).eq('role', 'admin').maybeSingle();
-      if (result.error || !result.data) {
+        .select('role').eq('user_id', user.id).maybeSingle();
+      if (result.error || !result.data || !['admin','viewer'].includes(result.data.role)) {
         show('login');
-        message.textContent = 'Sesión iniciada, pero tu usuario no tiene permiso de administración. Revisa tu perfil en Supabase.';
+        message.textContent = 'Sesión iniciada, pero tu usuario no tiene un perfil autorizado. Revisa los permisos en Supabase.';
       } else {
+        document.querySelector('#userLabel').textContent = result.data.role === 'admin' ? 'BRIK · Administración' : 'DL Expeditions · Consulta';
+        document.querySelector('#greeting').textContent = result.data.role === 'admin' ? '¡Bienvenida a BRIK!' : '¡Bienvenido a DL Expeditions!';
         show('app');
         message.textContent = '';
       }
