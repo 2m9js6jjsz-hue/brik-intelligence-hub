@@ -94,6 +94,14 @@
 
     .secondary { background: transparent; color: #ffbd95; border: 1px solid #657578; margin-top: 12px; }
     #message { overflow-wrap: anywhere; }
+
+    .brand-wrap{display:flex;align-items:center;gap:12px}.menu-toggle{display:none!important;width:42px!important;min-width:42px;margin:0!important;background:#17252c!important;color:#fff!important;padding:9px!important}
+    .dash-nav{cursor:pointer}.dash-nav:focus-visible,.menu-toggle:focus-visible{outline:3px solid #f19761;outline-offset:2px}
+    .page{display:none}.page.active{display:block}.nav-note{padding:20px 12px;font-size:11px;line-height:1.5;color:#9daeb2}.pill{display:inline-block;background:#fff3e9;border:1px solid #f4d1b7;color:#94552f;padding:7px 10px;border-radius:99px;font-size:11px;font-weight:700}
+    .section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.section-head h2{margin-bottom:10px}.table-wrap{overflow-x:auto}.empty-state{padding:35px 15px;text-align:center;background:#f6f5f2;border:1px dashed #cbd1d0;border-radius:12px;color:#64747a;font-size:14px}.hint{font-size:12px!important;color:#69777d!important}
+    .quote-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 18px;margin:18px 0}.quote-form label{font-size:12px;font-weight:700;color:#33464d;margin:0}.quote-form input,.quote-form select{width:100%;margin-top:7px;padding:12px;border:1px solid #cfd7d8;border-radius:9px;background:white;color:#17252c;font-size:14px}.quote-actions{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap}.quote-actions button{width:auto;margin:0;padding:12px 17px}.quote-actions .outline-btn{background:white;color:#17252c;border:1px solid #8d9a9d}.quote-result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.quote-result .dash-stat strong{font-size:23px}.quote-result .full{grid-column:1/-1}.nav-shade{display:none}
+    @media(max-width:650px){.menu-toggle{display:block!important}.dash-layout{display:block}.dash-side{position:fixed;top:0;left:0;bottom:0;width:min(82vw,300px);z-index:50;display:block!important;overflow-y:auto;overflow-x:hidden;transform:translateX(-105%);transition:transform .2s ease;padding:30px 14px;box-shadow:5px 0 22px #0002}.dash-side.open{transform:translateX(0)}.dash-side h3{display:block}.dash-nav{width:100%;margin:5px 0;padding:14px 12px;font-size:14px}.nav-shade:not([hidden]){display:block;position:fixed;inset:0;background:#0009;z-index:49}.dash-top{position:relative;z-index:1}.dash-brand{font-size:22px}.dash-user{gap:6px}.dash-user span{display:none}.quote-form{grid-template-columns:1fr}.quote-result{grid-template-columns:1fr}.quote-result .full{grid-column:auto}.dash-content{padding:19px 14px}}
+    @media print{body.logged-in .dash-top,body.logged-in .dash-side,body.logged-in .dash-demo,body.logged-in .dash-head,body.logged-in .dash-foot,body.logged-in .quote-form,body.logged-in .hint,body.logged-in .nav-shade{display:none!important}body.logged-in .dash-layout{display:block}body.logged-in .dash-content{padding:0}.page{display:none!important}.page[data-section="cotizador"]{display:block!important}.quote-result{display:grid;grid-template-columns:1fr 1fr}.dash-panel{box-shadow:none;border:0}.quote-result .dash-stat{break-inside:avoid}}
   </style>
 </head>
 <body>
@@ -130,35 +138,29 @@
     </form>
 
     <section id="app" class="dashboard" aria-label="Panel de DL Expeditions">
-      <div class="dash-top"><div class="dash-brand">BRI<span>K.</span><small>INTELLIGENCE HUB</small></div><div class="dash-user"><span id="userLabel">DL Expeditions</span><button id="logoutButton" type="button">Cerrar sesión</button></div></div>
-      <div class="dash-layout">
-        <nav class="dash-side" aria-label="Secciones de la plataforma"><h3>DL EXPEDITIONS</h3>
-          <button class="dash-nav active" type="button" aria-current="page">⌂ &nbsp; Panel principal</button>
-          <button class="dash-nav" type="button" disabled>♙ &nbsp; Prospectos <em>Próximamente</em></button>
-          <button class="dash-nav" type="button" disabled>▣ &nbsp; Reservas <em>Próximamente</em></button>
-          <button class="dash-nav" type="button" disabled>◈ &nbsp; Pagos y gastos <em>Próximamente</em></button>
-          <button class="dash-nav" type="button" disabled>♧ &nbsp; Clientes <em>Próximamente</em></button>
-          <button class="dash-nav" type="button" disabled>▥ &nbsp; Reportes <em>Próximamente</em></button>
-        </nav>
-        <div class="dash-content">
-          <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p>DL Expeditions · Resumen comercial y financiero</p></div><div style="font-size:12px;color:#66757b">Octubre 2026 · Vista ilustrativa</div></div>
-          <div class="dash-demo"><strong>PROTOTIPO · DATOS FICTICIOS</strong> — Los indicadores y registros de esta pantalla son ejemplos de diseño, no información real de DL Expeditions. El acceso sí está conectado a Supabase.</div>
-          <div class="dash-grid">
-            <div class="dash-stat"><small>Prospectos</small><strong>24</strong><span>Ejemplo de registros comerciales</span></div>
-            <div class="dash-stat"><small>Reservas confirmadas</small><strong>12</strong><span>Ejemplo de reservas</span></div>
-            <div class="dash-stat"><small>Ingresos</small><strong>$8,450</strong><span>USD · Importe ficticio</span></div>
-            <div class="dash-stat"><small>Gastos</small><strong>$2,300</strong><span>USD · Importe ficticio</span></div>
-          </div>
-          <div class="dash-panels">
-            <div class="dash-panel"><h2>Ingresos por mes <span style="font-size:11px;color:#819096;font-weight:normal">· ejemplo en USD</span></h2><div class="dash-bars" role="img" aria-label="Gráfico ilustrativo de ingresos de enero a octubre">
-              <div class="dash-bar-col"><div class="dash-bar" style="height:26%"></div><small>Ene</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:36%"></div><small>Feb</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:31%"></div><small>Mar</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:43%"></div><small>Abr</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:57%"></div><small>May</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:48%"></div><small>Jun</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:64%"></div><small>Jul</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:74%"></div><small>Ago</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:83%"></div><small>Sep</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:96%"></div><small>Oct</small></div>
-            </div><p>Cuando conectemos los registros reales, esta gráfica mostrará los ingresos registrados por periodo.</p></div>
-            <div class="dash-panel"><h2>Seguimiento de expediciones</h2><div class="dash-row"><span>Prospectos en seguimiento</span><b>8</b></div><div class="dash-row"><span>Reservas confirmadas</span><b>12</b></div><div class="dash-row"><span>Pagos pendientes</span><b>3</b></div><div class="dash-row"><span>Expediciones en preparación</span><b>2</b></div><p>Todos los valores de esta sección son ficticios.</p></div>
-          </div>
-          <div class="dash-panel" style="margin-top:17px"><h2>Próximos movimientos · Ejemplos</h2><div style="overflow-x:auto"><table class="dash-table"><thead><tr><th>Referencia</th><th>Tipo</th><th>Expedición</th><th>Estado</th></tr></thead><tbody><tr><td>GUA-001</td><td>Prospecto</td><td>Guatemala</td><td>En seguimiento</td></tr><tr><td>GUA-002</td><td>Reserva</td><td>Guatemala</td><td>Confirmada</td></tr><tr><td>GUA-003</td><td>Pago</td><td>Guatemala</td><td>Pendiente</td></tr></tbody></table></div></div>
-          <p class="dash-foot">BRIK Intelligence Hub · Primera versión del panel privado. No introducir datos personales reales hasta configurar tablas y políticas de acceso.</p>
-        </div>
-      </div>
+      <header class="dash-top"><div class="brand-wrap"><button id="menuToggle" class="menu-toggle" type="button" aria-label="Abrir menú" aria-expanded="false">☰</button><div class="dash-brand">BRI<span>K.</span><small>INTELLIGENCE HUB</small></div></div><div class="dash-user"><span id="userLabel">DL Expeditions</span><button id="logoutButton" type="button">Cerrar sesión</button></div></header>
+      <div id="navShade" class="nav-shade" hidden></div>
+      <div class="dash-layout"><nav id="sideNav" class="dash-side" aria-label="Secciones de la plataforma"><h3>DL EXPEDITIONS</h3>
+        <button class="dash-nav active" data-page="inicio" type="button">⌂ &nbsp; Panel principal</button>
+        <button class="dash-nav" data-page="prospectos" type="button">♙ &nbsp; Prospectos</button>
+        <button class="dash-nav" data-page="reservas" type="button">▣ &nbsp; Reservas</button>
+        <button class="dash-nav" data-page="finanzas" type="button">◈ &nbsp; Pagos y gastos</button>
+        <button class="dash-nav" data-page="clientes" type="button">♧ &nbsp; Clientes</button>
+        <button class="dash-nav" data-page="cotizador" type="button">▤ &nbsp; Cotizador</button>
+        <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
+        <div class="nav-note">Prototipo funcional · sin base de datos operativa</div>
+      </nav><div class="dash-content">
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión de demostración</span></div>
+        <div class="dash-demo"><strong>ENTORNO DE PRUEBA</strong> — El acceso está conectado a Supabase. Los datos operativos que aparecen son ficticios y los formularios de ejemplo no guardan información en la nube. No ingresar datos personales reales.</div>
+        <section class="page active" data-section="inicio"><div class="dash-grid"><div class="dash-stat"><small>Prospectos</small><strong>24</strong><span>Ejemplo ficticio</span></div><div class="dash-stat"><small>Reservas confirmadas</small><strong>12</strong><span>Ejemplo ficticio</span></div><div class="dash-stat"><small>Ingresos</small><strong>$8,450</strong><span>USD · Ejemplo ficticio</span></div><div class="dash-stat"><small>Gastos</small><strong>$2,300</strong><span>USD · Ejemplo ficticio</span></div></div><div class="dash-panels"><div class="dash-panel"><h2>Ingresos por mes · Ejemplo</h2><div class="dash-bars"><div class="dash-bar-col"><div class="dash-bar" style="height:26%"></div><small>Ene</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:36%"></div><small>Feb</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:31%"></div><small>Mar</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:43%"></div><small>Abr</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:57%"></div><small>May</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:48%"></div><small>Jun</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:64%"></div><small>Jul</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:74%"></div><small>Ago</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:83%"></div><small>Sep</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:96%"></div><small>Oct</small></div></div><p>Gráfico ilustrativo. No representa ventas reales.</p></div><div class="dash-panel"><h2>Seguimiento comercial · Ejemplo</h2><div class="dash-row"><span>Prospectos en seguimiento</span><b>8</b></div><div class="dash-row"><span>Reservas confirmadas</span><b>12</b></div><div class="dash-row"><span>Pagos pendientes</span><b>3</b></div><div class="dash-row"><span>Expediciones en preparación</span><b>2</b></div></div></div></section>
+        <section class="page" data-section="prospectos"><div class="dash-panel"><div class="section-head"><h2>Seguimiento de prospectos</h2><span class="pill">Muestra ficticia</span></div><p>En la versión conectada, aquí Paco podrá registrar y dar seguimiento a interesados.</p><div class="table-wrap"><table class="dash-table"><thead><tr><th>Referencia</th><th>Canal</th><th>Destino</th><th>Etapa</th></tr></thead><tbody><tr><td>GUA-001</td><td>WhatsApp</td><td>Guatemala</td><td>En seguimiento</td></tr><tr><td>GUA-004</td><td>Agencia</td><td>Guatemala</td><td>Cotización enviada</td></tr><tr><td>ATA-002</td><td>Instagram</td><td>Atacama</td><td>Nuevo</td></tr></tbody></table></div><p class="hint">Para registrar prospectos reales se requieren tablas, permisos y validaciones en Supabase.</p></div></section>
+        <section class="page" data-section="reservas"><div class="dash-panel"><div class="section-head"><h2>Reservas por expedición</h2><span class="pill">Muestra ficticia</span></div><div class="table-wrap"><table class="dash-table"><thead><tr><th>Reserva</th><th>Destino</th><th>Viajeros</th><th>Estado</th></tr></thead><tbody><tr><td>RES-001</td><td>Guatemala</td><td>2</td><td>Confirmada</td></tr><tr><td>RES-002</td><td>Guatemala</td><td>1</td><td>Pendiente</td></tr><tr><td>RES-003</td><td>Atacama</td><td>2</td><td>Solicitud</td></tr></tbody></table></div><p>En la siguiente etapa vincularemos reservas con prospectos, viajeros, expediciones y pagos.</p></div></section>
+        <section class="page" data-section="finanzas"><div class="dash-grid"><div class="dash-stat"><small>Ingresos</small><strong>$8,450</strong><span>USD · Ficticio</span></div><div class="dash-stat"><small>Gastos</small><strong>$2,300</strong><span>USD · Ficticio</span></div><div class="dash-stat"><small>Resultado</small><strong>$6,150</strong><span>USD · Diferencia ficticia</span></div><div class="dash-stat"><small>Pagos pendientes</small><strong>3</strong><span>Ejemplo ficticio</span></div></div><div class="dash-panel" style="margin-top:17px"><h2>Control de pagos y gastos</h2><p>Este módulo podrá conciliar anticipos, saldos, pagos a proveedores y gastos por expedición cuando configuremos la base de datos. Ningún importe mostrado aquí proviene de transacciones reales.</p></div></section>
+        <section class="page" data-section="clientes"><div class="dash-panel"><h2>Clientes y viajeros</h2><p>Esta sección reunirá historial de viajes, reservas y preferencias de cada cliente, con acceso controlado. Por privacidad, el prototipo no contiene datos personales ni permite almacenarlos.</p><div class="empty-state">Aún no hay clientes reales conectados.</div></div></section>
+        <section class="page" data-section="cotizador"><div class="dash-panel"><div class="section-head"><h2>Cotizador de expediciones</h2><span class="pill">Calculadora funcional</span></div><p>Introduce importes de prueba. El cálculo se realiza en este dispositivo; no se guarda en Supabase.</p><form id="quoteForm" class="quote-form"><label>Nombre de la expedición<input id="qName" value="Guatemala · Expedición piloto" maxlength="100" required></label><label>Moneda<select id="qCurrency"><option value="USD">USD</option><option value="MXN">MXN</option></select></label><label>Viajeros estimados<input id="qTravelers" type="number" min="1" max="10000" step="1" value="15" required></label><label>Costos fijos del grupo<input id="qFixed" type="number" min="0" step="0.01" value="1500" required></label><label>Costos variables por viajero<input id="qVariable" type="number" min="0" step="0.01" value="350" required></label><label>Otros costos del grupo<input id="qOther" type="number" min="0" step="0.01" value="250" required></label><label>Margen objetivo sobre ventas (%)<input id="qMargin" type="number" min="0" max="95" step="0.1" value="25" required></label><label>Precio de venta por viajero (opcional, para comparar)<input id="qPrice" type="number" min="0" step="0.01" placeholder="Precio propuesto"></label><div class="quote-actions"><button type="submit">Calcular cotización</button><button id="printQuote" type="button" class="outline-btn">Imprimir / guardar PDF</button></div></form><div id="quoteResult" class="quote-result" aria-live="polite"></div><p class="hint">El margen se calcula sobre el precio de venta, no como recargo sobre el costo. Los cálculos no incluyen impuestos, comisiones de cobro ni contingencias a menos que los incluyas en los costos.</p></div></section>
+        <section class="page" data-section="reportes"><div class="dash-panel"><h2>Reportes y análisis</h2><p>Los reportes finales podrán mostrar conversión por canal, reservas por expedición, ocupación, ingresos, costos y rentabilidad. Por ahora se muestran únicamente indicadores ilustrativos en el panel principal.</p><div class="empty-state">Pendiente: conectar fuentes reales y validar definiciones de KPI.</div></div></section>
+        <p class="dash-foot">BRIK Intelligence Hub · Prototipo de interfaz. No introducir datos personales reales hasta implementar y verificar tablas y políticas RLS.</p>
+      </div></div>
     </section>
 
     <p id="message" role="status"></p>
@@ -276,6 +278,42 @@
       show('login');
       message.textContent = 'Sesión cerrada.';
     });
+
+
+    // Navegación: no cambia la sesión de Supabase ni simula escrituras de datos.
+    const sideNav=document.querySelector('#sideNav');
+    const shade=document.querySelector('#navShade');
+    const menuToggle=document.querySelector('#menuToggle');
+    function closeMenu(){sideNav.classList.remove('open');shade.hidden=true;menuToggle.setAttribute('aria-expanded','false');}
+    menuToggle.addEventListener('click',()=>{const opening=!sideNav.classList.contains('open');sideNav.classList.toggle('open',opening);shade.hidden=!opening;menuToggle.setAttribute('aria-expanded',String(opening));});
+    shade.addEventListener('click',closeMenu);
+    document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
+    const pageTitles={inicio:['Panel principal','DL Expeditions · Resumen comercial y financiero'],prospectos:['Prospectos','Seguimiento de oportunidades'],reservas:['Reservas','Control de expediciones'],finanzas:['Pagos y gastos','Resumen financiero'],clientes:['Clientes','Historial de viajeros'],cotizador:['Cotizador','Cálculo de precios y márgenes'],reportes:['Reportes y análisis','Inteligencia comercial']};
+    sideNav.querySelectorAll('[data-page]').forEach(btn=>btn.addEventListener('click',()=>{
+      const page=btn.dataset.page;
+      sideNav.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b===btn);if(b===btn)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
+      document.querySelectorAll('[data-section]').forEach(sec=>sec.classList.toggle('active',sec.dataset.section===page));
+      document.querySelector('#greeting').textContent=pageTitles[page][0];
+      document.querySelector('#pageSubtitle').textContent=pageTitles[page][1];
+      closeMenu();window.scrollTo({top:0,behavior:'instant'});
+    }));
+    const qForm=document.querySelector('#quoteForm');
+    const qResult=document.querySelector('#quoteResult');
+    const qVal=id=>Number(document.getElementById(id).value);
+    const qMoney=(v,c)=>new Intl.NumberFormat('es-MX',{style:'currency',currency:c,maximumFractionDigits:2}).format(v);
+    function quoteCard(label,value,note=''){return `<div class="dash-stat"><small>${label}</small><strong>${value}</strong><span>${note}</span></div>`;}
+    function calculateQuote(e){if(e)e.preventDefault();if(!qForm.reportValidity())return;
+      const n=qVal('qTravelers'),fixed=qVal('qFixed'),variable=qVal('qVariable'),other=qVal('qOther'),margin=qVal('qMargin')/100,currency=document.getElementById('qCurrency').value;
+      if(!Number.isInteger(n)||n<1||[fixed,variable,other,margin].some(v=>!Number.isFinite(v)||v<0)||margin>=1){qResult.textContent='Revisa los valores ingresados.';return;}
+      const total=fixed+other+variable*n,costUnit=total/n,suggested=costUnit/(1-margin),profit=(suggested-costUnit)*n;
+      const pRaw=document.getElementById('qPrice').value.trim(),p=pRaw===''?null:qVal('qPrice');
+      let result=quoteCard('Costo total del grupo',qMoney(total,currency),`${n} viajeros`)+quoteCard('Costo por viajero',qMoney(costUnit,currency))+quoteCard('Precio sugerido por viajero',qMoney(suggested,currency),`Margen objetivo ${(margin*100).toFixed(1)}%`)+quoteCard('Utilidad estimada del grupo',qMoney(profit,currency),'Si se venden todos los lugares al precio sugerido');
+      if(p!==null&&Number.isFinite(p)&&p>=0){const actualProfit=(p*n)-total;const actualMargin=p>0?(p-costUnit)/p*100:null;const contribution=p-variable;const breakEven=contribution>0?Math.ceil((fixed+other)/contribution):null;result+=quoteCard('Utilidad al precio propuesto',qMoney(actualProfit,currency))+quoteCard('Margen al precio propuesto',actualMargin===null?'No definido':actualMargin.toFixed(1)+'%')+quoteCard('Viajeros para equilibrio',breakEven===null?'No alcanzable':String(breakEven),breakEven>n?'Supera la capacidad indicada':'A ese precio y costos variables');}
+      qResult.innerHTML=result;
+    }
+    qForm.addEventListener('submit',calculateQuote);
+    document.querySelector('#printQuote').addEventListener('click',()=>{calculateQuote();if(qForm.checkValidity())window.print();});
+    calculateQuote();
 
     // Si el enlace expiró, Supabase devuelve el error en la URL.
     const params = new URLSearchParams(window.location.hash.slice(1));
