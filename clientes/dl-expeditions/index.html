@@ -101,6 +101,12 @@
     .section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.section-head h2{margin-bottom:10px}.table-wrap{overflow-x:auto}.empty-state{padding:35px 15px;text-align:center;background:#f6f5f2;border:1px dashed #cbd1d0;border-radius:12px;color:#64747a;font-size:14px}.hint{font-size:12px!important;color:#69777d!important}
     .quote-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 18px;margin:18px 0}.quote-form label{font-size:12px;font-weight:700;color:#33464d;margin:0}.quote-form input,.quote-form select{width:100%;margin-top:7px;padding:12px;border:1px solid #cfd7d8;border-radius:9px;background:white;color:#17252c;font-size:14px}.quote-actions{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap}.quote-actions button{width:auto;margin:0;padding:12px 17px}.quote-actions .outline-btn{background:white;color:#17252c;border:1px solid #8d9a9d}.quote-result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.quote-result .dash-stat strong{font-size:23px}.quote-result .full{grid-column:1/-1}.nav-shade{display:none}
     @media(max-width:650px){.menu-toggle{display:block!important}.dash-layout{display:block}.dash-side{position:fixed;top:0;left:0;bottom:0;width:min(82vw,300px);z-index:50;display:block!important;overflow-y:auto;overflow-x:hidden;transform:translateX(-105%);transition:transform .2s ease;padding:30px 14px;box-shadow:5px 0 22px #0002}.dash-side.open{transform:translateX(0)}.dash-side h3{display:block}.dash-nav{width:100%;margin:5px 0;padding:14px 12px;font-size:14px}.nav-shade:not([hidden]){display:block;position:fixed;inset:0;background:#0009;z-index:49}.dash-top{position:relative;z-index:1}.dash-brand{font-size:22px}.dash-user{gap:6px}.dash-user span{display:none}.quote-form{grid-template-columns:1fr}.quote-result{grid-template-columns:1fr}.quote-result .full{grid-column:auto}.dash-content{padding:19px 14px}}
+    .prospect-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin:16px 0 20px}
+    .prospect-form label{margin:0;color:#33464d;font-weight:700;font-size:12px}
+    .prospect-form input,.prospect-form select{width:100%;margin-top:6px;padding:12px;border:1px solid #cfd7d8;border-radius:9px;background:white;color:#17252c;font-size:14px}
+    .prospect-form button{grid-column:1/-1;width:auto;justify-self:start;margin:0;padding:12px 22px}
+    .prospect-status{font-size:13px;line-height:1.5;min-height:20px;color:#365b65}
+    @media(max-width:650px){.prospect-form{grid-template-columns:1fr}}
     @media print{body.logged-in .dash-top,body.logged-in .dash-side,body.logged-in .dash-demo,body.logged-in .dash-head,body.logged-in .dash-foot,body.logged-in .quote-form,body.logged-in .hint,body.logged-in .nav-shade{display:none!important}body.logged-in .dash-layout{display:block}body.logged-in .dash-content{padding:0}.page{display:none!important}.page[data-section="cotizador"]{display:block!important}.quote-result{display:grid;grid-template-columns:1fr 1fr}.dash-panel{box-shadow:none;border:0}.quote-result .dash-stat{break-inside:avoid}}
   </style>
 </head>
@@ -148,18 +154,31 @@
         <button class="dash-nav" data-page="clientes" type="button">♧ &nbsp; Clientes</button>
         <button class="dash-nav" data-page="cotizador" type="button">▤ &nbsp; Cotizador</button>
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
-        <div class="nav-note">Prototipo funcional · sin base de datos operativa</div>
+        <div class="nav-note">Prospectos conectados · otros módulos en demostración</div>
       </nav><div class="dash-content">
         <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión de demostración</span></div>
-        <div class="dash-demo"><strong>ENTORNO DE PRUEBA</strong> — El acceso está conectado a Supabase. Los datos operativos que aparecen son ficticios y los formularios de ejemplo no guardan información en la nube. No ingresar datos personales reales.</div>
-        <section class="page active" data-section="inicio"><div class="dash-grid"><div class="dash-stat"><small>Prospectos</small><strong>24</strong><span>Ejemplo ficticio</span></div><div class="dash-stat"><small>Reservas confirmadas</small><strong>12</strong><span>Ejemplo ficticio</span></div><div class="dash-stat"><small>Ingresos</small><strong>$8,450</strong><span>USD · Ejemplo ficticio</span></div><div class="dash-stat"><small>Gastos</small><strong>$2,300</strong><span>USD · Ejemplo ficticio</span></div></div><div class="dash-panels"><div class="dash-panel"><h2>Ingresos por mes · Ejemplo</h2><div class="dash-bars"><div class="dash-bar-col"><div class="dash-bar" style="height:26%"></div><small>Ene</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:36%"></div><small>Feb</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:31%"></div><small>Mar</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:43%"></div><small>Abr</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:57%"></div><small>May</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:48%"></div><small>Jun</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:64%"></div><small>Jul</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:74%"></div><small>Ago</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:83%"></div><small>Sep</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:96%"></div><small>Oct</small></div></div><p>Gráfico ilustrativo. No representa ventas reales.</p></div><div class="dash-panel"><h2>Seguimiento comercial · Ejemplo</h2><div class="dash-row"><span>Prospectos en seguimiento</span><b>8</b></div><div class="dash-row"><span>Reservas confirmadas</span><b>12</b></div><div class="dash-row"><span>Pagos pendientes</span><b>3</b></div><div class="dash-row"><span>Expediciones en preparación</span><b>2</b></div></div></div></section>
-        <section class="page" data-section="prospectos"><div class="dash-panel"><div class="section-head"><h2>Seguimiento de prospectos</h2><span class="pill">Muestra ficticia</span></div><p>En la versión conectada, aquí Paco podrá registrar y dar seguimiento a interesados.</p><div class="table-wrap"><table class="dash-table"><thead><tr><th>Referencia</th><th>Canal</th><th>Destino</th><th>Etapa</th></tr></thead><tbody><tr><td>GUA-001</td><td>WhatsApp</td><td>Guatemala</td><td>En seguimiento</td></tr><tr><td>GUA-004</td><td>Agencia</td><td>Guatemala</td><td>Cotización enviada</td></tr><tr><td>ATA-002</td><td>Instagram</td><td>Atacama</td><td>Nuevo</td></tr></tbody></table></div><p class="hint">Para registrar prospectos reales se requieren tablas, permisos y validaciones en Supabase.</p></div></section>
+        <div class="dash-demo"><strong>ENTORNO DE PRUEBA</strong> — El acceso está conectado a Supabase. El módulo Prospectos consulta y registra datos en Supabase. Los demás indicadores y módulos continúan en demostración. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</div>
+        <section class="page active" data-section="inicio"><div class="dash-grid"><div class="dash-stat"><small>Prospectos</small><strong id="homeProspects">—</strong><span id="homeProspectsNote">Cargando datos de Supabase</span></div><div class="dash-stat"><small>Reservas confirmadas</small><strong>12</strong><span>Ejemplo ficticio</span></div><div class="dash-stat"><small>Ingresos</small><strong>$8,450</strong><span>USD · Ejemplo ficticio</span></div><div class="dash-stat"><small>Gastos</small><strong>$2,300</strong><span>USD · Ejemplo ficticio</span></div></div><div class="dash-panels"><div class="dash-panel"><h2>Ingresos por mes · Ejemplo</h2><div class="dash-bars"><div class="dash-bar-col"><div class="dash-bar" style="height:26%"></div><small>Ene</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:36%"></div><small>Feb</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:31%"></div><small>Mar</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:43%"></div><small>Abr</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:57%"></div><small>May</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:48%"></div><small>Jun</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:64%"></div><small>Jul</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:74%"></div><small>Ago</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:83%"></div><small>Sep</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:96%"></div><small>Oct</small></div></div><p>Gráfico ilustrativo. No representa ventas reales.</p></div><div class="dash-panel"><h2>Seguimiento comercial · Ejemplo</h2><div class="dash-row"><span>Prospectos en seguimiento</span><b>8</b></div><div class="dash-row"><span>Reservas confirmadas</span><b>12</b></div><div class="dash-row"><span>Pagos pendientes</span><b>3</b></div><div class="dash-row"><span>Expediciones en preparación</span><b>2</b></div></div></div></section>
+        <section class="page" data-section="prospectos"><div class="dash-panel">
+          <div class="section-head"><h2>Seguimiento de prospectos</h2><span id="prospectCount" class="pill">Cargando...</span></div>
+          <p>Registra oportunidades y consulta los prospectos guardados en Supabase. El acceso de consulta no permite registrar nuevos.</p>
+          <form id="prospectForm" class="prospect-form" hidden>
+            <label>Nombre o referencia del prospecto *<input id="pAlias" maxlength="120" required placeholder="Ej. Juan Pérez"></label>
+            <label>Expedición *<select id="pExpedition" required><option value="">Cargando expediciones...</option></select></label>
+            <label>Canal de contacto *<select id="pChannel" required><option value="">Seleccionar</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option><option value="directo">Directo</option><option value="agencia">Agencia</option><option value="otro">Otro</option></select></label>
+            <label>Etapa *<select id="pStage" required><option value="new">Nuevo</option><option value="follow_up">En seguimiento</option><option value="quoted">Cotización enviada</option><option value="won">Convertido</option><option value="lost">Perdido</option></select></label>
+            <button id="saveProspect" type="submit">Guardar prospecto</button>
+          </form>
+          <p id="prospectStatus" class="prospect-status" role="status"></p>
+          <div class="table-wrap"><table class="dash-table"><thead><tr><th>Prospecto</th><th>Canal</th><th>Expedición</th><th>Etapa</th><th>Registro</th></tr></thead><tbody id="prospectRows"><tr><td colspan="5">Inicia sesión para consultar los registros.</td></tr></tbody></table></div>
+          <p class="hint">Los registros se guardan en la nube. Las etapas son etiquetas operativas; valida sus valores con las reglas de tu base de datos.</p>
+        </div></section>
         <section class="page" data-section="reservas"><div class="dash-panel"><div class="section-head"><h2>Reservas por expedición</h2><span class="pill">Muestra ficticia</span></div><div class="table-wrap"><table class="dash-table"><thead><tr><th>Reserva</th><th>Destino</th><th>Viajeros</th><th>Estado</th></tr></thead><tbody><tr><td>RES-001</td><td>Guatemala</td><td>2</td><td>Confirmada</td></tr><tr><td>RES-002</td><td>Guatemala</td><td>1</td><td>Pendiente</td></tr><tr><td>RES-003</td><td>Atacama</td><td>2</td><td>Solicitud</td></tr></tbody></table></div><p>En la siguiente etapa vincularemos reservas con prospectos, viajeros, expediciones y pagos.</p></div></section>
         <section class="page" data-section="finanzas"><div class="dash-grid"><div class="dash-stat"><small>Ingresos</small><strong>$8,450</strong><span>USD · Ficticio</span></div><div class="dash-stat"><small>Gastos</small><strong>$2,300</strong><span>USD · Ficticio</span></div><div class="dash-stat"><small>Resultado</small><strong>$6,150</strong><span>USD · Diferencia ficticia</span></div><div class="dash-stat"><small>Pagos pendientes</small><strong>3</strong><span>Ejemplo ficticio</span></div></div><div class="dash-panel" style="margin-top:17px"><h2>Control de pagos y gastos</h2><p>Este módulo podrá conciliar anticipos, saldos, pagos a proveedores y gastos por expedición cuando configuremos la base de datos. Ningún importe mostrado aquí proviene de transacciones reales.</p></div></section>
         <section class="page" data-section="clientes"><div class="dash-panel"><h2>Clientes y viajeros</h2><p>Esta sección reunirá historial de viajes, reservas y preferencias de cada cliente, con acceso controlado. Por privacidad, el prototipo no contiene datos personales ni permite almacenarlos.</p><div class="empty-state">Aún no hay clientes reales conectados.</div></div></section>
         <section class="page" data-section="cotizador"><div class="dash-panel"><div class="section-head"><h2>Cotizador de expediciones</h2><span class="pill">Calculadora funcional</span></div><p>Introduce importes de prueba. El cálculo se realiza en este dispositivo; no se guarda en Supabase.</p><form id="quoteForm" class="quote-form"><label>Nombre de la expedición<input id="qName" value="Guatemala · Expedición piloto" maxlength="100" required></label><label>Moneda<select id="qCurrency"><option value="USD">USD</option><option value="MXN">MXN</option></select></label><label>Viajeros estimados<input id="qTravelers" type="number" min="1" max="10000" step="1" value="15" required></label><label>Costos fijos del grupo<input id="qFixed" type="number" min="0" step="0.01" value="1500" required></label><label>Costos variables por viajero<input id="qVariable" type="number" min="0" step="0.01" value="350" required></label><label>Otros costos del grupo<input id="qOther" type="number" min="0" step="0.01" value="250" required></label><label>Margen objetivo sobre ventas (%)<input id="qMargin" type="number" min="0" max="95" step="0.1" value="25" required></label><label>Precio de venta por viajero (opcional, para comparar)<input id="qPrice" type="number" min="0" step="0.01" placeholder="Precio propuesto"></label><div class="quote-actions"><button type="submit">Calcular cotización</button><button id="printQuote" type="button" class="outline-btn">Imprimir / guardar PDF</button></div></form><div id="quoteResult" class="quote-result" aria-live="polite"></div><p class="hint">El margen se calcula sobre el precio de venta, no como recargo sobre el costo. Los cálculos no incluyen impuestos, comisiones de cobro ni contingencias a menos que los incluyas en los costos.</p></div></section>
         <section class="page" data-section="reportes"><div class="dash-panel"><h2>Reportes y análisis</h2><p>Los reportes finales podrán mostrar conversión por canal, reservas por expedición, ocupación, ingresos, costos y rentabilidad. Por ahora se muestran únicamente indicadores ilustrativos en el panel principal.</p><div class="empty-state">Pendiente: conectar fuentes reales y validar definiciones de KPI.</div></div></section>
-        <p class="dash-foot">BRIK Intelligence Hub · Prototipo de interfaz. No introducir datos personales reales hasta implementar y verificar tablas y políticas RLS.</p>
+        <p class="dash-foot">BRIK Intelligence Hub · Prospectos conectados a Supabase. Otros módulos ilustrativos. Verifica políticas RLS antes de utilizar datos personales reales.</p>
       </div></div>
     </section>
 
@@ -182,6 +201,7 @@
     const savePassword = document.querySelector('#savePassword');
     const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
     let recovering = false;
+    let currentRole = null;
 
     function show(view) {
       form.style.display = view === 'login' ? 'block' : 'none';
@@ -193,17 +213,20 @@
     async function refresh() {
       if (recovering) return;
       const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) { show('login'); return; }
+      if (error || !user) { currentRole=null; show('login'); return; }
       const result = await supabase.from('brik_profiles')
         .select('role').eq('user_id', user.id).maybeSingle();
       if (result.error || !result.data || !['admin','viewer'].includes(result.data.role)) {
+        currentRole=null;
         show('login');
         message.textContent = 'Sesión iniciada, pero tu usuario no tiene un perfil autorizado. Revisa los permisos en Supabase.';
       } else {
+        currentRole=result.data.role;
         document.querySelector('#userLabel').textContent = result.data.role === 'admin' ? 'BRIK · Administración' : 'DL Expeditions · Consulta';
         document.querySelector('#greeting').textContent = result.data.role === 'admin' ? '¡Bienvenida a BRIK!' : '¡Bienvenido a DL Expeditions!';
         show('app');
         message.textContent = '';
+        await loadProspects();
       }
     }
 
@@ -275,10 +298,60 @@
     document.querySelector('#logoutButton').addEventListener('click', async () => {
       await supabase.auth.signOut();
       recovering = false;
+      currentRole=null;
       show('login');
       message.textContent = 'Sesión cerrada.';
     });
 
+
+    // Prospectos: operaciones sujetas a las políticas RLS de Supabase.
+    const prospectForm=document.querySelector('#prospectForm');
+    const prospectRows=document.querySelector('#prospectRows');
+    const prospectStatus=document.querySelector('#prospectStatus');
+    const prospectCount=document.querySelector('#prospectCount');
+    const stages={new:'Nuevo',follow_up:'En seguimiento',quoted:'Cotización enviada',won:'Convertido',lost:'Perdido',contacted:'Contactado',qualified:'Calificado'};
+    const channelNames={whatsapp:'WhatsApp',instagram:'Instagram',directo:'Directo',agencia:'Agencia',otro:'Otro'};
+    let expeditionsById=new Map();
+    function putCell(row,value){const cell=document.createElement('td');cell.textContent=value==null?'—':String(value);row.appendChild(cell);}
+    function showProspectError(error){prospectStatus.textContent='No fue posible completar la operación: '+(error?.message||'Error desconocido')+'. Revisa los permisos RLS y la conexión.';}
+    async function loadProspects(){
+      prospectForm.hidden=currentRole!=='admin';
+      prospectStatus.textContent='Cargando información...';
+      const [expResult,prosResult]=await Promise.all([
+        supabase.from('expeditions').select('id,name').order('name'),
+        supabase.from('prospects').select('id,alias,channel,stage,expedition_id,created_at').order('created_at',{ascending:false}).limit(500)
+      ]);
+      if(expResult.error){showProspectError(expResult.error);return;}
+      if(prosResult.error){showProspectError(prosResult.error);return;}
+      expeditionsById=new Map((expResult.data||[]).map(x=>[x.id,x.name]));
+      const sel=document.querySelector('#pExpedition');
+      sel.replaceChildren(new Option('Seleccionar expedición',''));
+      for(const e of expResult.data||[])sel.add(new Option(e.name,e.id));
+      prospectRows.replaceChildren();
+      const prospects=prosResult.data||[];
+      if(!prospects.length){const tr=document.createElement('tr');putCell(tr,'Todavía no hay prospectos registrados.');prospectRows.appendChild(tr);prospectRows.firstChild.firstChild.colSpan=5;}
+      for(const p of prospects){const tr=document.createElement('tr');putCell(tr,p.alias);putCell(tr,channelNames[p.channel]||p.channel);putCell(tr,expeditionsById.get(p.expedition_id)||'Sin expedición');putCell(tr,stages[p.stage]||p.stage);putCell(tr,p.created_at?new Date(p.created_at).toLocaleDateString('es-MX'):'—');prospectRows.appendChild(tr);}
+      prospectCount.textContent=prospects.length===500?'500 registros mostrados':`${prospects.length} prospecto${prospects.length===1?'':'s'}`;
+      document.querySelector('#homeProspects').textContent=prospects.length===500?'500+':String(prospects.length);
+      document.querySelector('#homeProspectsNote').textContent=prospects.length===500?'Muestra limitada a 500 registros':'Registros de Supabase';
+      prospectStatus.textContent=currentRole==='admin'?'Puedes registrar nuevos prospectos.':'Acceso de consulta: no puedes modificar registros.';
+    }
+    prospectForm.addEventListener('submit',async e=>{
+      e.preventDefault();
+      if(currentRole!=='admin'){prospectStatus.textContent='No tienes permiso para registrar prospectos.';return;}
+      if(!prospectForm.reportValidity())return;
+      const btn=document.querySelector('#saveProspect');btn.disabled=true;
+      prospectStatus.textContent='Guardando prospecto...';
+      const payload={alias:document.querySelector('#pAlias').value.trim(),expedition_id:document.querySelector('#pExpedition').value,channel:document.querySelector('#pChannel').value,stage:document.querySelector('#pStage').value};
+      try{
+        if(!payload.alias||!expeditionsById.has(payload.expedition_id))throw new Error('Selecciona un nombre y una expedición válida');
+        const {error}=await supabase.from('prospects').insert(payload);
+        if(error)throw error;
+        prospectForm.reset();
+        await loadProspects();
+        prospectStatus.textContent='Prospecto guardado correctamente en Supabase.';
+      }catch(error){showProspectError(error);}finally{btn.disabled=false;}
+    });
 
     // Navegación: no cambia la sesión de Supabase ni simula escrituras de datos.
     const sideNav=document.querySelector('#sideNav');
