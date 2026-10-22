@@ -171,10 +171,10 @@
         <button class="dash-nav" data-page="clientes" type="button">♧ &nbsp; Clientes</button>
         <button class="dash-nav" data-page="cotizador" type="button">▤ &nbsp; Cotizador</button>
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
-        <div class="nav-note">Prospectos, reservas y finanzas conectados · otros módulos en desarrollo</div>
+        <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
         <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión de demostración</span></div>
-        <div class="dash-demo"><strong>ENTORNO DE PRUEBA</strong> — El acceso está conectado a Supabase. Prospectos, Reservas y Pagos y gastos están preparados para consultar y registrar datos en Supabase (sujetos a configuración de tablas y permisos). El panel principal presenta indicadores reales cuando Supabase responde correctamente; Clientes ofrece una vista de consulta; Reportes sigue en desarrollo. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</div>
+        <div class="dash-demo"><strong>ENTORNO DE PRUEBA</strong> — El acceso está conectado a Supabase. Prospectos, Reservas y Pagos y gastos están preparados para consultar y registrar datos en Supabase (sujetos a configuración de tablas y permisos). El panel principal presenta indicadores reales cuando Supabase responde correctamente; Clientes ofrece una vista de consulta; Reportes consulta la vista de expediciones cuando los permisos lo permiten. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</div>
         <section class="page active" data-section="inicio">
 <div class="dash-grid">
   <div class="dash-stat"><small>Prospectos</small><strong id="homeProspects">—</strong><span id="homeProspectsNote">Consultando Supabase</span></div>
@@ -265,8 +265,17 @@
 <p class="hint">El saldo es una estimación operativa sobre reservas no canceladas; no es una conciliación bancaria. Los importes se basan en registros accesibles para tu usuario. No se permite editar desde esta vista.</p>
 </div></section>
         <section class="page" data-section="cotizador"><div class="dash-panel"><div class="section-head"><h2>Cotizador de expediciones</h2><span class="pill">Calculadora funcional</span></div><p>Introduce importes de prueba. El cálculo se realiza en este dispositivo; no se guarda en Supabase.</p><form id="quoteForm" class="quote-form"><label>Nombre de la expedición<input id="qName" value="Guatemala · Expedición piloto" maxlength="100" required></label><label>Moneda<select id="qCurrency"><option value="USD">USD</option><option value="MXN">MXN</option></select></label><label>Viajeros estimados<input id="qTravelers" type="number" min="1" max="10000" step="1" value="15" required></label><label>Costos fijos del grupo<input id="qFixed" type="number" min="0" step="0.01" value="1500" required></label><label>Costos variables por viajero<input id="qVariable" type="number" min="0" step="0.01" value="350" required></label><label>Otros costos del grupo<input id="qOther" type="number" min="0" step="0.01" value="250" required></label><label>Margen objetivo sobre ventas (%)<input id="qMargin" type="number" min="0" max="95" step="0.1" value="25" required></label><label>Precio de venta por viajero (opcional, para comparar)<input id="qPrice" type="number" min="0" step="0.01" placeholder="Precio propuesto"></label><div class="quote-actions"><button type="submit">Calcular cotización</button><button id="printQuote" type="button" class="outline-btn">Imprimir / guardar PDF</button></div></form><div id="quoteResult" class="quote-result" aria-live="polite"></div><p class="hint">El margen se calcula sobre el precio de venta, no como recargo sobre el costo. Los cálculos no incluyen impuestos, comisiones de cobro ni contingencias a menos que los incluyas en los costos.</p></div></section>
-        <section class="page" data-section="reportes"><div class="dash-panel"><h2>Reportes y análisis</h2><p>Los reportes finales podrán mostrar conversión por canal, reservas por expedición, ocupación, ingresos, costos y rentabilidad. El panel principal muestra indicadores operativos conectados a Supabase.</p><div class="empty-state">Pendiente: conectar fuentes reales y validar definiciones de KPI.</div></div></section>
-        <p class="dash-foot">BRIK Intelligence Hub · Prospectos, reservas y finanzas preparados para Supabase. Otros módulos ilustrativos. Verifica políticas RLS antes de utilizar datos personales reales.</p>
+        <section class="page" data-section="reportes">
+          <div class="dash-panel">
+            <div class="section-head"><h2>Resultados por expedición</h2><span class="pill">MXN · Datos de Supabase</span></div>
+            <p>Resumen comercial y financiero por expedición. El flujo neto es cobros menos gastos registrados; no equivale a utilidad contable.</p>
+            <p id="reportStatus" class="hint" role="status">Abre esta sección para consultar el reporte.</p>
+            <div class="dash-grid" id="reportTotals" aria-label="Totales del reporte"></div>
+            <div class="table-wrap" style="margin-top:22px"><table class="dash-table"><thead><tr><th>Expedición</th><th>Reservas activas</th><th>Viajeros</th><th>Valor reservado</th><th>Cobrado</th><th>Gastos</th><th>Flujo neto</th><th>Saldo pendiente</th></tr></thead><tbody id="reportRows"><tr><td colspan="8">Sin cargar</td></tr></tbody></table></div>
+            <p class="hint">Los datos dependen de los permisos de consulta y de las reglas RLS de Supabase. Los importes son registros operativos, no conciliación bancaria. Si existen más de 1,000 expediciones, la consulta se marcará como parcial.</p>
+          </div>
+        </section>
+        <p class="dash-foot">BRIK Intelligence Hub · Prospectos, reservas y finanzas preparados para Supabase. Reportes por expedición conectados. Verifica políticas RLS antes de utilizar datos personales reales.</p>
       </div></div>
     </section>
 
@@ -670,6 +679,41 @@
       drawClients();
     }
 
+    // Reportes: vista agregada de solo lectura, con seguridad definida en Supabase.
+    async function loadReports(){
+      const status=document.getElementById('reportStatus');
+      const tbody=document.getElementById('reportRows');
+      const totals=document.getElementById('reportTotals');
+      status.textContent='Consultando reporte en Supabase...';
+      tbody.replaceChildren();totals.replaceChildren();
+      try{
+        const {data,error}=await supabase.from('brik_reporte_expediciones')
+          .select('expedition_id,expedicion,reservas,viajeros,valor_reservado_mxn,cobrado_mxn,gastos_mxn,flujo_neto_mxn,saldo_pendiente_mxn')
+          .order('valor_reservado_mxn',{ascending:false}).limit(1000);
+        if(error)throw error;
+        const records=data||[];
+        const fields=[['reservas','Reservas activas'],['viajeros','Viajeros'],['valor_reservado_mxn','Valor reservado'],['cobrado_mxn','Cobrado'],['gastos_mxn','Gastos'],['flujo_neto_mxn','Flujo neto'],['saldo_pendiente_mxn','Saldo pendiente']];
+        for(const [key,label] of fields){
+          const el=document.createElement('div');el.className='dash-stat';
+          const title=document.createElement('small');title.textContent=label;
+          const value=document.createElement('strong');
+          const sum=records.reduce((n,r)=>n+Number(r[key]||0),0);
+          value.textContent=key.endsWith('_mxn')?mxn(sum):String(sum);
+          el.append(title,value);totals.appendChild(el);
+        }
+        for(const r of records){
+          const tr=document.createElement('tr');
+          for(const value of [r.expedicion||'Sin nombre',r.reservas??0,r.viajeros??0,mxn(r.valor_reservado_mxn),mxn(r.cobrado_mxn),mxn(r.gastos_mxn),mxn(r.flujo_neto_mxn),mxn(r.saldo_pendiente_mxn)])putCell(tr,value);
+          tbody.appendChild(tr);
+        }
+        if(!records.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=8;td.textContent='No hay expediciones visibles para este usuario.';tr.appendChild(td);tbody.appendChild(tr);}
+        status.textContent=records.length===1000?'Se muestran hasta 1,000 expediciones. Los totales pueden estar incompletos.':'Reporte actualizado · '+records.length+' expedición(es).';
+      }catch(err){
+        status.textContent='No fue posible consultar el reporte: '+(err?.message||'Error desconocido')+'. Revisa SELECT y las políticas RLS de la vista y sus tablas.';
+        const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=8;td.textContent='Reporte no disponible. No se muestran cifras hasta confirmar la consulta.';tr.appendChild(td);tbody.appendChild(tr);
+      }
+    }
+
     // Navegación: no cambia la sesión de Supabase ni simula escrituras de datos.
     const sideNav=document.querySelector('#sideNav');
     const shade=document.querySelector('#navShade');
@@ -687,6 +731,7 @@
       document.querySelector('#pageSubtitle').textContent=pageTitles[page][1];
       if(page==='finanzas'&&currentRole)loadFinances();
       if(page==='clientes'&&currentRole)loadClients();
+      if(page==='reportes'&&currentRole)loadReports();
       closeMenu();window.scrollTo({top:0,behavior:'instant'});
     }));
     const qForm=document.querySelector('#quoteForm');
