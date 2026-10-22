@@ -282,6 +282,16 @@
             <div class="table-wrap" style="margin-top:20px"><table class="dash-table"><thead><tr><th>Expedición</th><th>Prospectos</th><th>Prospectos convertidos</th><th>Conversión</th><th>Viajeros reservados</th><th>Capacidad</th><th>Ocupación</th></tr></thead><tbody id="commercialRows"><tr><td colspan="7">Sin cargar</td></tr></tbody></table></div>
             <p class="hint">Las reservas sin prospecto vinculado cuentan para ocupación, pero no para conversión. Las cifras no incluyen reservas canceladas. Si se alcanza el límite de 1,000 registros en alguna fuente, se ocultan los porcentajes para evitar conclusiones incorrectas. El cupo se toma del campo capacity de expeditions.</p>
           </div>
+          <div class="dash-panel" style="margin-top:18px">
+            <div class="section-head"><h2>Ventas por canal y agencias</h2><span class="pill">MXN · Supabase</span></div>
+            <p>Compara reservas directas y de agencias. El valor reservado corresponde a reservas no canceladas; los cobros se atribuyen al canal de la reserva asociada.</p>
+            <p id="channelStatus" class="hint" role="status">Abre Reportes para consultar los canales.</p>
+            <div class="dash-grid" id="channelTotals" aria-label="Indicadores por canal"></div>
+            <div class="table-wrap" style="margin-top:20px"><table class="dash-table"><thead><tr><th>Canal</th><th>Reservas activas</th><th>Viajeros</th><th>Valor reservado (MXN)</th><th>Participación en valor</th><th>Cobrado (MXN)</th><th>Saldo estimado (MXN)</th></tr></thead><tbody id="channelRows"><tr><td colspan="7">Sin cargar</td></tr></tbody></table></div>
+            <h3 style="margin-top:26px">Detalle de agencias</h3>
+            <div class="table-wrap"><table class="dash-table"><thead><tr><th>Agencia</th><th>Reservas activas</th><th>Viajeros</th><th>Valor reservado (MXN)</th><th>Cobrado (MXN)</th></tr></thead><tbody id="agencyRows"><tr><td colspan="5">Pendiente de agencias registradas</td></tr></tbody></table></div>
+            <p class="hint">Las reservas canceladas no se incluyen en valor reservado, viajeros ni saldo; los cobros de reservas canceladas se presentan por separado para no ocultar movimientos que puedan requerir devolución. Los totales dependen de las políticas RLS y del límite de consulta de Supabase. La participación es sobre valor reservado, no sobre ingresos cobrados.</p>
+          </div>
         </section>
         <p class="dash-foot">BRIK Intelligence Hub · Prospectos, reservas y finanzas preparados para Supabase. Reportes por expedición conectados. Verifica políticas RLS antes de utilizar datos personales reales.</p>
       </div></div>
@@ -771,6 +781,91 @@
       }
     }
 
+    // Ventas por canal: consultas de solo lectura, sin datos de demostración.
+    async function loadChannels(){
+      const status=document.getElementById('channelStatus');
+      const totals=document.getElementById('channelTotals');
+      const rows=document.getElementById('channelRows');
+      const agencyRows=document.getElementById('agencyRows');
+      status.textContent='Consultando reservas, cobros y agencias...';
+      totals.replaceChildren();rows.replaceChildren();agencyRows.replaceChildren();
+      const cell=(tr,value)=>putCell(tr,value);
+      const stat=(label,value,note)=>{const el=document.createElement('div');el.className='dash-stat';const a=document.createElement('small');a.textContent=label;const b=document.createElement('strong');b.textContent=value;const c=document.createElement('span');c.textContent=note;el.append(a,b,c);totals.appendChild(el);};
+      const empty=(body,count,message)=>{const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=count;td.textContent=message;tr.appendChild(td);body.appendChild(tr);};
+      try{
+        const [br,pr,ar]=await Promise.all([
+          supabase.from('bookings').select('id,channel,agency_id,travelers,unit_price_mxn,status').limit(1000),
+          supabase.from('payments').select('id,booking_id,amount_mxn').limit(1000),
+          supabase.from('agencies').select('*').limit(1000)
+        ]);
+        for(const r of [br,pr,ar])if(r.error)throw r.error;
+        const bookings=br.data||[],payments=pr.data||[],agencies=ar.data||[];
+        if([bookings,payments,agencies].some(a=>a.length>=1000)){
+          status.textContent='Consulta parcial: se alcanzó el límite de 1,000 registros. No se presentan cifras para evitar totales incorrectos.';
+          empty(rows,7,'Se necesita paginación para calcular totales completos.');
+          empty(agencyRows,5,'Detalle pendiente de consulta completa.');
+          return;
+        }
+        const bookingById=new Map(bookings.map(b=>[b.id,b]));
+        const paymentsByBooking=new Map();
+        let unmatched=0;
+        for(const p of payments){
+          if(!bookingById.has(p.booking_id)){unmatched++;continue;}
+          paymentsByBooking.set(p.booking_id,(paymentsByBooking.get(p.booking_id)||0)+Number(p.amount_mxn||0));
+        }
+        if(unmatched){
+          status.textContent='No es posible conciliar todos los pagos: '+unmatched+' pago(s) corresponden a reservas no visibles por permisos o filtros. Se omiten cifras para evitar conclusiones incorrectas.';
+          empty(rows,7,'Revisar acceso RLS a reservas y pagos.');
+          empty(agencyRows,5,'Detalle no disponible.');
+          return;
+        }
+        const build=()=>({count:0,travelers:0,value:0,paid:0});
+        const channels=new Map([['direct',build()],['agency',build()]]);
+        const byAgency=new Map();
+        let cancelledPayments=0,unknown=0;
+        for(const b of bookings){
+          const amount=paymentsByBooking.get(b.id)||0;
+          if(b.status==='cancelled'){cancelledPayments+=amount;continue;}
+          if(!channels.has(b.channel)){unknown++;continue;}
+          const a=channels.get(b.channel);
+          a.count++;a.travelers+=Number(b.travelers||0);a.value+=Number(b.travelers||0)*Number(b.unit_price_mxn||0);a.paid+=amount;
+          if(b.channel==='agency'){
+            const key=b.agency_id||'__unassigned__';
+            if(!byAgency.has(key))byAgency.set(key,build());
+            const ag=byAgency.get(key);
+            ag.count++;ag.travelers+=Number(b.travelers||0);ag.value+=Number(b.travelers||0)*Number(b.unit_price_mxn||0);ag.paid+=amount;
+          }
+        }
+        if(unknown){status.textContent='Hay '+unknown+' reservas activas con canal desconocido. No se presentan totales parciales.';empty(rows,7,'Revisar los valores de channel en bookings.');empty(agencyRows,5,'Detalle no disponible.');return;}
+        const totalValue=[...channels.values()].reduce((n,v)=>n+v.value,0);
+        const totalPaid=[...channels.values()].reduce((n,v)=>n+v.paid,0);
+        const totalCount=[...channels.values()].reduce((n,v)=>n+v.count,0);
+        const percent=n=>totalValue>0?(100*n/totalValue).toLocaleString('es-MX',{maximumFractionDigits:1})+' %':'—';
+        stat('Reservas activas',String(totalCount),'Directo + agencias');
+        stat('Valor reservado',mxn(totalValue),'Reservas no canceladas');
+        stat('Cobrado asociado',mxn(totalPaid),'Pagos de reservas activas');
+        stat('Participación agencias',percent(channels.get('agency').value),'Sobre valor reservado');
+        for(const [key,label] of [['direct','Directo'],['agency','Agencias']]){
+          const a=channels.get(key),tr=document.createElement('tr');
+          for(const v of [label,a.count,a.travelers,mxn(a.value),percent(a.value),mxn(a.paid),mxn(a.value-a.paid)])cell(tr,v);
+          rows.appendChild(tr);
+        }
+        const agencyMap=new Map(agencies.map(a=>[a.id,a]));
+        const agencyName=(a,id)=>a?.name||a?.agency_name||a?.business_name||(id==='__unassigned__'?'Agencia sin asignar':'Agencia sin nombre ('+String(id).slice(0,8)+')');
+        for(const [id,a] of [...byAgency.entries()].sort((x,y)=>y[1].value-x[1].value)){
+          const tr=document.createElement('tr');
+          for(const v of [agencyName(agencyMap.get(id),id),a.count,a.travelers,mxn(a.value),mxn(a.paid)])cell(tr,v);
+          agencyRows.appendChild(tr);
+        }
+        if(!byAgency.size)empty(agencyRows,5,'Aún no hay reservas de agencias. Pendiente de la información de Paco.');
+        status.textContent='Ventas por canal actualizadas · '+totalCount+' reserva(s) activa(s).'+(cancelledPayments?' Hay '+mxn(cancelledPayments)+' en pagos asociados a reservas canceladas, excluidos de estos indicadores.':'');
+      }catch(err){
+        status.textContent='No fue posible consultar canales: '+(err?.message||'Error desconocido')+'. Revisa SELECT y políticas RLS de bookings, payments y agencies.';
+        empty(rows,7,'No se muestran cifras hasta confirmar la consulta.');
+        empty(agencyRows,5,'Detalle no disponible.');
+      }
+    }
+
     // Navegación: no cambia la sesión de Supabase ni simula escrituras de datos.
     const sideNav=document.querySelector('#sideNav');
     const shade=document.querySelector('#navShade');
@@ -788,7 +883,7 @@
       document.querySelector('#pageSubtitle').textContent=pageTitles[page][1];
       if(page==='finanzas'&&currentRole)loadFinances();
       if(page==='clientes'&&currentRole)loadClients();
-      if(page==='reportes'&&currentRole){loadReports();loadCommercial();}
+      if(page==='reportes'&&currentRole){loadReports();loadCommercial();loadChannels();}
       closeMenu();window.scrollTo({top:0,behavior:'instant'});
     }));
     const qForm=document.querySelector('#quoteForm');
