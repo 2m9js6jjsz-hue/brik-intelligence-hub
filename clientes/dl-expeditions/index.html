@@ -274,6 +274,14 @@
             <div class="table-wrap" style="margin-top:22px"><table class="dash-table"><thead><tr><th>Expedición</th><th>Reservas activas</th><th>Viajeros</th><th>Valor reservado</th><th>Cobrado</th><th>Gastos</th><th>Flujo neto</th><th>Saldo pendiente</th></tr></thead><tbody id="reportRows"><tr><td colspan="8">Sin cargar</td></tr></tbody></table></div>
             <p class="hint">Los datos dependen de los permisos de consulta y de las reglas RLS de Supabase. Los importes son registros operativos, no conciliación bancaria. Si existen más de 1,000 expediciones, la consulta se marcará como parcial.</p>
           </div>
+          <div class="dash-panel" style="margin-top:18px">
+            <div class="section-head"><h2>Conversión y ocupación por expedición</h2><span class="pill">Datos reales · Supabase</span></div>
+            <p>Conversión: prospectos con al menos una reserva no cancelada / prospectos registrados para la expedición. Ocupación: viajeros en reservas no canceladas / capacidad registrada.</p>
+            <p id="commercialStatus" class="hint" role="status">Abre Reportes para consultar estos indicadores.</p>
+            <div class="dash-grid" id="commercialTotals" aria-label="Indicadores comerciales"></div>
+            <div class="table-wrap" style="margin-top:20px"><table class="dash-table"><thead><tr><th>Expedición</th><th>Prospectos</th><th>Prospectos convertidos</th><th>Conversión</th><th>Viajeros reservados</th><th>Capacidad</th><th>Ocupación</th></tr></thead><tbody id="commercialRows"><tr><td colspan="7">Sin cargar</td></tr></tbody></table></div>
+            <p class="hint">Las reservas sin prospecto vinculado cuentan para ocupación, pero no para conversión. Las cifras no incluyen reservas canceladas. Si se alcanza el límite de 1,000 registros en alguna fuente, se ocultan los porcentajes para evitar conclusiones incorrectas. El cupo se toma del campo capacity de expeditions.</p>
+          </div>
         </section>
         <p class="dash-foot">BRIK Intelligence Hub · Prospectos, reservas y finanzas preparados para Supabase. Reportes por expedición conectados. Verifica políticas RLS antes de utilizar datos personales reales.</p>
       </div></div>
@@ -714,6 +722,55 @@
       }
     }
 
+    // Indicadores comerciales: consulta de solo lectura con controles de integridad.
+    async function loadCommercial(){
+      const status=document.getElementById('commercialStatus');
+      const tbody=document.getElementById('commercialRows');
+      const totals=document.getElementById('commercialTotals');
+      status.textContent='Consultando prospectos, reservas y capacidad...';
+      tbody.replaceChildren();totals.replaceChildren();
+      try{
+        const [er,pr,br]=await Promise.all([
+          supabase.from('expeditions').select('id,name,capacity').limit(1000),
+          supabase.from('prospects').select('id,expedition_id').limit(1000),
+          supabase.from('bookings').select('id,expedition_id,prospect_id,travelers,status').limit(1000)
+        ]);
+        for(const result of [er,pr,br])if(result.error)throw result.error;
+        const expeditions=er.data||[],prospects=pr.data||[],bookings=br.data||[];
+        const incomplete=[expeditions,prospects,bookings].some(a=>a.length>=1000);
+        const rows=[];
+        for(const e of expeditions){
+          const leads=prospects.filter(p=>p.expedition_id===e.id);
+          const active=bookings.filter(b=>b.expedition_id===e.id&&b.status!=='cancelled');
+          const converted=new Set(active.map(b=>b.prospect_id).filter(Boolean));
+          const matched=leads.filter(p=>converted.has(p.id)).length;
+          const travelers=active.reduce((n,b)=>n+Number(b.travelers||0),0);
+          const capacity=e.capacity==null?null:Number(e.capacity);
+          rows.push({name:e.name||'Sin nombre',leads:leads.length,matched,travelers,capacity:Number.isFinite(capacity)&&capacity>0?capacity:null});
+        }
+        const pct=(n,d)=>d>0?(100*n/d).toLocaleString('es-MX',{maximumFractionDigits:1})+' %':'—';
+        const addStat=(label,value,note)=>{const el=document.createElement('div');el.className='dash-stat';const small=document.createElement('small');small.textContent=label;const strong=document.createElement('strong');strong.textContent=value;const span=document.createElement('span');span.textContent=note;el.append(small,strong,span);totals.appendChild(el);};
+        const totalLeads=rows.reduce((n,r)=>n+r.leads,0),totalConverted=rows.reduce((n,r)=>n+r.matched,0);
+        const totalTravelers=rows.reduce((n,r)=>n+r.travelers,0);
+        const capacityKnown=rows.length>0&&rows.every(r=>r.capacity!==null);
+        const totalCapacity=rows.reduce((n,r)=>n+(r.capacity||0),0);
+        addStat('Prospectos',incomplete?'—':String(totalLeads),'Por expedición');
+        addStat('Conversión',incomplete?'—':pct(totalConverted,totalLeads),'Prospectos con reserva activa');
+        addStat('Viajeros reservados',incomplete?'—':String(totalTravelers),'Reservas no canceladas');
+        addStat('Ocupación total',incomplete||!capacityKnown?'—':pct(totalTravelers,totalCapacity),'Capacidad de expediciones visibles');
+        for(const r of rows){
+          const tr=document.createElement('tr');
+          for(const v of [r.name,incomplete?'—':r.leads,incomplete?'—':r.matched,incomplete?'—':pct(r.matched,r.leads),incomplete?'—':r.travelers,r.capacity??'Sin definir',incomplete?'—':r.capacity===null?'—':pct(r.travelers,r.capacity)])putCell(tr,v);
+          tbody.appendChild(tr);
+        }
+        if(!rows.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=7;td.textContent='No hay expediciones visibles.';tr.appendChild(td);tbody.appendChild(tr);}
+        status.textContent=incomplete?'Consulta parcial: alguna fuente alcanzó 1,000 registros. Se ocultan indicadores que podrían estar incompletos.':'Indicadores comerciales actualizados · '+rows.length+' expedición(es).';
+      }catch(err){
+        status.textContent='No fue posible consultar conversión y ocupación: '+(err?.message||'Error desconocido')+'. Revisa los permisos SELECT/RLS y el campo capacity.';
+        const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=7;td.textContent='Sin cifras hasta confirmar la consulta.';tr.appendChild(td);tbody.appendChild(tr);
+      }
+    }
+
     // Navegación: no cambia la sesión de Supabase ni simula escrituras de datos.
     const sideNav=document.querySelector('#sideNav');
     const shade=document.querySelector('#navShade');
@@ -731,7 +788,7 @@
       document.querySelector('#pageSubtitle').textContent=pageTitles[page][1];
       if(page==='finanzas'&&currentRole)loadFinances();
       if(page==='clientes'&&currentRole)loadClients();
-      if(page==='reportes'&&currentRole)loadReports();
+      if(page==='reportes'&&currentRole){loadReports();loadCommercial();}
       closeMenu();window.scrollTo({top:0,behavior:'instant'});
     }));
     const qForm=document.querySelector('#quoteForm');
