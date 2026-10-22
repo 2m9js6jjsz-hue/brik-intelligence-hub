@@ -174,7 +174,7 @@
         <div class="nav-note">Prospectos, reservas y finanzas conectados · otros módulos en desarrollo</div>
       </nav><div class="dash-content">
         <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión de demostración</span></div>
-        <div class="dash-demo"><strong>ENTORNO DE PRUEBA</strong> — El acceso está conectado a Supabase. Prospectos, Reservas y Pagos y gastos están preparados para consultar y registrar datos en Supabase (sujetos a configuración de tablas y permisos). El panel principal presenta indicadores reales cuando Supabase responde correctamente; Clientes y Reportes siguen en desarrollo. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</div>
+        <div class="dash-demo"><strong>ENTORNO DE PRUEBA</strong> — El acceso está conectado a Supabase. Prospectos, Reservas y Pagos y gastos están preparados para consultar y registrar datos en Supabase (sujetos a configuración de tablas y permisos). El panel principal presenta indicadores reales cuando Supabase responde correctamente; Clientes ofrece una vista de consulta; Reportes sigue en desarrollo. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</div>
         <section class="page active" data-section="inicio">
 <div class="dash-grid">
   <div class="dash-stat"><small>Prospectos</small><strong id="homeProspects">—</strong><span id="homeProspectsNote">Consultando Supabase</span></div>
@@ -255,7 +255,15 @@
           <div class="dash-panel" style="margin-top:17px"><h2>Gastos registrados</h2><div class="table-wrap"><table class="dash-table"><thead><tr><th>Fecha</th><th>Expedición</th><th>Categoría</th><th>Descripción</th><th>Importe</th></tr></thead><tbody id="expenseRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
           <p class="hint">Los indicadores son registros operativos, no conciliación bancaria ni utilidad contable. Los pagos y gastos solo se guardan cuando Supabase confirma la operación. Los registros cancelados no se eliminan automáticamente.</p>
         </section>
-        <section class="page" data-section="clientes"><div class="dash-panel"><h2>Clientes y viajeros</h2><p>Esta sección reunirá historial de viajes, reservas y preferencias de cada cliente, con acceso controlado. Por privacidad, el prototipo no contiene datos personales ni permite almacenarlos.</p><div class="empty-state">Aún no hay clientes reales conectados.</div></div></section>
+        <section class="page" data-section="clientes"><div class="dash-panel">
+<div class="section-head"><h2>Clientes · historial comercial</h2><span class="pill" id="clientCount">Cargando...</span></div>
+<p>Consulta de prospectos y reservas vinculadas. Los registros sin prospecto asociado se muestran aparte; esta vista no identifica individualmente a todos los viajeros de una reserva.</p>
+<label style="display:block;max-width:460px;margin:16px 0">Buscar por referencia del prospecto
+<input id="clientSearch" type="search" placeholder="Escribe un nombre o referencia" autocomplete="off"></label>
+<p id="clientStatus" class="hint" role="status">Abre esta sección para consultar los datos.</p>
+<div class="table-wrap"><table class="dash-table"><thead><tr><th>Prospecto / referencia</th><th>Reservas</th><th>Viajeros reservados</th><th>Valor reservado (MXN)</th><th>Pagos asociados (MXN)</th><th>Saldo estimado (MXN)</th><th>Expediciones y estados</th></tr></thead><tbody id="clientRows"><tr><td colspan="7">Sin cargar</td></tr></tbody></table></div>
+<p class="hint">El saldo es una estimación operativa sobre reservas no canceladas; no es una conciliación bancaria. Los importes se basan en registros accesibles para tu usuario. No se permite editar desde esta vista.</p>
+</div></section>
         <section class="page" data-section="cotizador"><div class="dash-panel"><div class="section-head"><h2>Cotizador de expediciones</h2><span class="pill">Calculadora funcional</span></div><p>Introduce importes de prueba. El cálculo se realiza en este dispositivo; no se guarda en Supabase.</p><form id="quoteForm" class="quote-form"><label>Nombre de la expedición<input id="qName" value="Guatemala · Expedición piloto" maxlength="100" required></label><label>Moneda<select id="qCurrency"><option value="USD">USD</option><option value="MXN">MXN</option></select></label><label>Viajeros estimados<input id="qTravelers" type="number" min="1" max="10000" step="1" value="15" required></label><label>Costos fijos del grupo<input id="qFixed" type="number" min="0" step="0.01" value="1500" required></label><label>Costos variables por viajero<input id="qVariable" type="number" min="0" step="0.01" value="350" required></label><label>Otros costos del grupo<input id="qOther" type="number" min="0" step="0.01" value="250" required></label><label>Margen objetivo sobre ventas (%)<input id="qMargin" type="number" min="0" max="95" step="0.1" value="25" required></label><label>Precio de venta por viajero (opcional, para comparar)<input id="qPrice" type="number" min="0" step="0.01" placeholder="Precio propuesto"></label><div class="quote-actions"><button type="submit">Calcular cotización</button><button id="printQuote" type="button" class="outline-btn">Imprimir / guardar PDF</button></div></form><div id="quoteResult" class="quote-result" aria-live="polite"></div><p class="hint">El margen se calcula sobre el precio de venta, no como recargo sobre el costo. Los cálculos no incluyen impuestos, comisiones de cobro ni contingencias a menos que los incluyas en los costos.</p></div></section>
         <section class="page" data-section="reportes"><div class="dash-panel"><h2>Reportes y análisis</h2><p>Los reportes finales podrán mostrar conversión por canal, reservas por expedición, ocupación, ingresos, costos y rentabilidad. El panel principal muestra indicadores operativos conectados a Supabase.</p><div class="empty-state">Pendiente: conectar fuentes reales y validar definiciones de KPI.</div></div></section>
         <p class="dash-foot">BRIK Intelligence Hub · Prospectos, reservas y finanzas preparados para Supabase. Otros módulos ilustrativos. Verifica políticas RLS antes de utilizar datos personales reales.</p>
@@ -620,6 +628,48 @@
       catch(err){fEl('expenseStatus').textContent='No se pudo guardar el gasto: '+err.message;}finally{btn.disabled=false;}
     });
 
+    // Clientes: vista de consulta, sin nuevas tablas ni datos personales adicionales.
+    let clientViewRows=[];
+    function drawClients(){
+      const term=document.querySelector('#clientSearch').value.trim().toLocaleLowerCase('es');
+      const body=document.querySelector('#clientRows');body.replaceChildren();
+      const filtered=clientViewRows.filter(x=>x.label.toLocaleLowerCase('es').includes(term));
+      for(const x of filtered){
+        const tr=document.createElement('tr');
+        for(const v of [x.label,x.reservations,x.travelers,mxn(x.value),mxn(x.paid),mxn(Math.max(0,x.value-x.paid)),x.detail])putCell(tr,v);
+        body.appendChild(tr);
+      }
+      if(!filtered.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=7;td.textContent='Sin resultados para esta búsqueda.';tr.appendChild(td);body.appendChild(tr);}
+    }
+    document.querySelector('#clientSearch').addEventListener('input',drawClients);
+    async function loadClients(){
+      const status=document.querySelector('#clientStatus');status.textContent='Consultando Supabase...';
+      const [pros,books,pays,exps]=await Promise.all([
+        supabase.from('prospects').select('id,alias,channel,stage').limit(1000),
+        supabase.from('bookings').select('id,prospect_id,expedition_id,travelers,unit_price_mxn,status').limit(1000),
+        supabase.from('payments').select('booking_id,amount_mxn').limit(1000),
+        supabase.from('expeditions').select('id,name').limit(1000)
+      ]);
+      const error=pros.error||books.error||pays.error||exps.error;
+      if(error){status.textContent='No se pudo consultar Clientes: '+error.message;return;}
+      const expNames=new Map((exps.data||[]).map(x=>[x.id,x.name]));
+      const payments=new Map();
+      for(const p of pays.data||[])payments.set(p.booking_id,(payments.get(p.booking_id)||0)+Number(p.amount_mxn||0));
+      const grouped=new Map();
+      for(const p of pros.data||[])grouped.set(p.id,{label:p.alias||'Sin referencia',reservations:0,travelers:0,value:0,paid:0,details:[]});
+      let unlinked=0;
+      for(const b of books.data||[]){
+        if(!b.prospect_id||!grouped.has(b.prospect_id)){unlinked++;continue;}
+        const x=grouped.get(b.prospect_id);x.reservations++;
+        if(b.status!=='cancelled'){x.travelers+=Number(b.travelers||0);x.value+=Number(b.travelers||0)*Number(b.unit_price_mxn||0);x.paid+=payments.get(b.id)||0;}
+        x.details.push((expNames.get(b.expedition_id)||'Expedición')+' ('+(b.status||'sin estado')+')');
+      }
+      clientViewRows=Array.from(grouped.values()).map(x=>({...x,detail:x.details.join(' · ')||'Sin reservas'})).sort((a,b)=>a.label.localeCompare(b.label,'es'));
+      document.querySelector('#clientCount').textContent=clientViewRows.length+' prospecto(s)';
+      status.textContent='Consulta actualizada. '+unlinked+' reserva(s) sin prospecto asociado o fuera de la muestra. Máximo 1,000 registros por fuente; si se alcanza ese límite, los totales pueden estar incompletos.';
+      drawClients();
+    }
+
     // Navegación: no cambia la sesión de Supabase ni simula escrituras de datos.
     const sideNav=document.querySelector('#sideNav');
     const shade=document.querySelector('#navShade');
@@ -636,6 +686,7 @@
       document.querySelector('#greeting').textContent=pageTitles[page][0];
       document.querySelector('#pageSubtitle').textContent=pageTitles[page][1];
       if(page==='finanzas'&&currentRole)loadFinances();
+      if(page==='clientes'&&currentRole)loadClients();
       closeMenu();window.scrollTo({top:0,behavior:'instant'});
     }));
     const qForm=document.querySelector('#quoteForm');
