@@ -123,6 +123,8 @@
     [hidden]{display:none!important}
     @media(max-width:650px){.booking-form{grid-template-columns:1fr}}
     @media print{body.logged-in .dash-top,body.logged-in .dash-side,body.logged-in .dash-demo,body.logged-in .dash-head,body.logged-in .dash-foot,body.logged-in .quote-form,body.logged-in .hint,body.logged-in .nav-shade{display:none!important}body.logged-in .dash-layout{display:block}body.logged-in .dash-content{padding:0}.page{display:none!important}.page[data-section="cotizador"]{display:block!important}.quote-result{display:grid;grid-template-columns:1fr 1fr}.dash-panel{box-shadow:none;border:0}.quote-result .dash-stat{break-inside:avoid}}
+
+.monthly-chart{overflow-x:auto}.monthly-legend{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 16px;font-size:12px;color:#64747a}.monthly-key{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px}.monthly-grid{display:grid;grid-template-columns:repeat(12,minmax(33px,1fr));gap:7px;min-width:470px;align-items:end}.monthly-month{text-align:center;font-size:10px;color:#68767d}.monthly-pair{height:165px;display:flex;align-items:end;justify-content:center;gap:3px;border-bottom:1px solid #d8dfdf}.monthly-pair span{display:block;width:37%;min-height:0;border-radius:4px 4px 0 0}.monthly-total{font-size:10px;text-align:center;color:#68767d;margin-top:8px}.dash-stat strong{overflow-wrap:anywhere}
   </style>
 </head>
 <body>
@@ -169,11 +171,25 @@
         <button class="dash-nav" data-page="clientes" type="button">♧ &nbsp; Clientes</button>
         <button class="dash-nav" data-page="cotizador" type="button">▤ &nbsp; Cotizador</button>
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
-        <div class="nav-note">Prospectos, reservas y finanzas · otros módulos en demostración</div>
+        <div class="nav-note">Prospectos, reservas y finanzas conectados · otros módulos en desarrollo</div>
       </nav><div class="dash-content">
         <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión de demostración</span></div>
-        <div class="dash-demo"><strong>ENTORNO DE PRUEBA</strong> — El acceso está conectado a Supabase. Prospectos, Reservas y Pagos y gastos están preparados para consultar y registrar datos en Supabase (sujetos a configuración de tablas y permisos). Los demás indicadores continúan en demostración. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</div>
-        <section class="page active" data-section="inicio"><div class="dash-grid"><div class="dash-stat"><small>Prospectos</small><strong id="homeProspects">—</strong><span id="homeProspectsNote">Cargando datos de Supabase</span></div><div class="dash-stat"><small>Reservas confirmadas</small><strong id="homeBookings">—</strong><span id="homeBookingsNote">Cargando datos de Supabase</span></div><div class="dash-stat"><small>Ingresos</small><strong>$8,450</strong><span>USD · Ejemplo ficticio</span></div><div class="dash-stat"><small>Gastos</small><strong>$2,300</strong><span>USD · Ejemplo ficticio</span></div></div><div class="dash-panels"><div class="dash-panel"><h2>Ingresos por mes · Ejemplo</h2><div class="dash-bars"><div class="dash-bar-col"><div class="dash-bar" style="height:26%"></div><small>Ene</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:36%"></div><small>Feb</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:31%"></div><small>Mar</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:43%"></div><small>Abr</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:57%"></div><small>May</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:48%"></div><small>Jun</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:64%"></div><small>Jul</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:74%"></div><small>Ago</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:83%"></div><small>Sep</small></div><div class="dash-bar-col"><div class="dash-bar" style="height:96%"></div><small>Oct</small></div></div><p>Gráfico ilustrativo. No representa ventas reales.</p></div><div class="dash-panel"><h2>Seguimiento comercial · Ejemplo</h2><div class="dash-row"><span>Prospectos en seguimiento</span><b>8</b></div><div class="dash-row"><span>Reservas confirmadas</span><b>12</b></div><div class="dash-row"><span>Pagos pendientes</span><b>3</b></div><div class="dash-row"><span>Expediciones en preparación</span><b>2</b></div></div></div></section>
+        <div class="dash-demo"><strong>ENTORNO DE PRUEBA</strong> — El acceso está conectado a Supabase. Prospectos, Reservas y Pagos y gastos están preparados para consultar y registrar datos en Supabase (sujetos a configuración de tablas y permisos). El panel principal presenta indicadores reales cuando Supabase responde correctamente; Clientes y Reportes siguen en desarrollo. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</div>
+        <section class="page active" data-section="inicio">
+<div class="dash-grid">
+  <div class="dash-stat"><small>Prospectos</small><strong id="homeProspects">—</strong><span id="homeProspectsNote">Consultando Supabase</span></div>
+  <div class="dash-stat"><small>Reservas confirmadas</small><strong id="homeBookings">—</strong><span id="homeBookingsNote">Consultando Supabase</span></div>
+  <div class="dash-stat"><small>Ingresos cobrados</small><strong id="homeReceived">—</strong><span>MXN · Pagos registrados</span></div>
+  <div class="dash-stat"><small>Gastos registrados</small><strong id="homeSpent">—</strong><span>MXN · Gastos registrados</span></div>
+  <div class="dash-stat"><small>Flujo neto registrado</small><strong id="homeNet">—</strong><span>MXN · Cobros menos gastos; no es utilidad</span></div>
+  <div class="dash-stat"><small>Saldo por cobrar</small><strong id="homeOutstanding">—</strong><span>MXN · Reservas activas menos pagos</span></div>
+</div>
+<div class="dash-panels">
+  <div class="dash-panel"><div class="section-head"><h2>Ingresos y gastos por mes</h2><span class="pill">MXN · Registros reales</span></div><div id="homeMonthly" class="monthly-chart"><p class="hint">Cargando información...</p></div></div>
+  <div class="dash-panel"><h2>Seguimiento comercial</h2><div id="homeCommercial"><p class="hint">Cargando información...</p></div></div>
+</div>
+<p id="homeDataNote" class="hint">Información basada en los registros accesibles de Supabase. No equivale a conciliación bancaria ni utilidad contable.</p>
+</section>
         <section class="page" data-section="prospectos"><div class="dash-panel">
           <div class="section-head"><h2>Seguimiento de prospectos</h2><span id="prospectCount" class="pill">Cargando...</span></div>
           <p>Registra oportunidades y consulta los prospectos guardados en Supabase. El acceso de consulta no permite registrar nuevos.</p>
@@ -241,7 +257,7 @@
         </section>
         <section class="page" data-section="clientes"><div class="dash-panel"><h2>Clientes y viajeros</h2><p>Esta sección reunirá historial de viajes, reservas y preferencias de cada cliente, con acceso controlado. Por privacidad, el prototipo no contiene datos personales ni permite almacenarlos.</p><div class="empty-state">Aún no hay clientes reales conectados.</div></div></section>
         <section class="page" data-section="cotizador"><div class="dash-panel"><div class="section-head"><h2>Cotizador de expediciones</h2><span class="pill">Calculadora funcional</span></div><p>Introduce importes de prueba. El cálculo se realiza en este dispositivo; no se guarda en Supabase.</p><form id="quoteForm" class="quote-form"><label>Nombre de la expedición<input id="qName" value="Guatemala · Expedición piloto" maxlength="100" required></label><label>Moneda<select id="qCurrency"><option value="USD">USD</option><option value="MXN">MXN</option></select></label><label>Viajeros estimados<input id="qTravelers" type="number" min="1" max="10000" step="1" value="15" required></label><label>Costos fijos del grupo<input id="qFixed" type="number" min="0" step="0.01" value="1500" required></label><label>Costos variables por viajero<input id="qVariable" type="number" min="0" step="0.01" value="350" required></label><label>Otros costos del grupo<input id="qOther" type="number" min="0" step="0.01" value="250" required></label><label>Margen objetivo sobre ventas (%)<input id="qMargin" type="number" min="0" max="95" step="0.1" value="25" required></label><label>Precio de venta por viajero (opcional, para comparar)<input id="qPrice" type="number" min="0" step="0.01" placeholder="Precio propuesto"></label><div class="quote-actions"><button type="submit">Calcular cotización</button><button id="printQuote" type="button" class="outline-btn">Imprimir / guardar PDF</button></div></form><div id="quoteResult" class="quote-result" aria-live="polite"></div><p class="hint">El margen se calcula sobre el precio de venta, no como recargo sobre el costo. Los cálculos no incluyen impuestos, comisiones de cobro ni contingencias a menos que los incluyas en los costos.</p></div></section>
-        <section class="page" data-section="reportes"><div class="dash-panel"><h2>Reportes y análisis</h2><p>Los reportes finales podrán mostrar conversión por canal, reservas por expedición, ocupación, ingresos, costos y rentabilidad. Por ahora se muestran únicamente indicadores ilustrativos en el panel principal.</p><div class="empty-state">Pendiente: conectar fuentes reales y validar definiciones de KPI.</div></div></section>
+        <section class="page" data-section="reportes"><div class="dash-panel"><h2>Reportes y análisis</h2><p>Los reportes finales podrán mostrar conversión por canal, reservas por expedición, ocupación, ingresos, costos y rentabilidad. El panel principal muestra indicadores operativos conectados a Supabase.</p><div class="empty-state">Pendiente: conectar fuentes reales y validar definiciones de KPI.</div></div></section>
         <p class="dash-foot">BRIK Intelligence Hub · Prospectos, reservas y finanzas preparados para Supabase. Otros módulos ilustrativos. Verifica políticas RLS antes de utilizar datos personales reales.</p>
       </div></div>
     </section>
@@ -524,6 +540,34 @@
     let financeBookings=new Map(),financeExpeditions=new Map(),financePayments=[];
     function financeEmpty(tbodyId,text){const t=fEl(tbodyId);t.replaceChildren();const r=document.createElement('tr'),c=document.createElement('td');c.colSpan=5;c.textContent=text;r.appendChild(c);t.appendChild(r);}
     function financeToday(){return new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);}
+    function renderHomeFinance(bookings,payments,expenses){
+      const sum=(items,key)=>items.reduce((a,x)=>a+Number(x[key]||0),0);
+      const received=sum(payments,'amount_mxn'),spent=sum(expenses,'amount_mxn');
+      const active=bookings.filter(b=>b.status!=='cancelled');
+      const booked=active.reduce((a,b)=>a+Number(b.travelers)*Number(b.unit_price_mxn),0);
+      const activeIds=new Set(active.map(b=>b.id));
+      const paidActive=payments.filter(p=>activeIds.has(p.booking_id)).reduce((a,p)=>a+Number(p.amount_mxn),0);
+      const metrics={homeReceived:received,homeSpent:spent,homeNet:received-spent,homeOutstanding:Math.max(0,booked-paidActive)};
+      for(const [id,value] of Object.entries(metrics))fEl(id).textContent=mxn(value);
+      const year=new Date().getFullYear();
+      const months=Array.from({length:12},(_,i)=>({label:new Date(year,i,1).toLocaleDateString('es-MX',{month:'short'}),income:0,expense:0}));
+      for(const p of payments){const d=new Date(p.paid_at);if(!isNaN(d)&&d.getFullYear()===year)months[d.getMonth()].income+=Number(p.amount_mxn);}
+      for(const x of expenses){const d=new Date(String(x.spent_at)+'T12:00:00');if(!isNaN(d)&&d.getFullYear()===year)months[d.getMonth()].expense+=Number(x.amount_mxn);}
+      const max=Math.max(1,...months.flatMap(m=>[m.income,m.expense]));
+      const chart=fEl('homeMonthly');chart.replaceChildren();
+      const legend=document.createElement('div');legend.className='monthly-legend';
+      legend.innerHTML='<span><i class="monthly-key" style="background:#ef915d"></i>Ingresos cobrados</span><span><i class="monthly-key" style="background:#536d76"></i>Gastos</span><span>Año '+year+'</span>';
+      chart.appendChild(legend);
+      const grid=document.createElement('div');grid.className='monthly-grid';
+      for(const m of months){const col=document.createElement('div'),pair=document.createElement('div');pair.className='monthly-pair';
+        for(const [key,color] of [['income','#ef915d'],['expense','#536d76']]){const bar=document.createElement('span');bar.style.background=color;bar.style.height=(m[key]/max*100)+'%';bar.title=key==='income'?'Ingresos: '+mxn(m[key]):'Gastos: '+mxn(m[key]);pair.appendChild(bar);}
+        const label=document.createElement('div');label.className='monthly-month';label.textContent=m.label;col.append(pair,label);grid.appendChild(col);}
+      chart.appendChild(grid);
+      const commercial=fEl('homeCommercial');commercial.replaceChildren();
+      const rows=[['Reservas activas',active.length],['Viajeros en reservas activas',active.reduce((a,b)=>a+Number(b.travelers),0)],['Reservas con anticipo',bookings.filter(b=>b.status==='deposit').length],['Reservas canceladas',bookings.filter(b=>b.status==='cancelled').length],['Pagos registrados',payments.length],['Gastos registrados',expenses.length]];
+      for(const [label,value] of rows){const row=document.createElement('div');row.className='dash-row';const left=document.createElement('span'),right=document.createElement('b');left.textContent=label;right.textContent=String(value);row.append(left,right);commercial.appendChild(row);}
+      fEl('homeDataNote').textContent='Datos de Supabase · '+year+'. El flujo neto es cobros menos gastos registrados, no utilidad contable. Las cifras dependen de los permisos y de los límites de consulta.';
+    }
     async function loadFinances(){
       fEl('paymentForm').hidden=currentRole!=='admin';fEl('expenseForm').hidden=currentRole!=='admin';
       fEl('paymentStatus').textContent='Cargando pagos...';fEl('expenseStatus').textContent='Cargando gastos...';
