@@ -599,6 +599,7 @@
       fEl('expenseStatus').textContent=currentRole==='admin'?'Puedes registrar gastos.':'Acceso de consulta.';
       if(!fEl('fPaymentDate').value)fEl('fPaymentDate').value=financeToday();
       if(!fEl('fExpenseDate').value)fEl('fExpenseDate').value=financeToday();
+      renderHomeFinance(br.data||[],pr.data||[],xr.data||[]);
     }
     fEl('paymentForm').addEventListener('submit',async e=>{
       e.preventDefault();if(currentRole!=='admin'||!e.currentTarget.reportValidity())return;
