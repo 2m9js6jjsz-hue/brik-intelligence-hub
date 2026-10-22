@@ -220,7 +220,7 @@
                 <label>Fecha del pago *<input id="fPaymentDate" type="date" required></label>
                 <label>Importe recibido (MXN) *<input id="fPaymentAmount" type="number" min="0.01" step="0.01" required></label>
                 <label>Método *<select id="fPaymentMethod" required><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="cash">Efectivo</option><option value="other">Otro</option></select></label>
-                <label>Referencia / nota<input id="fPaymentNote" maxlength="240" placeholder="Ej. Anticipo o referencia bancaria"></label>
+                <p class="hint">Las referencias de pago estarán disponibles cuando se habilite ese campo en Supabase.</p>
                 <button id="savePayment" type="submit">Guardar pago</button>
               </form><p id="paymentStatus" class="finance-status" role="status"></p>
             </div>
@@ -228,14 +228,14 @@
               <form id="expenseForm" class="finance-form" hidden>
                 <label>Expedición *<select id="fExpenseExpedition" required><option value="">Seleccionar expedición</option></select></label>
                 <label>Fecha del gasto *<input id="fExpenseDate" type="date" required></label>
-                <label>Categoría *<select id="fExpenseCategory" required><option value="lodging">Hospedaje</option><option value="transport">Transporte</option><option value="food">Alimentación</option><option value="supplier">Proveedor / actividad</option><option value="marketing">Marketing</option><option value="other">Otro</option></select></label>
+                <label>Categoría *<select id="fExpenseCategory" required><option value="provider">Proveedores / servicios</option><option value="coordinator">Coordinación</option><option value="advertising">Publicidad</option><option value="fixed">Costos fijos</option><option value="gateway">Comisiones de cobro</option><option value="other">Otro</option></select></label>
                 <label>Importe (MXN) *<input id="fExpenseAmount" type="number" min="0.01" step="0.01" required></label>
                 <label>Descripción *<input id="fExpenseDescription" maxlength="240" required placeholder="Ej. Anticipo hotel"></label>
                 <button id="saveExpense" type="submit">Guardar gasto</button>
               </form><p id="expenseStatus" class="finance-status" role="status"></p>
             </div>
           </div>
-          <div class="dash-panel" style="margin-top:17px"><h2>Pagos registrados</h2><div class="table-wrap"><table class="dash-table"><thead><tr><th>Fecha</th><th>Expedición / reserva</th><th>Método</th><th>Importe</th><th>Nota</th></tr></thead><tbody id="paymentRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
+          <div class="dash-panel" style="margin-top:17px"><h2>Pagos registrados</h2><div class="table-wrap"><table class="dash-table"><thead><tr><th>Fecha</th><th>Expedición / reserva</th><th>Método</th><th>Importe</th><th>Referencia</th></tr></thead><tbody id="paymentRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
           <div class="dash-panel" style="margin-top:17px"><h2>Gastos registrados</h2><div class="table-wrap"><table class="dash-table"><thead><tr><th>Fecha</th><th>Expedición</th><th>Categoría</th><th>Descripción</th><th>Importe</th></tr></thead><tbody id="expenseRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
           <p class="hint">Los indicadores son registros operativos, no conciliación bancaria ni utilidad contable. Los pagos y gastos solo se guardan cuando Supabase confirma la operación. Los registros cancelados no se eliminan automáticamente.</p>
         </section>
@@ -516,10 +516,11 @@
       }catch(err){bookingError(err);}finally{button.disabled=false;}
     });
 
-    // Finanzas: dos tablas reales en Supabase, protegidas por RLS.
+    // Finanzas: columnas originales de Supabase (paid_at, payment_method, spent_at).
+    // No requiere modificar el esquema; las politicas RLS se aplican en el servidor.
     const fEl=id=>document.getElementById(id);
     const financePaymentMethods={transfer:'Transferencia',card:'Tarjeta',cash:'Efectivo',other:'Otro'};
-    const financeCategories={lodging:'Hospedaje',transport:'Transporte',food:'Alimentación',supplier:'Proveedor / actividad',marketing:'Marketing',other:'Otro'};
+    const financeCategories={provider:'Proveedores / servicios',coordinator:'Coordinación',advertising:'Publicidad',fixed:'Costos fijos',gateway:'Comisiones de cobro',other:'Otro'};
     let financeBookings=new Map(),financeExpeditions=new Map(),financePayments=[];
     function financeEmpty(tbodyId,text){const t=fEl(tbodyId);t.replaceChildren();const r=document.createElement('tr'),c=document.createElement('td');c.colSpan=5;c.textContent=text;r.appendChild(c);t.appendChild(r);}
     function financeToday(){return new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);}
@@ -529,11 +530,11 @@
       const [er,br,pr,xr]=await Promise.all([
         supabase.from('expeditions').select('id,name').order('name'),
         supabase.from('bookings').select('id,expedition_id,prospect_id,travelers,unit_price_mxn,status,created_at').order('created_at',{ascending:false}).limit(1000),
-        supabase.from('payments').select('id,booking_id,amount_mxn,paid_on,method,note,created_at').order('paid_on',{ascending:false}).limit(1000),
-        supabase.from('expenses').select('id,expedition_id,amount_mxn,spent_on,category,description,created_at').order('spent_on',{ascending:false}).limit(1000)
+        supabase.from('payments').select('id,booking_id,amount_mxn,paid_at,payment_method,created_at').order('paid_at',{ascending:false}).limit(1000),
+        supabase.from('expenses').select('id,expedition_id,amount_mxn,spent_at,category,description,created_at').order('spent_at',{ascending:false}).limit(1000)
       ]);
       const err=er.error||br.error||pr.error||xr.error;
-      if(err){const msg='No se pudo consultar Supabase: '+err.message+'. Ejecuta primero el SQL de instalación y revisa RLS.';fEl('paymentStatus').textContent=msg;fEl('expenseStatus').textContent=msg;return;}
+      if(err){const msg='No se pudo consultar Supabase: '+err.message+'. Revisa las columnas existentes y los permisos RLS.';fEl('paymentStatus').textContent=msg;fEl('expenseStatus').textContent=msg;return;}
       financeExpeditions=new Map((er.data||[]).map(x=>[x.id,x]));
       financeBookings=new Map((br.data||[]).map(x=>[x.id,x]));financePayments=pr.data||[];
       const pb=fEl('fBooking'),pe=fEl('fExpenseExpedition'),oldB=pb.value,oldE=pe.value;
@@ -542,8 +543,8 @@
       for(const e of er.data||[])pe.add(new Option(e.name,e.id));
       if(financeBookings.has(oldB))pb.value=oldB;if(financeExpeditions.has(oldE))pe.value=oldE;
       const payRows=fEl('paymentRows'),expRows=fEl('expenseRows');payRows.replaceChildren();expRows.replaceChildren();
-      for(const p of pr.data||[]){const r=document.createElement('tr'),b=financeBookings.get(p.booking_id);putCell(r,p.paid_on);putCell(r,(financeExpeditions.get(b?.expedition_id)?.name||'Reserva')+' · '+p.booking_id.slice(0,8));putCell(r,financePaymentMethods[p.method]||p.method);putCell(r,mxn(p.amount_mxn));putCell(r,p.note||'—');payRows.appendChild(r);}
-      for(const x of xr.data||[]){const r=document.createElement('tr');putCell(r,x.spent_on);putCell(r,financeExpeditions.get(x.expedition_id)?.name||'Expedición');putCell(r,financeCategories[x.category]||x.category);putCell(r,x.description);putCell(r,mxn(x.amount_mxn));expRows.appendChild(r);}
+      for(const p of pr.data||[]){const r=document.createElement('tr'),b=financeBookings.get(p.booking_id);putCell(r,p.paid_at?new Date(p.paid_at).toLocaleDateString('es-MX'):'—');putCell(r,(financeExpeditions.get(b?.expedition_id)?.name||'Reserva')+' · '+p.booking_id.slice(0,8));putCell(r,financePaymentMethods[p.payment_method]||p.payment_method);putCell(r,mxn(p.amount_mxn));putCell(r,'—');payRows.appendChild(r);}
+      for(const x of xr.data||[]){const r=document.createElement('tr');putCell(r,x.spent_at||'—');putCell(r,financeExpeditions.get(x.expedition_id)?.name||'Expedición');putCell(r,financeCategories[x.category]||x.category);putCell(r,x.description);putCell(r,mxn(x.amount_mxn));expRows.appendChild(r);}
       if(!(pr.data||[]).length)financeEmpty('paymentRows','Todavía no hay pagos registrados.');
       if(!(xr.data||[]).length)financeEmpty('expenseRows','Todavía no hay gastos registrados.');
       const received=(pr.data||[]).reduce((n,p)=>n+Number(p.amount_mxn),0),spent=(xr.data||[]).reduce((n,x)=>n+Number(x.amount_mxn),0);
@@ -557,12 +558,12 @@
     }
     fEl('paymentForm').addEventListener('submit',async e=>{
       e.preventDefault();if(currentRole!=='admin'||!e.currentTarget.reportValidity())return;
-      const booking_id=fEl('fBooking').value,amount_mxn=Number(fEl('fPaymentAmount').value),paid_on=fEl('fPaymentDate').value,method=fEl('fPaymentMethod').value,note=fEl('fPaymentNote').value.trim();
+      const booking_id=fEl('fBooking').value,amount_mxn=Number(fEl('fPaymentAmount').value),paid_on=fEl('fPaymentDate').value,payment_method=fEl('fPaymentMethod').value;
       if(!financeBookings.has(booking_id)||financeBookings.get(booking_id).status==='cancelled'||!Number.isFinite(amount_mxn)||amount_mxn<=0){fEl('paymentStatus').textContent='Selecciona una reserva activa y un importe válido.';return;}
       const b=financeBookings.get(booking_id),total=Number(b.travelers)*Number(b.unit_price_mxn),paid=financePayments.filter(p=>p.booking_id===booking_id).reduce((n,p)=>n+Number(p.amount_mxn),0);
       if(amount_mxn>Math.round((total-paid)*100)/100){fEl('paymentStatus').textContent='El pago supera el saldo pendiente ('+mxn(Math.max(0,total-paid))+'). Revisa el importe.';return;}
       const btn=fEl('savePayment');btn.disabled=true;fEl('paymentStatus').textContent='Guardando pago...';
-      try{const {error}=await supabase.from('payments').insert({booking_id,amount_mxn,paid_on,method,note:note||null});if(error)throw error;fEl('paymentForm').reset();await loadFinances();fEl('paymentStatus').textContent='Pago guardado en Supabase.';}
+      try{const {error}=await supabase.from('payments').insert({booking_id,amount_mxn,paid_at:new Date(paid_on+'T12:00:00').toISOString(),payment_method});if(error)throw error;fEl('paymentForm').reset();await loadFinances();fEl('paymentStatus').textContent='Pago guardado en Supabase.';}
       catch(err){fEl('paymentStatus').textContent='No se pudo guardar el pago: '+err.message;}finally{btn.disabled=false;}
     });
     fEl('expenseForm').addEventListener('submit',async e=>{
@@ -570,7 +571,7 @@
       const expedition_id=fEl('fExpenseExpedition').value,amount_mxn=Number(fEl('fExpenseAmount').value),spent_on=fEl('fExpenseDate').value,category=fEl('fExpenseCategory').value,description=fEl('fExpenseDescription').value.trim();
       if(!financeExpeditions.has(expedition_id)||!Number.isFinite(amount_mxn)||amount_mxn<=0||!description){fEl('expenseStatus').textContent='Completa los campos con valores válidos.';return;}
       const btn=fEl('saveExpense');btn.disabled=true;fEl('expenseStatus').textContent='Guardando gasto...';
-      try{const {error}=await supabase.from('expenses').insert({expedition_id,amount_mxn,spent_on,category,description});if(error)throw error;fEl('expenseForm').reset();await loadFinances();fEl('expenseStatus').textContent='Gasto guardado en Supabase.';}
+      try{const {error}=await supabase.from('expenses').insert({expedition_id,amount_mxn,spent_at:spent_on,category,description});if(error)throw error;fEl('expenseForm').reset();await loadFinances();fEl('expenseStatus').textContent='Gasto guardado en Supabase.';}
       catch(err){fEl('expenseStatus').textContent='No se pudo guardar el gasto: '+err.message;}finally{btn.disabled=false;}
     });
 
