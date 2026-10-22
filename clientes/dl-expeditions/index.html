@@ -120,6 +120,12 @@
     .finance-status{font-size:13px;line-height:1.6;overflow-wrap:anywhere}
     .finance-panels{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:17px}
     @media(max-width:650px){.finance-form,.finance-panels{grid-template-columns:1fr}}
+    .master-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 16px;margin:18px 0 20px}
+    .master-form label{margin:0;font-size:12px;font-weight:700;color:#33464d}
+    .master-form input{width:100%;margin-top:7px;padding:12px;border:1px solid #cfd7d8;border-radius:9px;background:#fff;color:#17252c;font-size:14px}
+    .master-form button{grid-column:1/-1;width:auto;justify-self:start;margin:0;padding:12px 22px}
+    .master-status{font-size:13px;line-height:1.6;overflow-wrap:anywhere}
+    @media(max-width:650px){.master-form{grid-template-columns:1fr}}
     [hidden]{display:none!important}
     @media(max-width:650px){.booking-form{grid-template-columns:1fr}}
     @media print{body.logged-in .dash-top,body.logged-in .dash-side,body.logged-in .dash-demo,body.logged-in .dash-head,body.logged-in .dash-foot,body.logged-in .quote-form,body.logged-in .hint,body.logged-in .nav-shade{display:none!important}body.logged-in .dash-layout{display:block}body.logged-in .dash-content{padding:0}.page{display:none!important}.page[data-section="cotizador"]{display:block!important}.quote-result{display:grid;grid-template-columns:1fr 1fr}.dash-panel{box-shadow:none;border:0}.quote-result .dash-stat{break-inside:avoid}}
@@ -165,6 +171,8 @@
       <div id="navShade" class="nav-shade" hidden></div>
       <div class="dash-layout"><nav id="sideNav" class="dash-side" aria-label="Secciones de la plataforma"><h3>DL EXPEDITIONS</h3>
         <button class="dash-nav active" data-page="inicio" type="button">⌂ &nbsp; Panel principal</button>
+        <button class="dash-nav" data-page="agencias" type="button">▤ &nbsp; Agencias</button>
+        <button class="dash-nav" data-page="expediciones" type="button">◉ &nbsp; Expediciones</button>
         <button class="dash-nav" data-page="prospectos" type="button">♙ &nbsp; Prospectos</button>
         <button class="dash-nav" data-page="reservas" type="button">▣ &nbsp; Reservas</button>
         <button class="dash-nav" data-page="finanzas" type="button">◈ &nbsp; Pagos y gastos</button>
@@ -190,6 +198,35 @@
 </div>
 <p id="homeDataNote" class="hint">Información basada en los registros accesibles de Supabase. No equivale a conciliación bancaria ni utilidad contable.</p>
 </section>
+        <section class="page" data-section="agencias"><div class="dash-panel">
+          <div class="section-head"><h2>Directorio de agencias</h2><span class="pill" id="agencyMasterCount">Sin cargar</span></div>
+          <p>Registra las agencias aliadas para seleccionarlas después en las reservas.</p>
+          <form id="agencyMasterForm" class="master-form" hidden>
+            <label>Nombre de la agencia *<input id="aName" maxlength="160" required placeholder="Ej. Agencia Viajes México"></label>
+            <label>Nombre del contacto<input id="aContact" maxlength="160" placeholder="Ej. María López"></label>
+            <button id="aSave" type="submit">Guardar agencia</button>
+          </form>
+          <p id="agencyMasterStatus" class="master-status" role="status"></p>
+          <div class="table-wrap"><table class="dash-table"><thead><tr><th>Agencia</th><th>Contacto</th><th>Fecha de registro</th></tr></thead><tbody id="agencyMasterRows"><tr><td colspan="3">Abre esta sección para consultar agencias.</td></tr></tbody></table></div>
+        </div></section>
+        <section class="page" data-section="expediciones"><div class="dash-panel">
+          <div class="section-head"><h2>Administración de expediciones</h2><span class="pill" id="expMasterCount">Sin cargar</span></div>
+          <p>Crea viajes con fechas, cupos, precio y presupuesto inicial. Los importes son MXN y pueden requerir ajustes antes de abrir ventas.</p>
+          <form id="expMasterForm" class="master-form" hidden>
+            <label>Nombre de la expedición *<input id="eName" maxlength="180" required placeholder="Ej. Guatemala · Mayo 2027"></label>
+            <label>Fecha de salida *<input id="eDeparture" type="date" required></label>
+            <label>Fecha de regreso *<input id="eReturn" type="date" required></label>
+            <label>Capacidad máxima *<input id="eCapacity" type="number" min="1" max="10000" step="1" value="15" required></label>
+            <label>Mínimo de viajeros *<input id="eMinimum" type="number" min="1" max="10000" step="1" value="10" required></label>
+            <label>Precio público por viajero (MXN) *<input id="ePrice" type="number" min="0" step="0.01" value="0" required></label>
+            <label>Costo de proveedor por viajero (MXN) *<input id="eProvider" type="number" min="0" step="0.01" value="0" required></label>
+            <label>Costo de coordinación del grupo (MXN) *<input id="eCoordinator" type="number" min="0" step="0.01" value="0" required></label>
+            <button id="eSave" type="submit">Guardar expedición</button>
+          </form>
+          <p id="expMasterStatus" class="master-status" role="status"></p>
+          <div class="table-wrap"><table class="dash-table"><thead><tr><th>Expedición</th><th>Salida</th><th>Regreso</th><th>Capacidad</th><th>Mínimo</th><th>Precio público</th></tr></thead><tbody id="expMasterRows"><tr><td colspan="6">Abre esta sección para consultar expediciones.</td></tr></tbody></table></div>
+          <p class="hint">Este formulario registra una expedición nueva; no modifica expediciones existentes. Antes de crear otra, verifica que no esté registrada.</p>
+        </div></section>
         <section class="page" data-section="prospectos"><div class="dash-panel">
           <div class="section-head"><h2>Seguimiento de prospectos</h2><span id="prospectCount" class="pill">Cargando...</span></div>
           <p>Registra oportunidades y consulta los prospectos guardados en Supabase. El acceso de consulta no permite registrar nuevos.</p>
@@ -976,6 +1013,56 @@
       }
     }
 
+    // Catálogos maestros: escrituras protegidas por RLS de Supabase.
+    async function loadAgencyMaster(){
+      const form=document.getElementById('agencyMasterForm'),status=document.getElementById('agencyMasterStatus');
+      const rows=document.getElementById('agencyMasterRows');form.hidden=currentRole!=='admin';status.textContent='Consultando agencias...';
+      const {data,error}=await supabase.from('agencies').select('id,name,contact_name,created_at').order('name').limit(500);
+      if(error){status.textContent='No fue posible consultar agencias: '+error.message;return;}
+      rows.replaceChildren();for(const a of data||[]){const tr=document.createElement('tr');for(const v of [a.name,a.contact_name||'—',a.created_at?new Date(a.created_at).toLocaleDateString('es-MX'):'—'])putCell(tr,v);rows.appendChild(tr);}
+      if(!data?.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=3;td.textContent='Todavía no hay agencias registradas.';tr.appendChild(td);rows.appendChild(tr);}
+      document.getElementById('agencyMasterCount').textContent=data.length===500?'500 mostradas':data.length+' agencia(s)';
+      status.textContent=currentRole==='admin'?'Puedes registrar agencias.':'Acceso de consulta.';
+    }
+    document.getElementById('agencyMasterForm').addEventListener('submit',async ev=>{
+      ev.preventDefault();if(currentRole!=='admin')return;
+      const form=ev.currentTarget,status=document.getElementById('agencyMasterStatus'),btn=document.getElementById('aSave');
+      if(!form.reportValidity())return;const name=document.getElementById('aName').value.trim(),contact_name=document.getElementById('aContact').value.trim();
+      if(!name){status.textContent='Escribe el nombre de la agencia.';return;}
+      btn.disabled=true;status.textContent='Guardando agencia...';
+      try{const {error}=await supabase.from('agencies').insert({name,contact_name:contact_name||null});if(error)throw error;
+        form.reset();await loadAgencyMaster();await loadBookings();status.textContent='Agencia guardada. Ya está disponible para reservas.';
+      }catch(err){status.textContent='No se pudo guardar la agencia: '+err.message;}finally{btn.disabled=false;}
+    });
+    async function loadExpeditionMaster(){
+      const form=document.getElementById('expMasterForm'),status=document.getElementById('expMasterStatus'),rows=document.getElementById('expMasterRows');
+      form.hidden=currentRole!=='admin';status.textContent='Consultando expediciones...';
+      const {data,error}=await supabase.from('expeditions').select('id,name,departure_date,return_date,capacity,min_travelers,public_price_mxn').order('departure_date',{ascending:false}).limit(500);
+      if(error){status.textContent='No fue posible consultar expediciones: '+error.message;return;}
+      rows.replaceChildren();for(const e of data||[]){const tr=document.createElement('tr');for(const v of [e.name,e.departure_date,e.return_date,e.capacity,e.min_travelers,mxn(e.public_price_mxn)])putCell(tr,v);rows.appendChild(tr);}
+      if(!data?.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=6;td.textContent='Todavía no hay expediciones registradas.';tr.appendChild(td);rows.appendChild(tr);}
+      document.getElementById('expMasterCount').textContent=data.length===500?'500 mostradas':data.length+' expedición(es)';
+      status.textContent=currentRole==='admin'?'Puedes crear expediciones.':'Acceso de consulta.';
+    }
+    document.getElementById('expMasterForm').addEventListener('submit',async ev=>{
+      ev.preventDefault();if(currentRole!=='admin')return;
+      const form=ev.currentTarget,status=document.getElementById('expMasterStatus'),btn=document.getElementById('eSave');
+      if(!form.reportValidity())return;
+      const value=id=>document.getElementById(id).value;
+      const capacity=Number(value('eCapacity')),min_travelers=Number(value('eMinimum'));
+      const moneyIds=['ePrice','eProvider','eCoordinator'];
+      if(value('eReturn')<value('eDeparture')){status.textContent='La fecha de regreso debe ser igual o posterior a la salida.';return;}
+      if(!Number.isInteger(capacity)||!Number.isInteger(min_travelers)||min_travelers<1||capacity<min_travelers){status.textContent='El mínimo de viajeros debe ser positivo y no superar la capacidad.';return;}
+      if(moneyIds.some(id=>value(id)===''||!Number.isFinite(Number(value(id)))||Number(value(id))<0)){status.textContent='Revisa los importes.';return;}
+      const name=value('eName').trim();if(!name){status.textContent='Escribe el nombre de la expedición.';return;}
+      const payload={name,departure_date:value('eDeparture'),return_date:value('eReturn'),capacity,min_travelers,
+        public_price_mxn:Number(value('ePrice')),provider_cost_per_traveler_mxn:Number(value('eProvider')),coordinator_cost_mxn:Number(value('eCoordinator'))};
+      btn.disabled=true;status.textContent='Guardando expedición...';
+      try{const {error}=await supabase.from('expeditions').insert(payload);if(error)throw error;
+        form.reset();await loadExpeditionMaster();await loadProspects();await loadBookings();await loadFinances();status.textContent='Expedición guardada. Ya puedes asociarle prospectos y reservas.';
+      }catch(err){status.textContent='No se pudo guardar la expedición: '+err.message+'; revisa las columnas obligatorias y RLS.';}finally{btn.disabled=false;}
+    });
+
     // Navegación: no cambia la sesión de Supabase ni simula escrituras de datos.
     const sideNav=document.querySelector('#sideNav');
     const shade=document.querySelector('#navShade');
@@ -984,13 +1071,15 @@
     menuToggle.addEventListener('click',()=>{const opening=!sideNav.classList.contains('open');sideNav.classList.toggle('open',opening);shade.hidden=!opening;menuToggle.setAttribute('aria-expanded',String(opening));});
     shade.addEventListener('click',closeMenu);
     document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
-    const pageTitles={inicio:['Panel principal','DL Expeditions · Resumen comercial y financiero'],prospectos:['Prospectos','Seguimiento de oportunidades'],reservas:['Reservas','Control de expediciones'],finanzas:['Pagos y gastos','Resumen financiero'],clientes:['Clientes','Historial de viajeros'],cotizador:['Cotizador','Cálculo de precios y márgenes'],reportes:['Reportes y análisis','Inteligencia comercial']};
+    const pageTitles={inicio:['Panel principal','DL Expeditions · Resumen comercial y financiero'],agencias:['Agencias','Directorio de aliados comerciales'],expediciones:['Expediciones','Catálogo y configuración de viajes'],prospectos:['Prospectos','Seguimiento de oportunidades'],reservas:['Reservas','Control de expediciones'],finanzas:['Pagos y gastos','Resumen financiero'],clientes:['Clientes','Historial de viajeros'],cotizador:['Cotizador','Cálculo de precios y márgenes'],reportes:['Reportes y análisis','Inteligencia comercial']};
     sideNav.querySelectorAll('[data-page]').forEach(btn=>btn.addEventListener('click',()=>{
       const page=btn.dataset.page;
       sideNav.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b===btn);if(b===btn)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
       document.querySelectorAll('[data-section]').forEach(sec=>sec.classList.toggle('active',sec.dataset.section===page));
       document.querySelector('#greeting').textContent=pageTitles[page][0];
       document.querySelector('#pageSubtitle').textContent=pageTitles[page][1];
+      if(page==='agencias'&&currentRole)loadAgencyMaster();
+      if(page==='expediciones'&&currentRole)loadExpeditionMaster();
       if(page==='finanzas'&&currentRole)loadFinances();
       if(page==='clientes'&&currentRole)loadClients();
       if(page==='reportes'&&currentRole){loadReports();loadCommercial();loadChannels();loadProfitability();loadAlerts();}
