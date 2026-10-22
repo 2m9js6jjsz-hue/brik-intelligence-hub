@@ -301,6 +301,14 @@
             <div class="table-wrap" style="margin-top:20px"><table class="dash-table"><thead><tr><th>Expedición</th><th>Valor reservado</th><th>Cobrado</th><th>Gastos registrados</th><th>Resultado preliminar sobre reservas</th><th>Margen preliminar</th><th>Flujo neto registrado</th><th>Saldo por cobrar</th></tr></thead><tbody id="profitRows"><tr><td colspan="8">Sin cargar</td></tr></tbody></table></div>
             <p class="hint">Resultado preliminar = valor reservado − gastos registrados. Margen preliminar = resultado preliminar / valor reservado, cuando el valor reservado es positivo. Flujo neto = cobrado − gastos registrados. No tomar decisiones de precio o rentabilidad final con estas cifras hasta incorporar todos los costos estimados y comprometidos.</p>
           </div>
+          <div class="dash-panel" style="margin-top:18px">
+            <div class="section-head"><h2>Centro de alertas · seguimiento</h2><span class="pill">Supabase · Solo lectura</span></div>
+            <p>Señales calculadas al abrir Reportes. No envían notificaciones ni modifican registros. Umbral inicial de seguimiento: ocupación inferior al 50 % cuando faltan 60 días o menos para salir. Los saldos son <strong>pendientes, no necesariamente vencidos</strong>.</p>
+            <p id="alertStatus" class="hint" role="status">Abre Reportes para evaluar las alertas.</p>
+            <div class="dash-grid" id="alertTotals" aria-label="Resumen de alertas"></div>
+            <div class="table-wrap" style="margin-top:20px"><table class="dash-table"><thead><tr><th>Expedición</th><th>Salida</th><th>Ocupación</th><th>Saldo por cobrar</th><th>Seguimiento sugerido</th></tr></thead><tbody id="alertRows"><tr><td colspan="5">Sin cargar</td></tr></tbody></table></div>
+            <p class="hint">Sin fecha de vencimiento por reserva no se identifica mora. Sin presupuesto de costos no se identifica pérdida o sobrecosto. El criterio de 60 días / 50 % es orientativo y puede ajustarse con Paco. Las consultas respetan los permisos de Supabase.</p>
+          </div>
         </section>
         <p class="dash-foot">BRIK Intelligence Hub · Prospectos, reservas y finanzas preparados para Supabase. Reportes por expedición conectados. Verifica políticas RLS antes de utilizar datos personales reales.</p>
       </div></div>
@@ -918,6 +926,56 @@
       }
     }
 
+    // Alertas informativas, calculadas en el navegador desde datos accesibles por RLS.
+    async function loadAlerts(){
+      const status=document.getElementById('alertStatus'),totals=document.getElementById('alertTotals'),tbody=document.getElementById('alertRows');
+      status.textContent='Evaluando ocupación y saldos pendientes...';totals.replaceChildren();tbody.replaceChildren();
+      const stat=(label,value,note)=>{const d=document.createElement('div');d.className='dash-stat';const a=document.createElement('small');a.textContent=label;const b=document.createElement('strong');b.textContent=value;const c=document.createElement('span');c.textContent=note;d.append(a,b,c);totals.appendChild(d);};
+      const empty=(msg)=>{const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=5;td.textContent=msg;tr.appendChild(td);tbody.appendChild(tr);};
+      try{
+        const [er,br,rr]=await Promise.all([
+          supabase.from('expeditions').select('id,name,capacity,departure_date').limit(1000),
+          supabase.from('bookings').select('id,expedition_id,travelers,status').limit(1000),
+          supabase.from('brik_reporte_expediciones').select('expedition_id,saldo_pendiente_mxn').limit(1000)
+        ]);
+        for(const result of [er,br,rr])if(result.error)throw result.error;
+        const expeditions=er.data||[],bookings=br.data||[],report=rr.data||[];
+        if([expeditions,bookings,report].some(a=>a.length>=1000)){
+          status.textContent='Consulta parcial: se alcanzó el límite de 1,000 registros. No se calculan alertas incompletas.';
+          empty('Se requiere paginación antes de calcular alertas.');return;
+        }
+        const byReport=new Map(report.map(r=>[r.expedition_id,r]));
+        const today=new Date();today.setHours(0,0,0,0);
+        let low=0,pending=0,missing=0;
+        for(const e of expeditions){
+          const active=bookings.filter(b=>b.expedition_id===e.id&&b.status!=='cancelled');
+          const travelers=active.reduce((n,b)=>n+Number(b.travelers||0),0);
+          const capacity=e.capacity==null?null:Number(e.capacity);
+          const occupancy=capacity>0?travelers/capacity:null;
+          const day=e.departure_date?new Date(e.departure_date+'T12:00:00'):null;
+          const days=day&&!Number.isNaN(day.getTime())?Math.ceil((day.getTime()-today.getTime())/86400000):null;
+          const balance=Number(byReport.get(e.id)?.saldo_pendiente_mxn||0);
+          const notes=[];
+          if(days!==null&&days>=0&&days<=60&&occupancy!==null&&occupancy<0.5){notes.push('Revisar ocupación antes de salida');low++;}
+          if(balance>0.005){notes.push('Dar seguimiento al saldo pendiente (no implica vencimiento)');pending++;}
+          if(occupancy===null||days===null){notes.push('Completar '+(occupancy===null?'capacidad':'fecha de salida')+(occupancy===null&&days===null?' y fecha de salida':''));missing++;}
+          if(!notes.length)notes.push('Sin señales bajo los criterios actuales');
+          const tr=document.createElement('tr');
+          const percent=occupancy===null?'Sin definir':(occupancy*100).toLocaleString('es-MX',{maximumFractionDigits:1})+' %';
+          for(const v of [e.name||'Sin nombre',e.departure_date||'Sin definir',percent,mxn(balance),notes.join(' · ')])putCell(tr,v);
+          tbody.appendChild(tr);
+        }
+        stat('Ocupación por revisar',String(low),'Menos del 50 % y salida en 60 días o menos');
+        stat('Expediciones con saldo',String(pending),'Pendiente de cobro; no equivale a vencido');
+        stat('Datos por completar',String(missing),'Sin capacidad o fecha de salida');
+        if(!expeditions.length)empty('No hay expediciones visibles.');
+        status.textContent='Alertas evaluadas · '+expeditions.length+' expedición(es). Actualiza la sección para consultar cambios.';
+      }catch(err){
+        totals.replaceChildren();status.textContent='No fue posible calcular alertas: '+(err?.message||'Error desconocido')+'. Revisa los permisos de lectura de expeditions, bookings y brik_reporte_expediciones.';
+        empty('Sin alertas hasta completar la consulta.');
+      }
+    }
+
     // Navegación: no cambia la sesión de Supabase ni simula escrituras de datos.
     const sideNav=document.querySelector('#sideNav');
     const shade=document.querySelector('#navShade');
@@ -935,7 +993,7 @@
       document.querySelector('#pageSubtitle').textContent=pageTitles[page][1];
       if(page==='finanzas'&&currentRole)loadFinances();
       if(page==='clientes'&&currentRole)loadClients();
-      if(page==='reportes'&&currentRole){loadReports();loadCommercial();loadChannels();loadProfitability();}
+      if(page==='reportes'&&currentRole){loadReports();loadCommercial();loadChannels();loadProfitability();loadAlerts();}
       closeMenu();window.scrollTo({top:0,behavior:'instant'});
     }));
     const qForm=document.querySelector('#quoteForm');
