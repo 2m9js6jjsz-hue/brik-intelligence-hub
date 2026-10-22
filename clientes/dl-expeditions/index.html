@@ -292,6 +292,15 @@
             <div class="table-wrap"><table class="dash-table"><thead><tr><th>Agencia</th><th>Reservas activas</th><th>Viajeros</th><th>Valor reservado (MXN)</th><th>Cobrado (MXN)</th></tr></thead><tbody id="agencyRows"><tr><td colspan="5">Pendiente de agencias registradas</td></tr></tbody></table></div>
             <p class="hint">Las reservas canceladas no se incluyen en valor reservado, viajeros ni saldo; los cobros de reservas canceladas se presentan por separado para no ocultar movimientos que puedan requerir devolución. Los totales dependen de las políticas RLS y del límite de consulta de Supabase. La participación es sobre valor reservado, no sobre ingresos cobrados.</p>
           </div>
+
+          <div class="dash-panel" style="margin-top:18px">
+            <div class="section-head"><h2>Rentabilidad estimada por expedición</h2><span class="pill">MXN · Supabase</span></div>
+            <p>Seguimiento preliminar con reservas no canceladas y gastos registrados. <strong>No es utilidad final ni margen contable:</strong> faltan costos comprometidos o pendientes, comisiones, impuestos y posibles devoluciones.</p>
+            <p id="profitStatus" class="hint" role="status">Abre Reportes para consultar el resultado preliminar.</p>
+            <div class="dash-grid" id="profitTotals" aria-label="Indicadores preliminares de rentabilidad"></div>
+            <div class="table-wrap" style="margin-top:20px"><table class="dash-table"><thead><tr><th>Expedición</th><th>Valor reservado</th><th>Cobrado</th><th>Gastos registrados</th><th>Resultado preliminar sobre reservas</th><th>Margen preliminar</th><th>Flujo neto registrado</th><th>Saldo por cobrar</th></tr></thead><tbody id="profitRows"><tr><td colspan="8">Sin cargar</td></tr></tbody></table></div>
+            <p class="hint">Resultado preliminar = valor reservado − gastos registrados. Margen preliminar = resultado preliminar / valor reservado, cuando el valor reservado es positivo. Flujo neto = cobrado − gastos registrados. No tomar decisiones de precio o rentabilidad final con estas cifras hasta incorporar todos los costos estimados y comprometidos.</p>
+          </div>
         </section>
         <p class="dash-foot">BRIK Intelligence Hub · Prospectos, reservas y finanzas preparados para Supabase. Reportes por expedición conectados. Verifica políticas RLS antes de utilizar datos personales reales.</p>
       </div></div>
@@ -866,6 +875,49 @@
       }
     }
 
+
+    // Rentabilidad preliminar: reutiliza la vista agregada validada en Supabase.
+    async function loadProfitability(){
+      const status=document.getElementById('profitStatus');
+      const totals=document.getElementById('profitTotals');
+      const tbody=document.getElementById('profitRows');
+      status.textContent='Consultando datos financieros por expedición...';
+      totals.replaceChildren();tbody.replaceChildren();
+      const addStat=(label,value,note)=>{const el=document.createElement('div');el.className='dash-stat';const small=document.createElement('small');small.textContent=label;const strong=document.createElement('strong');strong.textContent=value;const span=document.createElement('span');span.textContent=note;el.append(small,strong,span);totals.appendChild(el);};
+      const empty=(message)=>{const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=8;td.textContent=message;tr.appendChild(td);tbody.appendChild(tr);};
+      try{
+        const {data,error}=await supabase.from('brik_reporte_expediciones')
+          .select('expedition_id,expedicion,valor_reservado_mxn,cobrado_mxn,gastos_mxn,flujo_neto_mxn,saldo_pendiente_mxn')
+          .order('valor_reservado_mxn',{ascending:false}).limit(1000);
+        if(error)throw error;
+        const records=data||[];
+        if(records.length>=1000){status.textContent='Se alcanzó el límite de 1,000 expediciones. No se muestran cifras parciales.';empty('Se requiere paginación para mostrar totales completos.');return;}
+        const num=(r,key)=>Number(r[key]||0);
+        const sum=(key)=>records.reduce((n,r)=>n+num(r,key),0);
+        const reserved=sum('valor_reservado_mxn'),paid=sum('cobrado_mxn'),cost=sum('gastos_mxn');
+        const preliminary=reserved-cost;
+        const pct=(v,d)=>d>0?(100*v/d).toLocaleString('es-MX',{maximumFractionDigits:1})+' %':'—';
+        addStat('Valor reservado',mxn(reserved),'Reservas no canceladas');
+        addStat('Gastos registrados',mxn(cost),'No incluyen costos aún no registrados');
+        addStat('Resultado preliminar',mxn(preliminary),'Reservas menos gastos registrados; no es utilidad');
+        addStat('Margen preliminar',pct(preliminary,reserved),'No es margen final');
+        addStat('Flujo neto registrado',mxn(paid-cost),'Cobros menos gastos');
+        addStat('Saldo por cobrar',mxn(sum('saldo_pendiente_mxn')),'Estimación sobre reservas activas');
+        for(const r of records){
+          const value=num(r,'valor_reservado_mxn'),expenses=num(r,'gastos_mxn');
+          const tr=document.createElement('tr');
+          for(const v of [r.expedicion||'Sin nombre',mxn(value),mxn(r.cobrado_mxn),mxn(expenses),mxn(value-expenses),pct(value-expenses,value),mxn(r.flujo_neto_mxn),mxn(r.saldo_pendiente_mxn)])putCell(tr,v);
+          tbody.appendChild(tr);
+        }
+        if(!records.length)empty('No hay expediciones visibles para este usuario.');
+        status.textContent='Resultados preliminares actualizados · '+records.length+' expedición(es).';
+      }catch(err){
+        totals.replaceChildren();
+        status.textContent='No fue posible consultar rentabilidad: '+(err?.message||'Error desconocido')+'. Revisa permisos de lectura de brik_reporte_expediciones.';
+        empty('No se muestran cifras hasta confirmar la consulta.');
+      }
+    }
+
     // Navegación: no cambia la sesión de Supabase ni simula escrituras de datos.
     const sideNav=document.querySelector('#sideNav');
     const shade=document.querySelector('#navShade');
@@ -883,7 +935,7 @@
       document.querySelector('#pageSubtitle').textContent=pageTitles[page][1];
       if(page==='finanzas'&&currentRole)loadFinances();
       if(page==='clientes'&&currentRole)loadClients();
-      if(page==='reportes'&&currentRole){loadReports();loadCommercial();loadChannels();}
+      if(page==='reportes'&&currentRole){loadReports();loadCommercial();loadChannels();loadProfitability();}
       closeMenu();window.scrollTo({top:0,behavior:'instant'});
     }));
     const qForm=document.querySelector('#quoteForm');
