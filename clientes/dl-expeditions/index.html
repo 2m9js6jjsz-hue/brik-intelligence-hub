@@ -252,6 +252,7 @@
         show('app');
         message.textContent = '';
         await loadProspects();
+        try { await loadBookings(); } catch (err) { bookingError(err); bookingCount.textContent="Error al cargar"; }
       }
     }
 
