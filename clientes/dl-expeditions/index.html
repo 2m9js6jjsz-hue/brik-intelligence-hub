@@ -600,6 +600,7 @@
     let bookingExpeditions=new Map();
     let bookingProspects=new Map();
     let bookingAgencies=new Map();
+    let preparedQuote=null; // Cotización elegida desde el historial; no se infiere por precio o prospecto.
     function bookingError(err){bookingStatus.textContent='No se pudo completar la operación: '+(err?.message||'Error desconocido')+'. Verifica los permisos y los datos.';}
     function updateBookingTotal(){
       const n=Number(document.querySelector('#bTravelers').value);
@@ -675,16 +676,30 @@
       if(channel==='agency'&&!bookingAgencies.has(agencyId)){bookingStatus.textContent='Selecciona una agencia registrada.';return;}
       if(prospectId&&!bookingProspects.has(prospectId)){bookingStatus.textContent='Selecciona un prospecto válido.';return;}
       if(prospectId&&bookingProspects.get(prospectId).expedition_id!==expId){bookingStatus.textContent='El prospecto seleccionado pertenece a otra expedición.';return;}
-      const payload={expedition_id:expId,prospect_id:prospectId||null,channel,agency_id:channel==='agency'?agencyId:null,travelers,unit_price_mxn:price,status:document.querySelector('#bStatus').value};
+      if(preparedQuote){
+        if(expId!==preparedQuote.expedition_id || (prospectId||null)!==(preparedQuote.prospect_id||null) ||
+           travelers!==Number(preparedQuote.travelers) || price!==Number(preparedQuote.unit_price_mxn)){
+          bookingStatus.textContent='Esta reserva ya no coincide con la cotización seleccionada. Vuelve a Preparar reserva desde el historial, o crea una nueva cotización para los nuevos importes.';
+          return;
+        }
+      }
+      const payload={expedition_id:expId,prospect_id:prospectId||null,channel,agency_id:channel==='agency'?agencyId:null,travelers,unit_price_mxn:price,status:document.querySelector('#bStatus').value,is_test:true};
+      if(preparedQuote)payload.quote_id=preparedQuote.id;
       const button=document.querySelector('#saveBooking');button.disabled=true;
       bookingStatus.textContent='Guardando reserva...';
       try{
+        if(preparedQuote){
+          const {data:existing,error:lookupError}=await supabase.from('bookings').select('id').eq('quote_id',preparedQuote.id).limit(1);
+          if(lookupError)throw lookupError;
+          if(existing?.length){bookingStatus.textContent='Esta cotización ya tiene una reserva registrada. No se creó otra.';return;}
+        }
         const {error}=await supabase.from('bookings').insert(payload);
         if(error)throw error;
+        preparedQuote=null;
         bookingForm.reset();
         await loadBookings();
         bookingStatus.textContent='Reserva guardada correctamente en Supabase.';
-      }catch(err){bookingError(err);}finally{button.disabled=false;}
+      }catch(err){if(err?.code==='23505')bookingStatus.textContent='Esta cotización ya tiene una reserva registrada. No se creó otra.';else bookingError(err);}finally{button.disabled=false;}
     });
 
     // Finanzas: columnas originales de Supabase (paid_at, payment_method, spent_at).
@@ -1144,6 +1159,7 @@
       document.querySelectorAll('[data-section]').forEach(sec=>sec.classList.toggle('active',sec.dataset.section===page));
       document.querySelector('#greeting').textContent=pageTitles[page][0];
       document.querySelector('#pageSubtitle').textContent=pageTitles[page][1];
+      if(page==='reservas'&&currentRole){preparedQuote=null;bookingStatus.textContent='';}
       if(page==='agencias'&&currentRole)loadAgencyMaster();
       if(page==='expediciones'&&currentRole)loadExpeditionMaster();
       if(page==='finanzas'&&currentRole)loadFinances();
@@ -1267,12 +1283,17 @@
     async function prepareBookingFromQuote(q){
       if(currentRole!=='admin'){qStatus.textContent='Solo administración puede preparar reservas.';return;}
       if(q.status==='rejected'||q.status==='expired'){qStatus.textContent='Esta cotización está rechazada o vencida. Revísala antes de preparar una reserva.';return;}
+      if(!q.id){qStatus.textContent='La cotización no tiene identificador; guárdala primero.';return;}
+      const {data:existing,error:lookupError}=await supabase.from('bookings').select('id').eq('quote_id',q.id).limit(1);
+      if(lookupError){qStatus.textContent='No fue posible verificar si esta cotización ya tiene reserva: '+lookupError.message;return;}
+      if(existing?.length){qStatus.textContent='Esta cotización ya tiene una reserva. No se preparará otra.';return;}
       const confirmed=window.confirm('Se abrirá el formulario de reservas con los datos de esta cotización. NO se guardará una reserva hasta que revises y pulses Guardar reserva. ¿Continuar?');
       if(!confirmed)return;
       const nav=document.querySelector('.dash-nav[data-page="reservas"]');
       if(nav)nav.click();
       await loadBookings();
       if(!bookingExpeditions.has(q.expedition_id)){bookingStatus.textContent='No se encontró la expedición de la cotización.';return;}
+      preparedQuote={id:q.id,expedition_id:q.expedition_id,prospect_id:q.prospect_id||null,travelers:q.travelers,unit_price_mxn:q.unit_price_mxn};
       document.querySelector('#bExpedition').value=q.expedition_id;
       const prospectSelect=document.querySelector('#bProspect');
       prospectSelect.value=q.prospect_id&&bookingProspects.has(q.prospect_id)?q.prospect_id:'';
@@ -1285,7 +1306,7 @@
       syncBookingAgency();
       if(channel==='agency'&&prospect?.agency_id&&bookingAgencies.has(prospect.agency_id))document.querySelector('#bAgency').value=prospect.agency_id;
       updateBookingTotal();
-      bookingStatus.textContent='Reserva preparada desde la cotización. Revisa canal, agencia, viajeros, precio y estado. No se ha guardado ninguna reserva.';
+      bookingStatus.textContent='Reserva preparada y vinculada a su cotización. Revisa canal, agencia y estado. Si cambias viajeros, precio, prospecto o expedición, crea una nueva cotización. No se ha guardado ninguna reserva.';
       bookingForm.scrollIntoView({behavior:'smooth',block:'start'});
     }
     function restoreSavedQuote(q){
