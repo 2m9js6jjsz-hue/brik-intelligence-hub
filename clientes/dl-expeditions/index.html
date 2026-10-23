@@ -301,7 +301,32 @@
 <div class="table-wrap"><table class="dash-table"><thead><tr><th>Prospecto / referencia</th><th>Reservas</th><th>Viajeros reservados</th><th>Valor reservado (MXN)</th><th>Pagos asociados (MXN)</th><th>Saldo estimado (MXN)</th><th>Expediciones y estados</th></tr></thead><tbody id="clientRows"><tr><td colspan="7">Sin cargar</td></tr></tbody></table></div>
 <p class="hint">El saldo es una estimación operativa sobre reservas no canceladas; no es una conciliación bancaria. Los importes se basan en registros accesibles para tu usuario. No se permite editar desde esta vista.</p>
 </div></section>
-        <section class="page" data-section="cotizador"><div class="dash-panel"><div class="section-head"><h2>Cotizador de expediciones</h2><span class="pill">Calculadora funcional</span></div><p>Introduce importes de prueba. El cálculo se realiza en este dispositivo; no se guarda en Supabase.</p><form id="quoteForm" class="quote-form"><label>Nombre de la expedición<input id="qName" value="Guatemala · Expedición piloto" maxlength="100" required></label><label>Moneda<select id="qCurrency"><option value="USD">USD</option><option value="MXN">MXN</option></select></label><label>Viajeros estimados<input id="qTravelers" type="number" min="1" max="10000" step="1" value="15" required></label><label>Costos fijos del grupo<input id="qFixed" type="number" min="0" step="0.01" value="1500" required></label><label>Costos variables por viajero<input id="qVariable" type="number" min="0" step="0.01" value="350" required></label><label>Otros costos del grupo<input id="qOther" type="number" min="0" step="0.01" value="250" required></label><label>Margen objetivo sobre ventas (%)<input id="qMargin" type="number" min="0" max="95" step="0.1" value="25" required></label><label>Precio de venta por viajero (opcional, para comparar)<input id="qPrice" type="number" min="0" step="0.01" placeholder="Precio propuesto"></label><div class="quote-actions"><button type="submit">Calcular cotización</button><button id="printQuote" type="button" class="outline-btn">Imprimir / guardar PDF</button></div></form><div id="quoteResult" class="quote-result" aria-live="polite"></div><p class="hint">El margen se calcula sobre el precio de venta, no como recargo sobre el costo. Los cálculos no incluyen impuestos, comisiones de cobro ni contingencias a menos que los incluyas en los costos.</p></div></section>
+        <section class="page" data-section="cotizador">
+          <div class="dash-panel">
+            <div class="section-head"><h2>Cotizador BRIK · DL Expeditions</h2><span class="pill">MXN · Supabase</span></div>
+            <p>Selecciona una expedición y cotiza por viajero o por grupo. Los importes se calculan con los costos registrados para esa expedición; puedes ajustarlos antes de guardar.</p>
+            <form id="quoteForm" class="quote-form">
+              <label>Expedición *<select id="qExpedition" required><option value="">Seleccionar expedición</option></select></label>
+              <label>Modalidad *<select id="qType" required><option value="traveler">Por viajero</option><option value="group">Por grupo</option></select></label>
+              <label>Cantidad de viajeros *<input id="qTravelers" type="number" min="1" max="10000" step="1" value="1" required></label>
+              <label>Precio por viajero (MXN) *<input id="qPrice" type="number" min="0" step="0.01" required></label>
+              <label>Costo variable por viajero (MXN) *<input id="qVariable" type="number" min="0" step="0.01" required></label>
+              <label>Costos fijos del grupo (MXN) *<input id="qFixed" type="number" min="0" step="0.01" required></label>
+              <div class="quote-actions">
+                <button type="submit">Calcular cotización</button>
+                <button id="saveQuote" type="button">Guardar cotización</button>
+                <button id="printQuote" type="button" class="outline-btn">Imprimir / PDF</button>
+              </div>
+            </form>
+            <p id="quoteStatus" class="master-status" role="status"></p>
+            <div id="quoteResult" class="quote-result" aria-live="polite"></div>
+            <p class="hint">Resultado estimado = precio total − costo estimado. No equivale a utilidad final: valida impuestos, comisiones, contingencias y costos pendientes. La modalidad por grupo presenta el total del grupo, calculado con el precio unitario multiplicado por viajeros.</p>
+          </div>
+          <div class="dash-panel" style="margin-top:18px">
+            <div class="section-head"><h2>Historial de cotizaciones</h2><span id="quoteCount" class="pill">Sin cargar</span></div>
+            <div class="table-wrap"><table class="dash-table"><thead><tr><th>Fecha</th><th>Expedición</th><th>Modalidad</th><th>Viajeros</th><th>Precio total</th><th>Costo total</th><th>Resultado estimado</th><th>Estado</th></tr></thead><tbody id="quoteRows"><tr><td colspan="8">Abre el cotizador para consultar.</td></tr></tbody></table></div>
+          </div>
+        </section>
         <section class="page" data-section="reportes">
           <div class="dash-panel">
             <div class="section-head"><h2>Resultados por expedición</h2><span class="pill">MXN · Datos de Supabase</span></div>
@@ -1082,26 +1107,106 @@
       if(page==='expediciones'&&currentRole)loadExpeditionMaster();
       if(page==='finanzas'&&currentRole)loadFinances();
       if(page==='clientes'&&currentRole)loadClients();
+      if(page==='cotizador'&&currentRole)loadQuotes();
       if(page==='reportes'&&currentRole){loadReports();loadCommercial();loadChannels();loadProfitability();loadAlerts();}
       closeMenu();window.scrollTo({top:0,behavior:'instant'});
     }));
+    // Cotizador conectado a public.quotes; las políticas RLS determinan quién puede consultar y guardar.
     const qForm=document.querySelector('#quoteForm');
     const qResult=document.querySelector('#quoteResult');
+    const qStatus=document.querySelector('#quoteStatus');
+    const qSelect=document.querySelector('#qExpedition');
     const qVal=id=>Number(document.getElementById(id).value);
-    const qMoney=(v,c)=>new Intl.NumberFormat('es-MX',{style:'currency',currency:c,maximumFractionDigits:2}).format(v);
-    function quoteCard(label,value,note=''){return `<div class="dash-stat"><small>${label}</small><strong>${value}</strong><span>${note}</span></div>`;}
-    function calculateQuote(e){if(e)e.preventDefault();if(!qForm.reportValidity())return;
-      const n=qVal('qTravelers'),fixed=qVal('qFixed'),variable=qVal('qVariable'),other=qVal('qOther'),margin=qVal('qMargin')/100,currency=document.getElementById('qCurrency').value;
-      if(!Number.isInteger(n)||n<1||[fixed,variable,other,margin].some(v=>!Number.isFinite(v)||v<0)||margin>=1){qResult.textContent='Revisa los valores ingresados.';return;}
-      const total=fixed+other+variable*n,costUnit=total/n,suggested=costUnit/(1-margin),profit=(suggested-costUnit)*n;
-      const pRaw=document.getElementById('qPrice').value.trim(),p=pRaw===''?null:qVal('qPrice');
-      let result=quoteCard('Costo total del grupo',qMoney(total,currency),`${n} viajeros`)+quoteCard('Costo por viajero',qMoney(costUnit,currency))+quoteCard('Precio sugerido por viajero',qMoney(suggested,currency),`Margen objetivo ${(margin*100).toFixed(1)}%`)+quoteCard('Utilidad estimada del grupo',qMoney(profit,currency),'Si se venden todos los lugares al precio sugerido');
-      if(p!==null&&Number.isFinite(p)&&p>=0){const actualProfit=(p*n)-total;const actualMargin=p>0?(p-costUnit)/p*100:null;const contribution=p-variable;const breakEven=contribution>0?Math.ceil((fixed+other)/contribution):null;result+=quoteCard('Utilidad al precio propuesto',qMoney(actualProfit,currency))+quoteCard('Margen al precio propuesto',actualMargin===null?'No definido':actualMargin.toFixed(1)+'%')+quoteCard('Viajeros para equilibrio',breakEven===null?'No alcanzable':String(breakEven),breakEven>n?'Supera la capacidad indicada':'A ese precio y costos variables');}
-      qResult.innerHTML=result;
+    const qMoney=v=>mxn(v);
+    let quoteExpeditions=new Map();
+    function quoteCard(label,value,note=''){
+      const card=document.createElement('div');card.className='dash-stat';
+      const small=document.createElement('small');small.textContent=label;
+      const strong=document.createElement('strong');strong.textContent=value;
+      const span=document.createElement('span');span.textContent=note;
+      card.append(small,strong,span);return card;
     }
+    function quotePayload(){
+      if(!qForm.reportValidity())return null;
+      const expedition_id=qSelect.value,quote_type=document.querySelector('#qType').value;
+      const travelers=qVal('qTravelers'),unit_price_mxn=qVal('qPrice'),
+            variable_cost_per_traveler_mxn=qVal('qVariable'),fixed_cost_mxn=qVal('qFixed');
+      if(!quoteExpeditions.has(expedition_id)||!['traveler','group'].includes(quote_type)||
+         !Number.isInteger(travelers)||travelers<1||
+         [unit_price_mxn,variable_cost_per_traveler_mxn,fixed_cost_mxn].some(v=>!Number.isFinite(v)||v<0)){
+        qStatus.textContent='Revisa la expedición, la modalidad y los importes.';return null;
+      }
+      return {expedition_id,quote_type,travelers,unit_price_mxn,variable_cost_per_traveler_mxn,fixed_cost_mxn,status:'draft'};
+    }
+    function calculateQuote(event){
+      if(event)event.preventDefault();
+      const payload=quotePayload();if(!payload)return null;
+      const total=payload.travelers*payload.unit_price_mxn;
+      const cost=payload.travelers*payload.variable_cost_per_traveler_mxn+payload.fixed_cost_mxn;
+      const profit=total-cost,margin=total>0?profit/total*100:null;
+      qResult.replaceChildren(
+        quoteCard('Precio por viajero',qMoney(payload.unit_price_mxn)),
+        quoteCard('Cotización total',qMoney(total),`${payload.travelers} viajero(s) · ${payload.quote_type==='group'?'Grupo':'Por viajero'}`),
+        quoteCard('Costo total estimado',qMoney(cost)),
+        quoteCard('Resultado estimado',qMoney(profit),margin===null?'Margen no definido':`Margen estimado ${margin.toFixed(1)}%`)
+      );
+      return payload;
+    }
+    async function loadQuotes(){
+      qStatus.textContent='Consultando cotizaciones...';
+      document.querySelector('#saveQuote').hidden=currentRole!=='admin';
+      const [exps,quotes]=await Promise.all([
+        supabase.from('expeditions').select('id,name,capacity,public_price_mxn,provider_cost_per_traveler_mxn,coordinator_cost_mxn,fixed_allocated_mxn').order('name'),
+        supabase.from('quotes').select('id,expedition_id,quote_type,travelers,unit_price_mxn,total_price_mxn,total_cost_mxn,status,created_at').order('created_at',{ascending:false}).limit(500)
+      ]);
+      if(exps.error||quotes.error){qStatus.textContent='No se pudieron cargar cotizaciones: '+(exps.error||quotes.error).message+'. Revisa RLS.';return;}
+      quoteExpeditions=new Map((exps.data||[]).map(e=>[e.id,e]));
+      const previous=qSelect.value;
+      qSelect.replaceChildren(new Option('Seleccionar expedición',''));
+      for(const e of exps.data||[])qSelect.add(new Option(e.name,e.id));
+      if(quoteExpeditions.has(previous))qSelect.value=previous;
+      else if(exps.data?.length)qSelect.value=exps.data[0].id;
+      if(qSelect.value)syncQuoteExpedition();
+      const rows=document.querySelector('#quoteRows');rows.replaceChildren();
+      for(const q of quotes.data||[]){
+        const tr=document.createElement('tr');
+        [q.created_at?new Date(q.created_at).toLocaleDateString('es-MX'):'—',
+         quoteExpeditions.get(q.expedition_id)?.name||'Expedición no disponible',
+         q.quote_type==='group'?'Grupo':'Por viajero',q.travelers,qMoney(q.total_price_mxn),
+         qMoney(q.total_cost_mxn),qMoney(Number(q.total_price_mxn)-Number(q.total_cost_mxn)),q.status]
+          .forEach(v=>putCell(tr,v));
+        rows.appendChild(tr);
+      }
+      if(!quotes.data?.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=8;td.textContent='Todavía no hay cotizaciones guardadas.';tr.appendChild(td);rows.appendChild(tr);}
+      document.querySelector('#quoteCount').textContent=quotes.data.length===500?'500 registros mostrados':`${quotes.data.length} cotización(es)`;
+      qStatus.textContent=currentRole==='admin'?'Cotizador listo para guardar en Supabase.':'Acceso de consulta: puedes calcular, pero no guardar.';
+    }
+    function syncQuoteExpedition(){
+      const e=quoteExpeditions.get(qSelect.value);if(!e)return;
+      document.querySelector('#qPrice').value=e.public_price_mxn??0;
+      document.querySelector('#qVariable').value=e.provider_cost_per_traveler_mxn??0;
+      document.querySelector('#qFixed').value=Number(e.coordinator_cost_mxn||0)+Number(e.fixed_allocated_mxn||0);
+      calculateQuote();
+    }
+    qSelect.addEventListener('change',syncQuoteExpedition);
+    ['qType','qTravelers','qPrice','qVariable','qFixed'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{if(qForm.checkValidity())calculateQuote();}));
     qForm.addEventListener('submit',calculateQuote);
-    document.querySelector('#printQuote').addEventListener('click',()=>{calculateQuote();if(qForm.checkValidity())window.print();});
-    calculateQuote();
+    document.querySelector('#saveQuote').addEventListener('click',async()=>{
+      if(currentRole!=='admin'){qStatus.textContent='No tienes permiso para guardar cotizaciones.';return;}
+      const payload=calculateQuote();if(!payload)return;
+      const button=document.querySelector('#saveQuote');button.disabled=true;qStatus.textContent='Guardando cotización...';
+      try{
+        const {error}=await supabase.from('quotes').insert(payload);
+        if(error)throw error;
+        await loadQuotes();
+        qStatus.textContent='Cotización guardada correctamente en Supabase.';
+      }catch(err){qStatus.textContent='No se pudo guardar: '+err.message+'. Verifica las políticas RLS.';}
+      finally{button.disabled=false;}
+    });
+    document.querySelector('#printQuote').addEventListener('click',()=>{
+      if(!calculateQuote())return;
+      window.print();
+    });
 
     // Si el enlace expiró, Supabase devuelve el error en la URL.
     const params = new URLSearchParams(window.location.hash.slice(1));
