@@ -152,7 +152,15 @@
       #clientQuotePrint .print-total strong{font-size:25px}
       #clientQuotePrint .print-footer{margin-top:45px;line-height:1.6}
     }
-  </style>
+  
+    .quote-mobile-cards{display:none}
+    .quote-mobile-card{border:1px solid #e0e1dd;border-radius:15px;padding:16px;margin:12px 0;background:#fff}
+    .quote-mobile-card h3{margin:0 0 8px;font-size:17px;color:#17252c}
+    .quote-mobile-card p{margin:5px 0;color:#4d5b60;font-size:14px}
+    .quote-mobile-card .quote-card-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .quote-mobile-card .quote-card-actions button{width:auto;padding:10px 13px;margin:0;font-size:13px}
+    @media(max-width:650px){.quote-mobile-cards{display:block}.quote-desktop-table{display:none}}
+</style>
 </head>
 <body>
   <main class="card">
@@ -346,7 +354,7 @@
           </div>
           <div class="dash-panel" id="quoteHistoryPanel" style="margin-top:18px">
             <div class="section-head"><h2>Historial de cotizaciones</h2><span id="quoteCount" class="pill">Sin cargar</span></div>
-            <div class="table-wrap"><table class="dash-table"><thead><tr><th>Fecha</th><th>Prospecto</th><th>Expedición</th><th>Modalidad</th><th>Viajeros</th><th>Precio total</th><th>Costo total</th><th>Resultado estimado</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="quoteRows"><tr><td colspan="10">Abre el cotizador para consultar.</td></tr></tbody></table></div>
+            <div id="quoteMobileCards" class="quote-mobile-cards" aria-label="Cotizaciones guardadas"></div><div class="table-wrap quote-desktop-table"><table class="dash-table"><thead><tr><th>Fecha</th><th>Prospecto</th><th>Expedición</th><th>Modalidad</th><th>Viajeros</th><th>Precio total</th><th>Costo total</th><th>Resultado estimado</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="quoteRows"><tr><td colspan="10">Abre el cotizador para consultar.</td></tr></tbody></table></div>
           </div>
           <article id="clientQuotePrint" hidden aria-label="Cotización para el cliente">
             <div class="print-brand">DL EXPEDITIONS</div>
@@ -1223,6 +1231,7 @@
       if(qSelect.value)syncQuoteExpedition();
       else syncQuoteProspects();
       const rows=document.querySelector('#quoteRows');rows.replaceChildren();
+      const mobileCards=document.querySelector('#quoteMobileCards');mobileCards.replaceChildren();
       for(const q of quotes.data||[]){
         const tr=document.createElement('tr');
         [q.created_at?new Date(q.created_at).toLocaleDateString('es-MX'):'—',
@@ -1238,10 +1247,46 @@
         pdf.addEventListener('click',()=>printSavedQuote(q));
         actions.append(view,document.createTextNode(' '),pdf);tr.appendChild(actions);
         rows.appendChild(tr);
+        const card=document.createElement('article');card.className='quote-mobile-card';
+        const heading=document.createElement('h3');heading.textContent=quoteExpeditions.get(q.expedition_id)?.name||'Expedición';card.appendChild(heading);
+        const prospectName=q.prospect_id?(quoteProspects.find(p=>p.id===q.prospect_id)?.alias||'Prospecto no disponible'):'Sin prospecto asociado';
+        for(const [label,value] of [['Prospecto',prospectName],['Fecha',q.created_at?new Date(q.created_at).toLocaleDateString('es-MX'):'—'],['Modalidad',q.quote_type==='group'?'Grupo':'Por viajero'],['Viajeros',String(q.travelers)],['Precio total',qMoney(q.total_price_mxn)],['Estado',q.status]]){
+          const line=document.createElement('p');const bold=document.createElement('strong');bold.textContent=label+': ';line.append(bold,document.createTextNode(value));card.appendChild(line);
+        }
+        const cardActions=document.createElement('div');cardActions.className='quote-card-actions';
+        const loadButton=document.createElement('button');loadButton.type='button';loadButton.textContent='Cargar';loadButton.addEventListener('click',()=>restoreSavedQuote(q));
+        const pdfButton=document.createElement('button');pdfButton.type='button';pdfButton.textContent='PDF';pdfButton.addEventListener('click',()=>printSavedQuote(q));
+        const reserveButton=document.createElement('button');reserveButton.type='button';reserveButton.textContent='Preparar reserva';reserveButton.addEventListener('click',()=>prepareBookingFromQuote(q));
+        cardActions.append(loadButton,pdfButton,reserveButton);card.appendChild(cardActions);mobileCards.appendChild(card);
+        const desktopReserve=document.createElement('button');desktopReserve.type='button';desktopReserve.className='outline-btn';desktopReserve.textContent='Preparar reserva';desktopReserve.addEventListener('click',()=>prepareBookingFromQuote(q));actions.append(document.createTextNode(' '),desktopReserve);
       }
       if(!quotes.data?.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=10;td.textContent='Todavía no hay cotizaciones guardadas.';tr.appendChild(td);rows.appendChild(tr);}
       document.querySelector('#quoteCount').textContent=quotes.data.length===500?'500 registros mostrados':`${quotes.data.length} cotización(es)`;
       qStatus.textContent=currentRole==='admin'?'Cotizador listo para guardar en Supabase.':'Acceso de consulta: puedes calcular, pero no guardar.';
+    }
+    async function prepareBookingFromQuote(q){
+      if(currentRole!=='admin'){qStatus.textContent='Solo administración puede preparar reservas.';return;}
+      if(q.status==='rejected'||q.status==='expired'){qStatus.textContent='Esta cotización está rechazada o vencida. Revísala antes de preparar una reserva.';return;}
+      const confirmed=window.confirm('Se abrirá el formulario de reservas con los datos de esta cotización. NO se guardará una reserva hasta que revises y pulses Guardar reserva. ¿Continuar?');
+      if(!confirmed)return;
+      const nav=document.querySelector('.dash-nav[data-page="reservas"]');
+      if(nav)nav.click();
+      await loadBookings();
+      if(!bookingExpeditions.has(q.expedition_id)){bookingStatus.textContent='No se encontró la expedición de la cotización.';return;}
+      document.querySelector('#bExpedition').value=q.expedition_id;
+      const prospectSelect=document.querySelector('#bProspect');
+      prospectSelect.value=q.prospect_id&&bookingProspects.has(q.prospect_id)?q.prospect_id:'';
+      document.querySelector('#bTravelers').value=q.travelers;
+      document.querySelector('#bPrice').value=q.unit_price_mxn;
+      document.querySelector('#bStatus').value='pending';
+      const prospect=bookingProspects.get(q.prospect_id);
+      const channel=prospect?.channel==='agency'?'agency':'direct';
+      document.querySelector('#bChannel').value=channel;
+      syncBookingAgency();
+      if(channel==='agency'&&prospect?.agency_id&&bookingAgencies.has(prospect.agency_id))document.querySelector('#bAgency').value=prospect.agency_id;
+      updateBookingTotal();
+      bookingStatus.textContent='Reserva preparada desde la cotización. Revisa canal, agencia, viajeros, precio y estado. No se ha guardado ninguna reserva.';
+      bookingForm.scrollIntoView({behavior:'smooth',block:'start'});
     }
     function restoreSavedQuote(q){
       qSelect.value=q.expedition_id;
