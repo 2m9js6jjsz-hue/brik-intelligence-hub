@@ -131,6 +131,27 @@
     @media print{body.logged-in .dash-top,body.logged-in .dash-side,body.logged-in .dash-demo,body.logged-in .dash-head,body.logged-in .dash-foot,body.logged-in .quote-form,body.logged-in .hint,body.logged-in .nav-shade{display:none!important}body.logged-in .dash-layout{display:block}body.logged-in .dash-content{padding:0}.page{display:none!important}.page[data-section="cotizador"]{display:block!important}.quote-result{display:grid;grid-template-columns:1fr 1fr}.dash-panel{box-shadow:none;border:0}.quote-result .dash-stat{break-inside:avoid}}
 
 .monthly-chart{overflow-x:auto}.monthly-legend{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 16px;font-size:12px;color:#64747a}.monthly-key{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px}.monthly-grid{display:grid;grid-template-columns:repeat(12,minmax(33px,1fr));gap:7px;min-width:470px;align-items:end}.monthly-month{text-align:center;font-size:10px;color:#68767d}.monthly-pair{height:165px;display:flex;align-items:end;justify-content:center;gap:3px;border-bottom:1px solid #d8dfdf}.monthly-pair span{display:block;width:37%;min-height:0;border-radius:4px 4px 0 0}.monthly-total{font-size:10px;text-align:center;color:#68767d;margin-top:8px}.dash-stat strong{overflow-wrap:anywhere}
+
+    #clientQuotePrint{display:none}
+    @media print{
+      @page{size:A4;margin:18mm}
+      body.logged-in{background:white!important;color:#18262b!important}
+      body.logged-in .dash-top,body.logged-in .dash-side,body.logged-in .dash-demo,body.logged-in .dash-head,body.logged-in .dash-foot,body.logged-in #message{display:none!important}
+      body.logged-in .dash-layout{display:block!important;min-height:0!important}
+      body.logged-in .dash-content{max-width:none!important;margin:0!important;padding:0!important}
+      body.logged-in .page{display:none!important}
+      body.logged-in .page[data-section="cotizador"]{display:block!important}
+      body.logged-in .page[data-section="cotizador"] > .dash-panel{display:none!important}
+      #clientQuotePrint{display:block!important;font-family:Arial,sans-serif;color:#18262b;padding:10px 0}
+      #clientQuotePrint .print-brand{color:#d97745;letter-spacing:3px;font-weight:800;font-size:16px;margin-bottom:30px}
+      #clientQuotePrint h1{font-size:30px;margin:0 0 15px}
+      #clientQuotePrint h2{font-size:23px;margin:30px 0 25px}
+      #clientQuotePrint p{font-size:13px;color:#65747b}
+      #clientQuotePrint .print-detail{display:flex;justify-content:space-between;border-bottom:1px solid #dfe3e3;padding:15px 0;font-size:15px}
+      #clientQuotePrint .print-total{display:flex;justify-content:space-between;align-items:center;margin-top:28px;padding:20px;background:#fff2e9!important;border:1px solid #edc6ac;font-size:18px;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+      #clientQuotePrint .print-total strong{font-size:25px}
+      #clientQuotePrint .print-footer{margin-top:45px;line-height:1.6}
+    }
   </style>
 </head>
 <body>
@@ -322,10 +343,21 @@
             <div id="quoteResult" class="quote-result" aria-live="polite"></div>
             <p class="hint">Resultado estimado = precio total − costo estimado. No equivale a utilidad final: valida impuestos, comisiones, contingencias y costos pendientes. La modalidad por grupo presenta el total del grupo, calculado con el precio unitario multiplicado por viajeros.</p>
           </div>
-          <div class="dash-panel" style="margin-top:18px">
+          <div class="dash-panel" id="quoteHistoryPanel" style="margin-top:18px">
             <div class="section-head"><h2>Historial de cotizaciones</h2><span id="quoteCount" class="pill">Sin cargar</span></div>
             <div class="table-wrap"><table class="dash-table"><thead><tr><th>Fecha</th><th>Expedición</th><th>Modalidad</th><th>Viajeros</th><th>Precio total</th><th>Costo total</th><th>Resultado estimado</th><th>Estado</th></tr></thead><tbody id="quoteRows"><tr><td colspan="8">Abre el cotizador para consultar.</td></tr></tbody></table></div>
           </div>
+          <article id="clientQuotePrint" hidden aria-label="Cotización para el cliente">
+            <div class="print-brand">DL EXPEDITIONS</div>
+            <h1>Cotización de expedición</h1>
+            <p>Fecha: <span id="printDate"></span></p>
+            <h2 id="printExpedition"></h2>
+            <div class="print-detail"><span>Modalidad</span><strong id="printType"></strong></div>
+            <div class="print-detail"><span>Cantidad de viajeros</span><strong id="printTravelers"></strong></div>
+            <div class="print-detail"><span>Precio por viajero</span><strong id="printUnit"></strong></div>
+            <div class="print-total"><span>Precio total de la cotización</span><strong id="printTotal"></strong></div>
+            <p class="print-footer">Importes expresados en pesos mexicanos (MXN). Cotización informativa, sujeta a confirmación de disponibilidad y condiciones de contratación.</p>
+          </article>
         </section>
         <section class="page" data-section="reportes">
           <div class="dash-panel">
@@ -1155,6 +1187,7 @@
     async function loadQuotes(){
       qStatus.textContent='Consultando cotizaciones...';
       document.querySelector('#saveQuote').hidden=currentRole!=='admin';
+      document.querySelector('#quoteHistoryPanel').hidden=currentRole!=='admin';
       const [exps,quotes]=await Promise.all([
         supabase.from('expeditions').select('id,name,capacity,public_price_mxn,provider_cost_per_traveler_mxn,coordinator_cost_mxn,fixed_allocated_mxn').order('name'),
         supabase.from('quotes').select('id,expedition_id,quote_type,travelers,unit_price_mxn,total_price_mxn,total_cost_mxn,status,created_at').order('created_at',{ascending:false}).limit(500)
@@ -1205,6 +1238,14 @@
     });
     document.querySelector('#printQuote').addEventListener('click',()=>{
       if(!calculateQuote())return;
+      const payload=quotePayload();
+      if(!payload)return;
+      document.querySelector('#printDate').textContent=new Date().toLocaleDateString('es-MX');
+      document.querySelector('#printExpedition').textContent=quoteExpeditions.get(payload.expedition_id)?.name||'';
+      document.querySelector('#printType').textContent=payload.quote_type==='group'?'Por grupo':'Por viajero';
+      document.querySelector('#printTravelers').textContent=String(payload.travelers);
+      document.querySelector('#printUnit').textContent=qMoney(payload.unit_price_mxn);
+      document.querySelector('#printTotal').textContent=qMoney(payload.travelers*payload.unit_price_mxn);
       window.print();
     });
 
