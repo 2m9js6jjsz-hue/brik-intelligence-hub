@@ -98,6 +98,20 @@
     .brand-wrap{display:flex;align-items:center;gap:12px}.menu-toggle{display:none!important;width:42px!important;min-width:42px;margin:0!important;background:#17252c!important;color:#fff!important;padding:9px!important}
     .dash-nav{cursor:pointer}.dash-nav:focus-visible,.menu-toggle:focus-visible{outline:3px solid #f19761;outline-offset:2px}
     .page{display:none}.page.active{display:block}.nav-note{padding:20px 12px;font-size:11px;line-height:1.5;color:#9daeb2}.pill{display:inline-block;background:#fff3e9;border:1px solid #f4d1b7;color:#94552f;padding:7px 10px;border-radius:99px;font-size:11px;font-weight:700}
+
+    /* Expediciones: tarjetas legibles en móvil, sin desplazamiento horizontal */
+    .exp-mobile-list{display:none}
+    @media(max-width:650px){
+      #expMasterTableWrap{display:none}
+      .exp-mobile-list{display:grid;gap:14px;margin-top:16px}
+      .exp-mobile-card{border:1px solid #e3e0db;border-radius:16px;padding:17px;background:#fff;min-width:0;overflow-wrap:anywhere}
+      .exp-mobile-card h3{font-size:19px;line-height:1.35;margin:0 0 14px;color:#17252c}
+      .exp-mobile-details{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 12px}
+      .exp-mobile-field{min-width:0}
+      .exp-mobile-field small{display:block;color:#68767d;font-size:12px;margin-bottom:4px}
+      .exp-mobile-field strong{display:block;font-size:15px;line-height:1.4;overflow-wrap:anywhere}
+      .exp-mobile-card button{margin-top:16px;width:100%;background:#fff;color:#17252c;border:1px solid #ef915d}
+    }
     .section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.section-head h2{margin-bottom:10px}.table-wrap{overflow-x:auto}.empty-state{padding:35px 15px;text-align:center;background:#f6f5f2;border:1px dashed #cbd1d0;border-radius:12px;color:#64747a;font-size:14px}.hint{font-size:12px!important;color:#69777d!important}
     .quote-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 18px;margin:18px 0}.quote-form label{font-size:12px;font-weight:700;color:#33464d;margin:0}.quote-form input,.quote-form select{width:100%;margin-top:7px;padding:12px;border:1px solid #cfd7d8;border-radius:9px;background:white;color:#17252c;font-size:14px}.quote-actions{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap}.quote-actions button{width:auto;margin:0;padding:12px 17px}.quote-actions .outline-btn{background:white;color:#17252c;border:1px solid #8d9a9d}.quote-result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.quote-result .dash-stat strong{font-size:23px}.quote-result .full{grid-column:1/-1}.nav-shade{display:none}
     @media(max-width:650px){.menu-toggle{display:block!important}.dash-layout{display:block}.dash-side{position:fixed;top:0;left:0;bottom:0;width:min(82vw,300px);z-index:50;display:block!important;overflow-y:auto;overflow-x:hidden;transform:translateX(-105%);transition:transform .2s ease;padding:30px 14px;box-shadow:5px 0 22px #0002}.dash-side.open{transform:translateX(0)}.dash-side h3{display:block}.dash-nav{width:100%;margin:5px 0;padding:14px 12px;font-size:14px}.nav-shade:not([hidden]){display:block;position:fixed;inset:0;background:#0009;z-index:49}.dash-top{position:relative;z-index:1}.dash-brand{font-size:22px}.dash-user{gap:6px}.dash-user span{display:none}.quote-form{grid-template-columns:1fr}.quote-result{grid-template-columns:1fr}.quote-result .full{grid-column:auto}.dash-content{padding:19px 14px}}
@@ -255,7 +269,7 @@
             <button id="eSave" type="submit">Guardar expedición</button><button id="eCancelEdit" type="button" hidden style="background:#fff;color:#17252c;border:1px solid #ef915d">Cancelar edición</button>
           </form>
           <p id="expMasterStatus" class="master-status" role="status"></p>
-          <div class="table-wrap"><table class="dash-table"><thead><tr><th>Expedición</th><th>Salida</th><th>Regreso</th><th>Capacidad</th><th>Mínimo</th><th>Precio público</th><th>Acciones</th></tr></thead><tbody id="expMasterRows"><tr><td colspan="6">Abre esta sección para consultar expediciones.</td></tr></tbody></table></div>
+          <div id="expMasterMobileList" class="exp-mobile-list" aria-label="Expediciones registradas"></div><div id="expMasterTableWrap" class="table-wrap"><table class="dash-table"><thead><tr><th>Expedición</th><th>Salida</th><th>Regreso</th><th>Capacidad</th><th>Mínimo</th><th>Precio público</th><th>Acciones</th></tr></thead><tbody id="expMasterRows"><tr><td colspan="6">Abre esta sección para consultar expediciones.</td></tr></tbody></table></div>
           <p class="hint">Puedes crear o editar expediciones. Los cambios en precios y costos afectan cotizaciones futuras; las cotizaciones guardadas conservan sus importes.</p>
         </div></section>
         <section class="page" data-section="prospectos"><div class="dash-panel">
@@ -1117,7 +1131,7 @@
       const {data,error}=await supabase.from('agencies').select('id,name,contact_name,created_at').order('name').limit(500);
       if(error){status.textContent='No fue posible consultar agencias: '+error.message;return;}
       rows.replaceChildren();for(const a of data||[]){const tr=document.createElement('tr');for(const v of [a.name,a.contact_name||'—',a.created_at?new Date(a.created_at).toLocaleDateString('es-MX'):'—'])putCell(tr,v);rows.appendChild(tr);}
-      if(!data?.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=3;td.textContent='Todavía no hay agencias registradas.';tr.appendChild(td);rows.appendChild(tr);}
+      if(!data?.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent='Todavía no hay expediciones registradas.';mobileList.appendChild(empty);const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=3;td.textContent='Todavía no hay agencias registradas.';tr.appendChild(td);rows.appendChild(tr);}
       document.getElementById('agencyMasterCount').textContent=data.length===500?'500 mostradas':data.length+' agencia(s)';
       status.textContent=currentRole==='admin'?'Puedes registrar agencias.':'Acceso de consulta.';
     }
@@ -1180,7 +1194,25 @@
       const {data,error}=await supabase.from('expeditions').select('id,name,departure_date,return_date,capacity,min_travelers,public_price_mxn').order('departure_date',{ascending:false}).limit(500);
       if(error){status.textContent='No fue posible consultar expediciones: '+error.message;return;}
       rows.replaceChildren();
+      const mobileList=document.getElementById('expMasterMobileList');
+      mobileList.replaceChildren();
       for(const e of data||[]){
+        const card=document.createElement('article');card.className='exp-mobile-card';
+        const heading=document.createElement('h3');heading.textContent=e.name;card.appendChild(heading);
+        const details=document.createElement('div');details.className='exp-mobile-details';
+        for(const [label,val] of [['Salida',e.departure_date],['Regreso',e.return_date],['Capacidad',e.capacity+' viajeros'],['Mínimo',e.min_travelers+' viajeros'],['Precio público',mxn(e.public_price_mxn)]]){
+          const field=document.createElement('div');field.className='exp-mobile-field';
+          const small=document.createElement('small');small.textContent=label;
+          const strong=document.createElement('strong');strong.textContent=val??'—';
+          field.append(small,strong);details.appendChild(field);
+        }
+        card.appendChild(details);
+        if(currentRole==='admin'){
+          const edit=document.createElement('button');edit.type='button';edit.textContent='Editar expedición';
+          edit.addEventListener('click',()=>editExpedition(e.id));card.appendChild(edit);
+        }
+        mobileList.appendChild(card);
+
         const tr=document.createElement('tr');
         for(const v of [e.name,e.departure_date,e.return_date,e.capacity,e.min_travelers,mxn(e.public_price_mxn)])putCell(tr,v);
         const td=document.createElement('td');
