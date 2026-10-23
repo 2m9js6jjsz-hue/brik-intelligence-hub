@@ -299,15 +299,23 @@
         </div></section>
         <section class="page" data-section="reservas"><div class="dash-panel">
           <div class="section-head"><h2>Reservas por expedición</h2><span id="bookingCount" class="pill">Cargando...</span></div>
-          <p>Registra y consulta reservas reales de DL Expeditions. Los importes se expresan en pesos mexicanos (MXN). Las reservas no registran pagos automáticamente.</p>
+          <p>Registra y consulta reservas reales de DL Expeditions. Los importes se expresan en pesos mexicanos (MXN). Si seleccionas «Con anticipo», podrás registrar el importe recibido y su forma de pago en la misma operación.</p>
           <form id="bookingForm" class="booking-form" hidden>
             <label>Expedición *<select id="bExpedition" required><option value="">Seleccionar expedición</option></select></label>
             <label>Prospecto asociado (opcional)<select id="bProspect"><option value="">Sin prospecto asociado</option></select></label>
             <label>Canal de venta *<select id="bChannel" required><option value="direct">Venta directa</option><option value="agency">Agencia</option></select></label>
             <label id="bAgencyWrap" hidden>Agencia *<select id="bAgency"><option value="">Seleccionar agencia</option></select></label>
             <label>Cantidad de viajeros *<input id="bTravelers" type="number" min="1" max="10000" step="1" value="1" required></label>
-            <label>Precio por viajero (MXN) *<input id="bPrice" type="number" min="0" step="0.01" value="0" required></label>
+            <label>Precio por viajero (MXN) · definido en Expediciones<input id="bPrice" type="number" min="0" step="0.01" value="" readonly required style="background:#f4f5f6;color:#334155;cursor:not-allowed"></label>
             <label>Estado *<select id="bStatus" required><option value="pending">Pendiente</option><option value="deposit">Con anticipo</option><option value="confirmed">Confirmada</option><option value="cancelled">Cancelada</option></select></label>
+            <div id="bDepositWrap" hidden style="border:1px solid #ef915d;border-radius:14px;padding:16px;margin:14px 0">
+              <h3 style="margin:0 0 8px">Registrar anticipo</h3>
+              <p class="hint">El anticipo se registrará como pago asociado a esta reserva. No lo vuelvas a ingresar en Finanzas.</p>
+              <label>Monto recibido (MXN)<input id="bDepositAmount" type="number" min="0.01" step="0.01" placeholder="Ej. 5000"></label>
+              <label>Forma de pago<select id="bDepositMethod"><option value="transfer">Depósito / transferencia bancaria</option><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
+              <label>Fecha del pago<input id="bDepositDate" type="date"></label>
+              <p id="bDepositHint" class="hint"></p>
+            </div>
             <div class="booking-summary">Total estimado de la reserva: <strong id="bTotal">$0.00 MXN</strong></div>
             <button id="saveBooking" type="submit">Guardar reserva</button><button id="cancelBookingEdit" type="button" hidden style="background:#fff;color:#17252c;border:1px solid #ef915d">Cancelar edición</button>
           </form>
@@ -735,11 +743,27 @@
       const agencyWrap=document.querySelector('#bAgencyWrap');
       if(p?.channel==='agencia')bookingStatus.textContent='Este prospecto viene de una agencia. Selecciona la agencia correspondiente.';
     }
+    function syncDepositFields(){
+      const show=document.querySelector('#bStatus').value==='deposit';
+      const wrap=document.querySelector('#bDepositWrap');wrap.hidden=!show;
+      const amt=document.querySelector('#bDepositAmount');
+      amt.required=show&&!editingBookingId;
+      document.querySelector('#bDepositMethod').required=show;
+      document.querySelector('#bDepositDate').required=show&&!editingBookingId;
+      document.querySelector('#bDepositHint').textContent=editingBookingId?'Si ya registraste el anticipo, deja el monto vacío. Ingresa un monto únicamente para registrar un pago adicional.':'Indica el monto realmente recibido; no se registra un pago solo por elegir el estado.';
+      if(show&&!document.querySelector('#bDepositDate').value)document.querySelector('#bDepositDate').value=new Date().toLocaleDateString('en-CA');
+    }
+    function syncBookingPrice(){
+      const e=bookingExpeditions.get(document.querySelector('#bExpedition').value);
+      document.querySelector('#bPrice').value=e&&Number.isFinite(Number(e.public_price_mxn))?e.public_price_mxn:'';
+      updateBookingTotal();
+    }
     function resetBookingEditor(){
       editingBookingId=null;preparedQuote=null;bookingForm.reset();
       document.querySelector('#saveBooking').textContent='Guardar reserva';
       document.querySelector('#cancelBookingEdit').hidden=true;
-      syncBookingProspect();updateBookingTotal();
+      syncBookingProspect();syncBookingPrice();syncDepositFields();
+      document.querySelector('#bDepositAmount').value='';
     }
     function editBooking(id){
       const b=bookingRecords.get(id);if(!b||currentRole!=='admin')return;
@@ -752,8 +776,9 @@
       syncBookingAgency();
       document.querySelector('#bAgency').value=b.agency_id||'';
       document.querySelector('#bTravelers').value=b.travelers;
-      document.querySelector('#bPrice').value=b.unit_price_mxn;
+      syncBookingPrice();
       document.querySelector('#bStatus').value=b.status;
+      document.querySelector('#bDepositAmount').value='';syncDepositFields();
       document.querySelector('#saveBooking').textContent='Guardar cambios';
       document.querySelector('#cancelBookingEdit').hidden=false;
       updateBookingTotal();
@@ -764,11 +789,10 @@
     document.querySelector('#bProspect').addEventListener('change',syncBookingChannelFromProspect);
     document.querySelector('#bChannel').addEventListener('change',syncBookingAgency);
     document.querySelector('#bTravelers').addEventListener('input',updateBookingTotal);
-    document.querySelector('#bPrice').addEventListener('input',updateBookingTotal);
+    document.querySelector('#bStatus').addEventListener('change',syncDepositFields);
     document.querySelector('#bExpedition').addEventListener('change',()=>{
       const e=bookingExpeditions.get(document.querySelector('#bExpedition').value);
-      if(e&&Number(e.public_price_mxn)>0)document.querySelector('#bPrice').value=e.public_price_mxn;
-      syncBookingProspect();updateBookingTotal();
+      syncBookingPrice();syncBookingProspect();
     });
     async function loadBookings(){
       bookingForm.hidden=currentRole!=='admin';
@@ -822,7 +846,7 @@
       document.querySelector('#homeBookings').textContent=String(records.filter(x=>x.status==='confirmed').length)+(records.length===500?'+':'');
       document.querySelector('#homeBookingsNote').textContent=records.length===500?'Confirmadas entre 500 registros':'Reservas confirmadas · Supabase';
       bookingStatus.textContent=currentRole==='admin'?'Puedes registrar nuevas reservas.':'Acceso de consulta: no puedes registrar reservas.';
-      syncBookingProspect();updateBookingTotal();
+      syncBookingProspect();syncBookingPrice();syncDepositFields();
     }
     bookingForm.addEventListener('submit',async event=>{
       event.preventDefault();
@@ -833,8 +857,9 @@
       const channel=document.querySelector('#bChannel').value;
       const agencyId=document.querySelector('#bAgency').value;
       const travelers=Number(document.querySelector('#bTravelers').value);
-      const price=Number(document.querySelector('#bPrice').value);
-      if(!bookingExpeditions.has(expId)||!Number.isInteger(travelers)||travelers<1||!Number.isFinite(price)||price<0){bookingStatus.textContent='Revisa la expedición, cantidad de viajeros y precio.';return;}
+      const expPrice=bookingExpeditions.get(expId)?.public_price_mxn;
+      const price=Number(expPrice);
+      if(!bookingExpeditions.has(expId)||!Number.isInteger(travelers)||travelers<1||expPrice==null||!Number.isFinite(price)||price<=0){bookingStatus.textContent='La expedición debe tener un precio público mayor a cero. Configúralo en Expediciones.';return;}
       if(channel==='agency'&&!bookingAgencies.has(agencyId)){bookingStatus.textContent='Selecciona una agencia registrada.';return;}
       if(prospectId&&!bookingProspects.has(prospectId)){bookingStatus.textContent='Selecciona un prospecto válido.';return;}
       if(prospectId&&bookingProspects.get(prospectId).expedition_id!==expId){bookingStatus.textContent='El prospecto seleccionado pertenece a otra expedición.';return;}
@@ -850,6 +875,15 @@
           return;
         }
       }
+      const wantsDeposit=document.querySelector('#bStatus').value==='deposit';
+      const depositRaw=document.querySelector('#bDepositAmount').value.trim();
+      const depositAmount=depositRaw===''?0:Number(depositRaw);
+      const depositDate=document.querySelector('#bDepositDate').value;
+      const depositMethod=document.querySelector('#bDepositMethod').value;
+      if(wantsDeposit&&(!editingBookingId&&depositAmount<=0||depositRaw!==''&&(!Number.isFinite(depositAmount)||depositAmount<=0)||depositAmount>0&&!depositDate)){
+        bookingStatus.textContent='Para registrar el anticipo, ingresa un monto válido y la fecha del pago.';return;
+      }
+      if(wantsDeposit&&depositAmount>travelers*price){bookingStatus.textContent='El anticipo supera el total de la reserva.';return;}
       const payload={expedition_id:expId,prospect_id:prospectId||null,channel,agency_id:channel==='agency'?agencyId:null,travelers,unit_price_mxn:price,status:document.querySelector('#bStatus').value,is_test:true};
       if(preparedQuote&&!editingBookingId)payload.quote_id=preparedQuote.id;
       const button=document.querySelector('#saveBooking');button.disabled=true;
@@ -865,9 +899,20 @@
           ? await supabase.from('bookings').update(payload).eq('id',editingBookingId).select('id').single()
           : await supabase.from('bookings').insert(payload).select('id').single();
         if(result.error)throw result.error;
+        const savedId=result.data.id;
+        editingBookingId=savedId; // Si el pago falla, reintentar actualizará la reserva, no creará otra.
+        if(wantsDeposit&&depositAmount>0){
+          const {data:existingPayments,error:paymentReadError}=await supabase.from('payments').select('amount_mxn').eq('booking_id',savedId);
+          if(paymentReadError)throw new Error('Reserva guardada, pero no se pudo consultar el saldo antes de registrar el anticipo: '+paymentReadError.message);
+          const alreadyPaid=(existingPayments||[]).reduce((a,p)=>a+Number(p.amount_mxn||0),0);
+          if(depositAmount>Math.round((travelers*price-alreadyPaid)*100)/100)throw new Error('Reserva guardada. El anticipo supera el saldo pendiente de '+mxn(Math.max(0,travelers*price-alreadyPaid))+'. No se registró otro pago.');
+          const {error:paymentError}=await supabase.from('payments').insert({booking_id:savedId,amount_mxn:depositAmount,payment_method:depositMethod,paid_at:new Date(depositDate+'T12:00:00').toISOString()});
+          if(paymentError)throw new Error('Reserva guardada, pero el anticipo NO se registró: '+paymentError.message+'. Verifica Pagos antes de reintentar.');
+        }
         resetBookingEditor();
         await loadBookings();
-        bookingStatus.textContent=wasEditing?'Reserva actualizada correctamente en Supabase.':'Reserva guardada correctamente en Supabase.';
+        if(wantsDeposit&&depositAmount>0)await loadFinances();
+        bookingStatus.textContent=wantsDeposit&&depositAmount>0?'Reserva y anticipo registrados correctamente en Supabase.':wasEditing?'Reserva actualizada correctamente en Supabase.':'Reserva guardada correctamente en Supabase.';
       }catch(err){if(err?.code==='23505')bookingStatus.textContent='Esta cotización ya tiene una reserva registrada. No se creó otra.';else bookingError(err);}finally{button.disabled=false;}
     });
 
@@ -1712,7 +1757,7 @@
       const prospectSelect=document.querySelector('#bProspect');
       prospectSelect.value=q.prospect_id&&bookingProspects.has(q.prospect_id)?q.prospect_id:'';
       document.querySelector('#bTravelers').value=q.travelers;
-      document.querySelector('#bPrice').value=q.unit_price_mxn;
+      syncBookingPrice();
       document.querySelector('#bStatus').value='pending';
       const channel=q.channel==='agency'?'agency':'direct';
       document.querySelector('#bChannel').value=channel;
