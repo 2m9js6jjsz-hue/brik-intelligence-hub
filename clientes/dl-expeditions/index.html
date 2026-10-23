@@ -101,6 +101,7 @@
     .section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.section-head h2{margin-bottom:10px}.table-wrap{overflow-x:auto}.empty-state{padding:35px 15px;text-align:center;background:#f6f5f2;border:1px dashed #cbd1d0;border-radius:12px;color:#64747a;font-size:14px}.hint{font-size:12px!important;color:#69777d!important}
     .quote-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 18px;margin:18px 0}.quote-form label{font-size:12px;font-weight:700;color:#33464d;margin:0}.quote-form input,.quote-form select{width:100%;margin-top:7px;padding:12px;border:1px solid #cfd7d8;border-radius:9px;background:white;color:#17252c;font-size:14px}.quote-actions{grid-column:1/-1;display:flex;gap:10px;flex-wrap:wrap}.quote-actions button{width:auto;margin:0;padding:12px 17px}.quote-actions .outline-btn{background:white;color:#17252c;border:1px solid #8d9a9d}.quote-result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.quote-result .dash-stat strong{font-size:23px}.quote-result .full{grid-column:1/-1}.nav-shade{display:none}
     @media(max-width:650px){.menu-toggle{display:block!important}.dash-layout{display:block}.dash-side{position:fixed;top:0;left:0;bottom:0;width:min(82vw,300px);z-index:50;display:block!important;overflow-y:auto;overflow-x:hidden;transform:translateX(-105%);transition:transform .2s ease;padding:30px 14px;box-shadow:5px 0 22px #0002}.dash-side.open{transform:translateX(0)}.dash-side h3{display:block}.dash-nav{width:100%;margin:5px 0;padding:14px 12px;font-size:14px}.nav-shade:not([hidden]){display:block;position:fixed;inset:0;background:#0009;z-index:49}.dash-top{position:relative;z-index:1}.dash-brand{font-size:22px}.dash-user{gap:6px}.dash-user span{display:none}.quote-form{grid-template-columns:1fr}.quote-result{grid-template-columns:1fr}.quote-result .full{grid-column:auto}.dash-content{padding:19px 14px}}
+    .quick-prospect-area{grid-column:1/-1}.quick-prospect-area>button{width:auto;padding:11px 15px;background:#fff;color:#17252c;border:1px solid #ef915d;border-radius:9px}.quick-prospect-area>div:not([hidden]){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px;padding:15px;background:#fff8f3;border:1px solid #f4d1b7;border-radius:12px}.quick-prospect-area>div>p,.quick-prospect-area .quote-actions{grid-column:1/-1}.quick-prospect-area label{display:block}.quick-prospect-area input,.quick-prospect-area select{width:100%;margin-top:7px;padding:12px;border:1px solid #cfd7d8;border-radius:9px;background:#fff;color:#17252c}@media(max-width:650px){.quick-prospect-area>div:not([hidden]){grid-template-columns:1fr}}
     .prospect-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin:16px 0 20px}
     .prospect-form label{margin:0;color:#33464d;font-weight:700;font-size:12px}
     .prospect-form input,.prospect-form select{width:100%;margin-top:6px;padding:12px;border:1px solid #cfd7d8;border-radius:9px;background:white;color:#17252c;font-size:14px}
@@ -337,6 +338,16 @@
             <form id="quoteForm" class="quote-form">
               <label>Expedición *<select id="qExpedition" required><option value="">Seleccionar expedición</option></select></label>
               <label>Prospecto asociado (opcional)<select id="qProspect"><option value="">Sin prospecto asociado</option></select></label>
+              <div id="qQuickProspectArea" class="quick-prospect-area">
+                <button type="button" id="qNewProspect" class="outline-btn">+ Crear nuevo prospecto</button>
+                <div id="qQuickProspectPanel" hidden>
+                  <p class="hint">Registra el prospecto sin salir del cotizador. Se asociará automáticamente a la expedición seleccionada.</p>
+                  <label>Nombre o referencia *<input id="qNewAlias" maxlength="120" placeholder="Ej. Juan Pérez" autocomplete="off"></label>
+                  <label>Canal de contacto *<select id="qNewChannel"><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option><option value="directo">Directo</option><option value="agencia">Agencia</option><option value="otro">Otro</option></select></label>
+                  <div class="quote-actions"><button type="button" id="qSaveNewProspect">Guardar y asociar</button><button type="button" id="qCancelNewProspect" class="outline-btn">Cancelar</button></div>
+                  <p id="qQuickProspectStatus" class="hint" role="status"></p>
+                </div>
+              </div>
               <label>Canal de venta *<select id="qChannel" required><option value="direct">Venta directa</option><option value="agency">Agencia</option></select></label>
               <label id="qAgencyWrap" hidden>Agencia *<select id="qAgency"><option value="">Seleccionar agencia</option></select></label>
               <label id="qCommissionWrap" hidden>Comisión de agencia (%) *<input id="qCommission" type="number" min="0" max="100" step="0.01" value="0"></label>
@@ -1179,6 +1190,51 @@
     const qSelect=document.querySelector('#qExpedition');
     const qProspect=document.querySelector('#qProspect');
     let quoteProspects=[];
+    const quickProspectPanel=document.querySelector('#qQuickProspectPanel');
+    const quickProspectStatus=document.querySelector('#qQuickProspectStatus');
+    document.querySelector('#qNewProspect').addEventListener('click',()=>{
+      if(currentRole!=='admin'){qStatus.textContent='Solo administración puede registrar prospectos.';return;}
+      if(!qSelect.value){qStatus.textContent='Primero selecciona una expedición.';qSelect.focus();return;}
+      quickProspectStatus.textContent='';
+      quickProspectPanel.hidden=false;
+      document.querySelector('#qNewAlias').focus();
+    });
+    document.querySelector('#qCancelNewProspect').addEventListener('click',()=>{quickProspectPanel.hidden=true;quickProspectStatus.textContent='';});
+    document.querySelector('#qSaveNewProspect').addEventListener('click',async()=>{
+      if(currentRole!=='admin')return;
+      const expedition_id=qSelect.value,alias=document.querySelector('#qNewAlias').value.trim();
+      const channel=document.querySelector('#qNewChannel').value;
+      if(!expedition_id||!quoteExpeditions.has(expedition_id)){quickProspectStatus.textContent='Selecciona una expedición válida.';return;}
+      if(!alias){quickProspectStatus.textContent='Escribe el nombre o referencia del prospecto.';return;}
+      const btn=document.querySelector('#qSaveNewProspect');btn.disabled=true;
+      try{
+        // Comprobar posibles coincidencias en la base, no solo en la lista local.
+        const {data:matches,error:searchError}=await supabase.from('prospects')
+          .select('id,alias,expedition_id').eq('expedition_id',expedition_id).ilike('alias',alias).limit(10);
+        if(searchError)throw searchError;
+        const match=(matches||[]).find(p=>p.alias.trim().toLocaleLowerCase()===alias.toLocaleLowerCase());
+        if(match){
+          if(!quoteProspects.some(p=>p.id===match.id))quoteProspects.push(match);
+          syncQuoteProspects();qProspect.value=match.id;
+          quickProspectStatus.textContent='Este prospecto ya existe en esta expedición. Lo seleccionamos para evitar un duplicado.';
+          return;
+        }
+        quickProspectStatus.textContent='Guardando prospecto...';
+        const {data,error}=await supabase.from('prospects')
+          .insert({alias,expedition_id,channel,stage:'new'})
+          .select('id,alias,expedition_id').single();
+        if(error)throw error;
+        quoteProspects.push(data);
+        syncQuoteProspects();qProspect.value=data.id;
+        quickProspectPanel.hidden=true;
+        document.querySelector('#qNewAlias').value='';
+        qStatus.textContent='Prospecto creado y asociado a esta cotización. Continúa con los importes y guarda cuando esté lista.';
+        // Refrescar la sección de prospectos sin modificar la cotización.
+        await loadProspects();
+      }catch(error){quickProspectStatus.textContent='No se pudo guardar: '+(error?.message||'Error desconocido')+'. Revisa los permisos RLS.';}
+      finally{btn.disabled=false;}
+    });
+
     let quoteAgencies=new Map();
     const qChannel=document.querySelector('#qChannel');
     const qAgency=document.querySelector('#qAgency');
@@ -1388,7 +1444,7 @@
       document.querySelector('#qFixed').value=Number(e.coordinator_cost_mxn||0)+Number(e.fixed_allocated_mxn||0);
       calculateQuote();
     }
-    qSelect.addEventListener('change',syncQuoteExpedition);
+    qSelect.addEventListener('change',()=>{quickProspectPanel.hidden=true;syncQuoteExpedition();});
     ['qType','qTravelers','qPrice','qVariable','qFixed'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{if(qForm.checkValidity())calculateQuote();}));
     qForm.addEventListener('submit',calculateQuote);
     document.querySelector('#saveQuote').addEventListener('click',async()=>{
