@@ -128,7 +128,7 @@
     .master-status{font-size:13px;line-height:1.6;overflow-wrap:anywhere}
     @media(max-width:650px){.master-form{grid-template-columns:1fr}}
     [hidden]{display:none!important}
-    @media(max-width:650px){.booking-form{grid-template-columns:1fr}}
+    @media(max-width:650px){.booking-form{grid-template-columns:1fr}.e-cost-line{grid-template-columns:1fr!important}}
     @media print{body.logged-in .dash-top,body.logged-in .dash-side,body.logged-in .dash-demo,body.logged-in .dash-head,body.logged-in .dash-foot,body.logged-in .quote-form,body.logged-in .hint,body.logged-in .nav-shade{display:none!important}body.logged-in .dash-layout{display:block}body.logged-in .dash-content{padding:0}.page{display:none!important}.page[data-section="cotizador"]{display:block!important}.quote-result{display:grid;grid-template-columns:1fr 1fr}.dash-panel{box-shadow:none;border:0}.quote-result .dash-stat{break-inside:avoid}}
 
 .monthly-chart{overflow-x:auto}.monthly-legend{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 16px;font-size:12px;color:#64747a}.monthly-key{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px}.monthly-grid{display:grid;grid-template-columns:repeat(12,minmax(33px,1fr));gap:7px;min-width:470px;align-items:end}.monthly-month{text-align:center;font-size:10px;color:#68767d}.monthly-pair{height:165px;display:flex;align-items:end;justify-content:center;gap:3px;border-bottom:1px solid #d8dfdf}.monthly-pair span{display:block;width:37%;min-height:0;border-radius:4px 4px 0 0}.monthly-total{font-size:10px;text-align:center;color:#68767d;margin-top:8px}.dash-stat strong{overflow-wrap:anywhere}
@@ -251,6 +251,7 @@
             <label>Precio público por viajero (MXN) *<input id="ePrice" type="number" min="0" step="0.01" value="0" required></label>
             <label>Costo de proveedor por viajero (MXN) *<input id="eProvider" type="number" min="0" step="0.01" value="0" required></label>
             <label>Costo de coordinación del grupo (MXN) *<input id="eCoordinator" type="number" min="0" step="0.01" value="0" required></label>
+             <div style="grid-column:1/-1;border-top:1px solid #ddd;padding-top:14px"><strong>Desglose de costos del viaje (opcional)</strong><p class="hint">Agrega los conceptos del viaje. Cada importe se define por viajero o fijo por grupo. Si agregas conceptos, estos sustituyen los costos resumidos de proveedor y coordinación para evitar duplicarlos en el cotizador.</p><div id="eCostLines"></div><button type="button" id="eAddCost" style="background:#fff;color:#17252c;border:1px solid #ef915d">+ Agregar concepto de costo</button><p id="eCostSummary" class="hint">Sin conceptos adicionales.</p></div>
             <button id="eSave" type="submit">Guardar expedición</button>
           </form>
           <p id="expMasterStatus" class="master-status" role="status"></p>
@@ -348,14 +349,14 @@
                   <p id="qQuickProspectStatus" class="hint" role="status"></p>
                 </div>
               </div>
-              <label>Canal de venta *<select id="qChannel" required><option value="direct">Venta directa</option><option value="agency">Agencia</option></select></label>
+              <label>Canal de venta (según prospecto) *<select id="qChannel" required><option value="direct">Venta directa</option><option value="agency">Agencia</option></select></label>
               <label id="qAgencyWrap" hidden>Agencia *<select id="qAgency"><option value="">Seleccionar agencia</option></select></label>
               <label id="qCommissionWrap" hidden>Comisión de agencia (%) *<input id="qCommission" type="number" min="0" max="100" step="0.01" value="0"></label>
               <label>Modalidad *<select id="qType" required><option value="traveler">Por viajero</option><option value="group">Por grupo</option></select></label>
               <label>Cantidad de viajeros *<input id="qTravelers" type="number" min="1" max="10000" step="1" value="1" required></label>
-              <label>Precio por viajero (MXN) *<input id="qPrice" type="number" min="0" step="0.01" required></label>
-              <label>Costo variable por viajero (MXN) *<input id="qVariable" type="number" min="0" step="0.01" required></label>
-              <label>Costos fijos del grupo (MXN) *<input id="qFixed" type="number" min="0" step="0.01" required></label>
+              <label>Precio por viajero (MXN) · definido en expedición *<input id="qPrice" readonly type="number" min="0" step="0.01" required></label>
+              <label>Costo variable por viajero (MXN) · automático *<input id="qVariable" readonly type="number" min="0" step="0.01" required></label>
+              <label>Costos fijos del grupo (MXN) · automáticos *<input id="qFixed" readonly type="number" min="0" step="0.01" required></label>
               <div class="quote-actions">
                 <button type="submit">Calcular cotización</button>
                 <button id="saveQuote" type="button">Guardar cotización</button>
@@ -1153,12 +1154,43 @@
       const name=value('eName').trim();if(!name){status.textContent='Escribe el nombre de la expedición.';return;}
       const payload={name,departure_date:value('eDeparture'),return_date:value('eReturn'),capacity,min_travelers,
         public_price_mxn:Number(value('ePrice')),provider_cost_per_traveler_mxn:Number(value('eProvider')),coordinator_cost_mxn:Number(value('eCoordinator'))};
+      const lines=[...document.querySelectorAll('.e-cost-line')].map(row=>({
+        category:row.querySelector('.cost-category').value.trim(),
+        description:row.querySelector('.cost-description').value.trim()||null,
+        cost_type:row.querySelector('.cost-type').value,
+        amount_mxn:Number(row.querySelector('.cost-amount').value)
+      }));
+      if(lines.some(x=>!x.category||!['per_traveler','fixed'].includes(x.cost_type)||!Number.isFinite(x.amount_mxn)||x.amount_mxn<0)){
+        status.textContent='Revisa los conceptos y montos del desglose de costos.';return;
+      }
       btn.disabled=true;status.textContent='Guardando expedición...';
-      try{const {error}=await supabase.from('expeditions').insert(payload);if(error)throw error;
-        form.reset();await loadExpeditionMaster();await loadProspects();await loadBookings();await loadFinances();status.textContent='Expedición guardada. Ya puedes asociarle prospectos y reservas.';
+      let insertedId=null;
+      try{const {data,error}=await supabase.from('expeditions').insert(payload).select('id').single();if(error)throw error;
+        insertedId=data.id;
+        if(lines.length){const result=await supabase.from('expedition_cost_items').insert(lines.map(x=>({...x,expedition_id:insertedId})));if(result.error)throw new Error('Se creó la expedición, pero no se pudo guardar el desglose: '+result.error.message+'; revisa RLS. No crees otra expedición con el mismo nombre.');}
+
+        form.reset();document.getElementById('eCostLines').replaceChildren();updateCostSummary();await loadExpeditionMaster();await loadProspects();await loadBookings();await loadFinances();status.textContent='Expedición guardada. Ya puedes asociarle prospectos y reservas.';
       }catch(err){status.textContent='No se pudo guardar la expedición: '+err.message+'; revisa las columnas obligatorias y RLS.';}finally{btn.disabled=false;}
     });
 
+    function updateCostSummary(){
+      let variable=0,fixed=0;
+      for(const row of document.querySelectorAll('.e-cost-line')){
+        const amount=Number(row.querySelector('.cost-amount').value)||0;
+        if(row.querySelector('.cost-type').value==='fixed')fixed+=amount;else variable+=amount;
+      }
+      document.getElementById('eCostSummary').textContent=document.querySelectorAll('.e-cost-line').length
+        ?`Desglose: ${mxn(variable)} por viajero + ${mxn(fixed)} fijos por grupo. Se usarán estos costos al cotizar.`
+        :'Sin conceptos adicionales: se utilizarán los costos resumidos de la expedición.';
+    }
+    document.getElementById('eAddCost').addEventListener('click',()=>{
+      const row=document.createElement('div');row.className='e-cost-line';
+      row.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin:10px 0';
+      row.innerHTML='<label>Categoría *<input class="cost-category" required placeholder="Ej. Hospedaje"></label><label>Detalle<input class="cost-description" placeholder="Ej. 5 noches"></label><label>Tipo<select class="cost-type"><option value="per_traveler">Por viajero</option><option value="fixed">Fijo del grupo</option></select></label><label>Monto MXN *<input class="cost-amount" type="number" min="0" step="0.01" required placeholder="0"></label><button type="button" class="remove-cost" aria-label="Eliminar costo" style="margin:0;padding:11px;background:#fff;color:#8b342c;border:1px solid #ddd">×</button>';
+      row.querySelector('.remove-cost').addEventListener('click',()=>{row.remove();updateCostSummary();});
+      row.addEventListener('input',updateCostSummary);row.addEventListener('change',updateCostSummary);
+      document.getElementById('eCostLines').appendChild(row);updateCostSummary();
+    });
     // Navegación: no cambia la sesión de Supabase ni simula escrituras de datos.
     const sideNav=document.querySelector('#sideNav');
     const shade=document.querySelector('#navShade');
@@ -1210,22 +1242,22 @@
       try{
         // Comprobar posibles coincidencias en la base, no solo en la lista local.
         const {data:matches,error:searchError}=await supabase.from('prospects')
-          .select('id,alias,expedition_id').eq('expedition_id',expedition_id).ilike('alias',alias).limit(10);
+          .select('id,alias,expedition_id,channel').eq('expedition_id',expedition_id).ilike('alias',alias).limit(10);
         if(searchError)throw searchError;
         const match=(matches||[]).find(p=>p.alias.trim().toLocaleLowerCase()===alias.toLocaleLowerCase());
         if(match){
           if(!quoteProspects.some(p=>p.id===match.id))quoteProspects.push(match);
-          syncQuoteProspects();qProspect.value=match.id;
+          syncQuoteProspects();qProspect.value=match.id;syncQuoteProspectChannel();
           quickProspectStatus.textContent='Este prospecto ya existe en esta expedición. Lo seleccionamos para evitar un duplicado.';
           return;
         }
         quickProspectStatus.textContent='Guardando prospecto...';
         const {data,error}=await supabase.from('prospects')
           .insert({alias,expedition_id,channel,stage:'new'})
-          .select('id,alias,expedition_id').single();
+          .select('id,alias,expedition_id,channel').single();
         if(error)throw error;
         quoteProspects.push(data);
-        syncQuoteProspects();qProspect.value=data.id;
+        syncQuoteProspects();qProspect.value=data.id;syncQuoteProspectChannel();
         quickProspectPanel.hidden=true;
         document.querySelector('#qNewAlias').value='';
         qStatus.textContent='Prospecto creado y asociado a esta cotización. Continúa con los importes y guarda cuando esté lista.';
@@ -1246,6 +1278,14 @@
       qAgency.required=agency;qCommission.required=agency;
       if(!agency)qAgency.value='';
     }
+    function syncQuoteProspectChannel(){
+      const prospect=quoteProspects.find(p=>p.id===qProspect.value);
+      if(prospect){qChannel.value=prospect.channel==='agencia'||prospect.channel==='agency'?'agency':'direct';qChannel.disabled=true;}
+      else qChannel.disabled=false;
+      syncQuoteChannel();
+      if(qForm.checkValidity())calculateQuote();
+    }
+    qProspect.addEventListener('change',syncQuoteProspectChannel);
     qChannel.addEventListener('change',()=>{syncQuoteChannel();if(qForm.checkValidity())calculateQuote();});
     qCommission.addEventListener('input',()=>{if(qForm.checkValidity())calculateQuote();});
     qAgency.addEventListener('change',()=>{if(qForm.checkValidity())calculateQuote();});
@@ -1316,7 +1356,7 @@
           ? supabase.from('quotes').select('id,expedition_id,prospect_id,quote_type,travelers,unit_price_mxn,variable_cost_per_traveler_mxn,fixed_cost_mxn,total_price_mxn,total_cost_mxn,status,created_at,channel,agency_id,commission_pct').order('created_at',{ascending:false}).limit(500)
           : Promise.resolve({data:[],error:null}),
         currentRole==='admin'
-          ? supabase.from('prospects').select('id,alias,expedition_id').order('alias').limit(1000)
+          ? supabase.from('prospects').select('id,alias,expedition_id,channel').order('alias').limit(1000)
           : Promise.resolve({data:[],error:null}),
         supabase.from('agencies').select('*').limit(500)
       ]);
@@ -1406,11 +1446,12 @@
       syncQuoteExpedition();
       qProspect.value=q.prospect_id||'';
       qChannel.value=q.channel==='agency'?'agency':'direct';
-      syncQuoteChannel();
+      syncQuoteProspectChannel();
       qAgency.value=q.channel==='agency'&&quoteAgencies.has(q.agency_id)?q.agency_id:'';
       qCommission.value=q.channel==='agency'?Number(q.commission_pct||0):0;
       document.querySelector('#qType').value=q.quote_type;
       document.querySelector('#qTravelers').value=q.travelers;
+      // Conservar importes históricos al recuperar una cotización ya guardada.
       document.querySelector('#qPrice').value=q.unit_price_mxn;
       document.querySelector('#qVariable').value=q.variable_cost_per_traveler_mxn;
       document.querySelector('#qFixed').value=q.fixed_cost_mxn;
@@ -1435,13 +1476,25 @@
         qProspect.add(new Option(p.alias||'Prospecto sin nombre',p.id));
       }
       if([...qProspect.options].some(option=>option.value===previous))qProspect.value=previous;
+      syncQuoteProspectChannel();
     }
-    function syncQuoteExpedition(){
+    let quoteCostLoadSequence=0;
+    async function syncQuoteExpedition(){
       syncQuoteProspects();
       const e=quoteExpeditions.get(qSelect.value);if(!e)return;
       document.querySelector('#qPrice').value=e.public_price_mxn??0;
       document.querySelector('#qVariable').value=e.provider_cost_per_traveler_mxn??0;
       document.querySelector('#qFixed').value=Number(e.coordinator_cost_mxn||0)+Number(e.fixed_allocated_mxn||0);
+      const sequence=++quoteCostLoadSequence;
+      qStatus.textContent='Consultando costos registrados de la expedición...';
+      const {data,error}=await supabase.from('expedition_cost_items').select('cost_type,amount_mxn').eq('expedition_id',e.id);
+      if(sequence!==quoteCostLoadSequence||qSelect.value!==e.id)return;
+      if(error){qStatus.textContent='No se pudieron consultar los costos detallados: '+error.message+'. Se muestran costos resumidos; verifica permisos antes de guardar.';return;}
+      if(data?.length){
+        document.querySelector('#qVariable').value=data.filter(x=>x.cost_type==='per_traveler').reduce((n,x)=>n+Number(x.amount_mxn||0),0);
+        document.querySelector('#qFixed').value=data.filter(x=>x.cost_type==='fixed').reduce((n,x)=>n+Number(x.amount_mxn||0),0);
+      }
+      qStatus.textContent=data?.length?'Precios y desglose de costos cargados desde la expedición.':'Precio y costos resumidos cargados desde la expedición.';
       calculateQuote();
     }
     qSelect.addEventListener('change',()=>{quickProspectPanel.hidden=true;syncQuoteExpedition();});
