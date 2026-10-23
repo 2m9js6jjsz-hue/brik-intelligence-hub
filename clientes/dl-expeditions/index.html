@@ -346,7 +346,7 @@
           </div>
           <div class="dash-panel" id="quoteHistoryPanel" style="margin-top:18px">
             <div class="section-head"><h2>Historial de cotizaciones</h2><span id="quoteCount" class="pill">Sin cargar</span></div>
-            <div class="table-wrap"><table class="dash-table"><thead><tr><th>Fecha</th><th>Expedición</th><th>Modalidad</th><th>Viajeros</th><th>Precio total</th><th>Costo total</th><th>Resultado estimado</th><th>Estado</th></tr></thead><tbody id="quoteRows"><tr><td colspan="8">Abre el cotizador para consultar.</td></tr></tbody></table></div>
+            <div class="table-wrap"><table class="dash-table"><thead><tr><th>Fecha</th><th>Prospecto</th><th>Expedición</th><th>Modalidad</th><th>Viajeros</th><th>Precio total</th><th>Costo total</th><th>Resultado estimado</th><th>Estado</th><th>Acciones</th></tr></thead><tbody id="quoteRows"><tr><td colspan="10">Abre el cotizador para consultar.</td></tr></tbody></table></div>
           </div>
           <article id="clientQuotePrint" hidden aria-label="Cotización para el cliente">
             <div class="print-brand">DL EXPEDITIONS</div>
@@ -1154,6 +1154,7 @@
     const qVal=id=>Number(document.getElementById(id).value);
     const qMoney=v=>mxn(v);
     let quoteExpeditions=new Map();
+    let savedQuoteRecords=[];
     function quoteCard(label,value,note=''){
       const card=document.createElement('div');card.className='dash-stat';
       const small=document.createElement('small');small.textContent=label;
@@ -1204,7 +1205,7 @@
       const [exps,quotes,prospects]=await Promise.all([
         supabase.from('expeditions').select('id,name,capacity,public_price_mxn,provider_cost_per_traveler_mxn,coordinator_cost_mxn,fixed_allocated_mxn').order('name'),
         currentRole==='admin'
-          ? supabase.from('quotes').select('id,expedition_id,quote_type,travelers,unit_price_mxn,total_price_mxn,total_cost_mxn,status,created_at').order('created_at',{ascending:false}).limit(500)
+          ? supabase.from('quotes').select('id,expedition_id,prospect_id,quote_type,travelers,unit_price_mxn,variable_cost_per_traveler_mxn,fixed_cost_mxn,total_price_mxn,total_cost_mxn,status,created_at').order('created_at',{ascending:false}).limit(500)
           : Promise.resolve({data:[],error:null}),
         currentRole==='admin'
           ? supabase.from('prospects').select('id,alias,expedition_id').order('alias').limit(1000)
@@ -1212,6 +1213,7 @@
       ]);
       if(exps.error||quotes.error||prospects.error){qStatus.textContent='No se pudieron cargar los datos: '+(exps.error||quotes.error||prospects.error).message+'. Revisa RLS.';return;}
       quoteProspects=prospects.data||[];
+      savedQuoteRecords=quotes.data||[];
       quoteExpeditions=new Map((exps.data||[]).map(e=>[e.id,e]));
       const previous=qSelect.value;
       qSelect.replaceChildren(new Option('Seleccionar expedición',''));
@@ -1224,16 +1226,46 @@
       for(const q of quotes.data||[]){
         const tr=document.createElement('tr');
         [q.created_at?new Date(q.created_at).toLocaleDateString('es-MX'):'—',
+         q.prospect_id?(quoteProspects.find(p=>p.id===q.prospect_id)?.alias||'Prospecto no disponible'):'Sin prospecto',
          quoteExpeditions.get(q.expedition_id)?.name||'Expedición no disponible',
          q.quote_type==='group'?'Grupo':'Por viajero',q.travelers,qMoney(q.total_price_mxn),
          qMoney(q.total_cost_mxn),qMoney(Number(q.total_price_mxn)-Number(q.total_cost_mxn)),q.status]
           .forEach(v=>putCell(tr,v));
+        const actions=document.createElement('td');
+        const view=document.createElement('button');view.type='button';view.className='outline-btn';view.textContent='Cargar';
+        view.addEventListener('click',()=>restoreSavedQuote(q));
+        const pdf=document.createElement('button');pdf.type='button';pdf.className='outline-btn';pdf.textContent='PDF';
+        pdf.addEventListener('click',()=>printSavedQuote(q));
+        actions.append(view,document.createTextNode(' '),pdf);tr.appendChild(actions);
         rows.appendChild(tr);
       }
-      if(!quotes.data?.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=8;td.textContent='Todavía no hay cotizaciones guardadas.';tr.appendChild(td);rows.appendChild(tr);}
+      if(!quotes.data?.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=10;td.textContent='Todavía no hay cotizaciones guardadas.';tr.appendChild(td);rows.appendChild(tr);}
       document.querySelector('#quoteCount').textContent=quotes.data.length===500?'500 registros mostrados':`${quotes.data.length} cotización(es)`;
       qStatus.textContent=currentRole==='admin'?'Cotizador listo para guardar en Supabase.':'Acceso de consulta: puedes calcular, pero no guardar.';
     }
+    function restoreSavedQuote(q){
+      qSelect.value=q.expedition_id;
+      syncQuoteExpedition();
+      qProspect.value=q.prospect_id||'';
+      document.querySelector('#qType').value=q.quote_type;
+      document.querySelector('#qTravelers').value=q.travelers;
+      document.querySelector('#qPrice').value=q.unit_price_mxn;
+      document.querySelector('#qVariable').value=q.variable_cost_per_traveler_mxn;
+      document.querySelector('#qFixed').value=q.fixed_cost_mxn;
+      calculateQuote();
+      qStatus.textContent='Cotización recuperada. Puedes imprimirla o usarla como base para una nueva cotización. Guardar creará un nuevo registro.';
+      qForm.scrollIntoView({behavior:'smooth',block:'start'});
+    }
+    function printQuoteDetails(q){
+      document.querySelector('#printDate').textContent=new Date().toLocaleDateString('es-MX');
+      document.querySelector('#printExpedition').textContent=quoteExpeditions.get(q.expedition_id)?.name||'';
+      document.querySelector('#printType').textContent=q.quote_type==='group'?'Por grupo':'Por viajero';
+      document.querySelector('#printTravelers').textContent=String(q.travelers);
+      document.querySelector('#printUnit').textContent=qMoney(q.unit_price_mxn);
+      document.querySelector('#printTotal').textContent=qMoney(Number(q.travelers)*Number(q.unit_price_mxn));
+      window.print();
+    }
+    function printSavedQuote(q){printQuoteDetails(q);}
     function syncQuoteProspects(){
       const previous=qProspect.value;
       qProspect.replaceChildren(new Option('Sin prospecto asociado',''));
@@ -1269,13 +1301,7 @@
       if(!calculateQuote())return;
       const payload=quotePayload();
       if(!payload)return;
-      document.querySelector('#printDate').textContent=new Date().toLocaleDateString('es-MX');
-      document.querySelector('#printExpedition').textContent=quoteExpeditions.get(payload.expedition_id)?.name||'';
-      document.querySelector('#printType').textContent=payload.quote_type==='group'?'Por grupo':'Por viajero';
-      document.querySelector('#printTravelers').textContent=String(payload.travelers);
-      document.querySelector('#printUnit').textContent=qMoney(payload.unit_price_mxn);
-      document.querySelector('#printTotal').textContent=qMoney(payload.travelers*payload.unit_price_mxn);
-      window.print();
+      printQuoteDetails(payload);
     });
 
     // Si el enlace expiró, Supabase devuelve el error en la URL.
