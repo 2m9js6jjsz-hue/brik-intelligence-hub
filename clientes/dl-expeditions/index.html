@@ -328,6 +328,7 @@
             <p>Selecciona una expedición y cotiza por viajero o por grupo. Los importes se calculan con los costos registrados para esa expedición; puedes ajustarlos antes de guardar.</p>
             <form id="quoteForm" class="quote-form">
               <label>Expedición *<select id="qExpedition" required><option value="">Seleccionar expedición</option></select></label>
+              <label>Prospecto asociado (opcional)<select id="qProspect"><option value="">Sin prospecto asociado</option></select></label>
               <label>Modalidad *<select id="qType" required><option value="traveler">Por viajero</option><option value="group">Por grupo</option></select></label>
               <label>Cantidad de viajeros *<input id="qTravelers" type="number" min="1" max="10000" step="1" value="1" required></label>
               <label>Precio por viajero (MXN) *<input id="qPrice" type="number" min="0" step="0.01" required></label>
@@ -341,7 +342,7 @@
             </form>
             <p id="quoteStatus" class="master-status" role="status"></p>
             <div id="quoteResult" class="quote-result" aria-live="polite"></div>
-            <p class="hint">Resultado estimado = precio total − costo estimado. No equivale a utilidad final: valida impuestos, comisiones, contingencias y costos pendientes. La modalidad por grupo presenta el total del grupo, calculado con el precio unitario multiplicado por viajeros.</p>
+            <p class="hint" id="quoteInternalHint">Resultado estimado = precio total − costo estimado. No equivale a utilidad final: valida impuestos, comisiones, contingencias y costos pendientes. La modalidad por grupo presenta el total del grupo, calculado con el precio unitario multiplicado por viajeros.</p>
           </div>
           <div class="dash-panel" id="quoteHistoryPanel" style="margin-top:18px">
             <div class="section-head"><h2>Historial de cotizaciones</h2><span id="quoteCount" class="pill">Sin cargar</span></div>
@@ -1148,6 +1149,8 @@
     const qResult=document.querySelector('#quoteResult');
     const qStatus=document.querySelector('#quoteStatus');
     const qSelect=document.querySelector('#qExpedition');
+    const qProspect=document.querySelector('#qProspect');
+    let quoteProspects=[];
     const qVal=id=>Number(document.getElementById(id).value);
     const qMoney=v=>mxn(v);
     let quoteExpeditions=new Map();
@@ -1168,7 +1171,11 @@
          [unit_price_mxn,variable_cost_per_traveler_mxn,fixed_cost_mxn].some(v=>!Number.isFinite(v)||v<0)){
         qStatus.textContent='Revisa la expedición, la modalidad y los importes.';return null;
       }
-      return {expedition_id,quote_type,travelers,unit_price_mxn,variable_cost_per_traveler_mxn,fixed_cost_mxn,status:'draft'};
+      const prospect_id=qProspect.value||null;
+      if(prospect_id&&!quoteProspects.some(p=>p.id===prospect_id&&p.expedition_id===expedition_id)){
+        qStatus.textContent='El prospecto seleccionado no corresponde a esta expedición.';return null;
+      }
+      return {expedition_id,prospect_id,quote_type,travelers,unit_price_mxn,variable_cost_per_traveler_mxn,fixed_cost_mxn,status:'draft'};
     }
     function calculateQuote(event){
       if(event)event.preventDefault();
@@ -1176,23 +1183,35 @@
       const total=payload.travelers*payload.unit_price_mxn;
       const cost=payload.travelers*payload.variable_cost_per_traveler_mxn+payload.fixed_cost_mxn;
       const profit=total-cost,margin=total>0?profit/total*100:null;
-      qResult.replaceChildren(
+      const cards=[
         quoteCard('Precio por viajero',qMoney(payload.unit_price_mxn)),
-        quoteCard('Cotización total',qMoney(total),`${payload.travelers} viajero(s) · ${payload.quote_type==='group'?'Grupo':'Por viajero'}`),
+        quoteCard('Cotización total',qMoney(total),`${payload.travelers} viajero(s) · ${payload.quote_type==='group'?'Grupo':'Por viajero'}`)
+      ];
+      if(currentRole==='admin')cards.push(
         quoteCard('Costo total estimado',qMoney(cost)),
         quoteCard('Resultado estimado',qMoney(profit),margin===null?'Margen no definido':`Margen estimado ${margin.toFixed(1)}%`)
       );
+      qResult.replaceChildren(...cards);
       return payload;
     }
     async function loadQuotes(){
       qStatus.textContent='Consultando cotizaciones...';
       document.querySelector('#saveQuote').hidden=currentRole!=='admin';
       document.querySelector('#quoteHistoryPanel').hidden=currentRole!=='admin';
-      const [exps,quotes]=await Promise.all([
+      qProspect.closest('label').hidden=currentRole!=='admin';
+      document.getElementById('quoteInternalHint').hidden=currentRole!=='admin';
+      for(const id of ['qVariable','qFixed'])document.getElementById(id).closest('label').hidden=currentRole!=='admin';
+      const [exps,quotes,prospects]=await Promise.all([
         supabase.from('expeditions').select('id,name,capacity,public_price_mxn,provider_cost_per_traveler_mxn,coordinator_cost_mxn,fixed_allocated_mxn').order('name'),
-        supabase.from('quotes').select('id,expedition_id,quote_type,travelers,unit_price_mxn,total_price_mxn,total_cost_mxn,status,created_at').order('created_at',{ascending:false}).limit(500)
+        currentRole==='admin'
+          ? supabase.from('quotes').select('id,expedition_id,quote_type,travelers,unit_price_mxn,total_price_mxn,total_cost_mxn,status,created_at').order('created_at',{ascending:false}).limit(500)
+          : Promise.resolve({data:[],error:null}),
+        currentRole==='admin'
+          ? supabase.from('prospects').select('id,alias,expedition_id').order('alias').limit(1000)
+          : Promise.resolve({data:[],error:null})
       ]);
-      if(exps.error||quotes.error){qStatus.textContent='No se pudieron cargar cotizaciones: '+(exps.error||quotes.error).message+'. Revisa RLS.';return;}
+      if(exps.error||quotes.error||prospects.error){qStatus.textContent='No se pudieron cargar los datos: '+(exps.error||quotes.error||prospects.error).message+'. Revisa RLS.';return;}
+      quoteProspects=prospects.data||[];
       quoteExpeditions=new Map((exps.data||[]).map(e=>[e.id,e]));
       const previous=qSelect.value;
       qSelect.replaceChildren(new Option('Seleccionar expedición',''));
@@ -1200,6 +1219,7 @@
       if(quoteExpeditions.has(previous))qSelect.value=previous;
       else if(exps.data?.length)qSelect.value=exps.data[0].id;
       if(qSelect.value)syncQuoteExpedition();
+      else syncQuoteProspects();
       const rows=document.querySelector('#quoteRows');rows.replaceChildren();
       for(const q of quotes.data||[]){
         const tr=document.createElement('tr');
@@ -1214,7 +1234,16 @@
       document.querySelector('#quoteCount').textContent=quotes.data.length===500?'500 registros mostrados':`${quotes.data.length} cotización(es)`;
       qStatus.textContent=currentRole==='admin'?'Cotizador listo para guardar en Supabase.':'Acceso de consulta: puedes calcular, pero no guardar.';
     }
+    function syncQuoteProspects(){
+      const previous=qProspect.value;
+      qProspect.replaceChildren(new Option('Sin prospecto asociado',''));
+      for(const p of quoteProspects.filter(p=>p.expedition_id===qSelect.value)){
+        qProspect.add(new Option(p.alias||'Prospecto sin nombre',p.id));
+      }
+      if([...qProspect.options].some(option=>option.value===previous))qProspect.value=previous;
+    }
     function syncQuoteExpedition(){
+      syncQuoteProspects();
       const e=quoteExpeditions.get(qSelect.value);if(!e)return;
       document.querySelector('#qPrice').value=e.public_price_mxn??0;
       document.querySelector('#qVariable').value=e.provider_cost_per_traveler_mxn??0;
