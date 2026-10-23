@@ -101,8 +101,18 @@
 
     /* Expediciones: tarjetas legibles en móvil, sin desplazamiento horizontal */
     .exp-mobile-list{display:none}
+    .record-mobile-list{display:none}
     @media(max-width:650px){
       #expMasterTableWrap{display:none}
+      .record-desktop-table{display:none}
+      .record-mobile-list{display:grid;gap:14px;margin-top:16px}
+      .record-mobile-card{border:1px solid #e3e0db;border-radius:16px;padding:17px;background:#fff;min-width:0;overflow-wrap:anywhere}
+      .record-mobile-card h3{font-size:19px;line-height:1.35;margin:0 0 14px;color:#17252c}
+      .record-mobile-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 12px}
+      .record-mobile-field{min-width:0}
+      .record-mobile-field small{display:block;color:#68767d;font-size:12px;margin-bottom:4px}
+      .record-mobile-field strong{display:block;font-size:15px;line-height:1.4;overflow-wrap:anywhere}
+      .record-mobile-card button{margin-top:16px;width:100%;background:#fff;color:#17252c;border:1px solid #ef915d}
       .exp-mobile-list{display:grid;gap:14px;margin-top:16px}
       .exp-mobile-card{border:1px solid #e3e0db;border-radius:16px;padding:17px;background:#fff;min-width:0;overflow-wrap:anywhere}
       .exp-mobile-card h3{font-size:19px;line-height:1.35;margin:0 0 14px;color:#17252c}
@@ -284,7 +294,7 @@
             <button id="saveProspect" type="submit">Guardar prospecto</button><button id="cancelProspectEdit" type="button" hidden style="background:#fff;color:#17252c;border:1px solid #ef915d">Cancelar edición</button>
           </form>
           <p id="prospectStatus" class="prospect-status" role="status"></p>
-          <div class="table-wrap"><table class="dash-table"><thead><tr><th>Prospecto</th><th>Canal</th><th>Expedición</th><th>Etapa</th><th>Registro</th><th>Acciones</th></tr></thead><tbody id="prospectRows"><tr><td colspan="5">Inicia sesión para consultar los registros.</td></tr></tbody></table></div>
+          <div id="prospectMobileList" class="record-mobile-list" aria-label="Prospectos registrados"></div><div class="table-wrap record-desktop-table"><table class="dash-table"><thead><tr><th>Prospecto</th><th>Canal</th><th>Expedición</th><th>Etapa</th><th>Registro</th><th>Acciones</th></tr></thead><tbody id="prospectRows"><tr><td colspan="5">Inicia sesión para consultar los registros.</td></tr></tbody></table></div>
           <p class="hint">Los registros se guardan en la nube. Las etapas son etiquetas operativas; valida sus valores con las reglas de tu base de datos.</p>
         </div></section>
         <section class="page" data-section="reservas"><div class="dash-panel">
@@ -302,7 +312,7 @@
             <button id="saveBooking" type="submit">Guardar reserva</button>
           </form>
           <p id="bookingStatus" class="booking-status" role="status"></p>
-          <div class="table-wrap"><table class="dash-table"><thead><tr><th>Expedición</th><th>Prospecto</th><th>Canal</th><th>Viajeros</th><th>Precio unitario</th><th>Total</th><th>Estado</th><th>Registro</th></tr></thead><tbody id="bookingRows"><tr><td colspan="8">Inicia sesión para consultar las reservas.</td></tr></tbody></table></div>
+          <div id="bookingMobileList" class="record-mobile-list" aria-label="Reservas registradas"></div><div class="table-wrap record-desktop-table"><table class="dash-table"><thead><tr><th>Expedición</th><th>Prospecto</th><th>Canal</th><th>Viajeros</th><th>Precio unitario</th><th>Total</th><th>Estado</th><th>Registro</th></tr></thead><tbody id="bookingRows"><tr><td colspan="8">Inicia sesión para consultar las reservas.</td></tr></tbody></table></div>
           <p class="hint">Solo administración puede registrar reservas. Los usuarios de consulta pueden verlas, sujeto a los permisos RLS de Supabase. Para cambiar estados o registrar pagos se habilitarán módulos específicos.</p>
         </div></section>
         <section class="page" data-section="finanzas">
@@ -586,6 +596,20 @@
     const channelNames={whatsapp:'WhatsApp',instagram:'Instagram',directo:'Directo',agencia:'Agencia',otro:'Otro'};
     let expeditionsById=new Map();
     function putCell(row,value){const cell=document.createElement('td');cell.textContent=value==null?'—':String(value);row.appendChild(cell);}
+    function mobileRecordCard(title,fields,buttonText,onClick){
+      const card=document.createElement('article');card.className='record-mobile-card';
+      const h=document.createElement('h3');h.textContent=title;card.appendChild(h);
+      const details=document.createElement('div');details.className='record-mobile-fields';
+      for(const [label,value] of fields){
+        const field=document.createElement('div');field.className='record-mobile-field';
+        const small=document.createElement('small');small.textContent=label;
+        const strong=document.createElement('strong');strong.textContent=value==null?'—':String(value);
+        field.append(small,strong);details.appendChild(field);
+      }
+      card.appendChild(details);
+      if(buttonText&&onClick){const button=document.createElement('button');button.type='button';button.textContent=buttonText;button.addEventListener('click',onClick);card.appendChild(button);}
+      return card;
+    }
     function showProspectError(error){prospectStatus.textContent='No fue posible completar la operación: '+(error?.message||'Error desconocido')+'. Revisa los permisos RLS y la conexión.';}
     async function loadProspects(){
       prospectForm.hidden=currentRole!=='admin';
@@ -601,8 +625,9 @@
       sel.replaceChildren(new Option('Seleccionar expedición',''));
       for(const e of expResult.data||[])sel.add(new Option(e.name,e.id));
       prospectRows.replaceChildren();
+      const prospectMobileList=document.querySelector('#prospectMobileList');prospectMobileList.replaceChildren();
       const prospects=prosResult.data||[];
-      if(!prospects.length){const tr=document.createElement('tr');putCell(tr,'Todavía no hay prospectos registrados.');prospectRows.appendChild(tr);prospectRows.firstChild.firstChild.colSpan=6;}
+      if(!prospects.length){const tr=document.createElement('tr');putCell(tr,'Todavía no hay prospectos registrados.');prospectRows.appendChild(tr);prospectRows.firstChild.firstChild.colSpan=6;prospectMobileList.textContent='Todavía no hay prospectos registrados.';}
       for(const p of prospects){
         const tr=document.createElement('tr');
         putCell(tr,p.alias);putCell(tr,channelNames[p.channel]||p.channel);
@@ -610,11 +635,12 @@
         putCell(tr,stages[p.stage]||p.stage);
         putCell(tr,p.created_at?new Date(p.created_at).toLocaleDateString('es-MX'):'—');
         const actions=document.createElement('td');
+        let editProspect=null;
         if(currentRole==='admin'){
           const edit=document.createElement('button');
           edit.type='button';edit.textContent='Editar';
           edit.style.cssText='width:auto;margin:0;padding:9px 12px;background:#fff;color:#17252c;border:1px solid #ef915d';
-          edit.addEventListener('click',()=>{
+          editProspect=()=>{
             editingProspectId=p.id;
             document.querySelector('#pAlias').value=p.alias||'';
             document.querySelector('#pExpedition').value=p.expedition_id||'';
@@ -626,10 +652,17 @@
             cancelProspectEdit.hidden=false;
             prospectStatus.textContent='Editando prospecto: '+p.alias;
             prospectForm.scrollIntoView({behavior:'smooth',block:'start'});
-          });
+          };
+          edit.addEventListener('click',editProspect);
           actions.appendChild(edit);
         }else{actions.textContent='—';}
         tr.appendChild(actions);prospectRows.appendChild(tr);
+        prospectMobileList.appendChild(mobileRecordCard(p.alias||'Sin nombre',[
+          ['Expedición',expeditionsById.get(p.expedition_id)||'Sin expedición'],
+          ['Canal',channelNames[p.channel]||p.channel],
+          ['Etapa',stages[p.stage]||p.stage],
+          ['Registro',p.created_at?new Date(p.created_at).toLocaleDateString('es-MX'):'—']
+        ],currentRole==='admin'?'Editar prospecto':null,editProspect));
       }
       prospectCount.textContent=prospects.length===500?'500 registros mostrados':`${prospects.length} prospecto${prospects.length===1?'':'s'}`;
       document.querySelector('#homeProspects').textContent=prospects.length===500?'500+':String(prospects.length);
@@ -711,8 +744,9 @@
       agencySel.replaceChildren(new Option('Seleccionar agencia',''));
       for(const a of agencyRes.data||[])agencySel.add(new Option(a.name||a.agency_name||a.nombre||a.id,a.id));
       bookingRows.replaceChildren();
+      const bookingMobileList=document.querySelector('#bookingMobileList');bookingMobileList.replaceChildren();
       const records=bookingRes.data||[];
-      if(!records.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=8;td.textContent='Todavía no hay reservas registradas.';tr.appendChild(td);bookingRows.appendChild(tr);}
+      if(!records.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=8;td.textContent='Todavía no hay reservas registradas.';tr.appendChild(td);bookingRows.appendChild(tr);bookingMobileList.textContent='Todavía no hay reservas registradas.';}
       for(const b of records){
         const tr=document.createElement('tr');
         putCell(tr,bookingExpeditions.get(b.expedition_id)?.name||'Expedición no disponible');
@@ -721,6 +755,15 @@
         putCell(tr,b.travelers);putCell(tr,mxn(b.unit_price_mxn));putCell(tr,mxn(Number(b.travelers)*Number(b.unit_price_mxn)));
         putCell(tr,bookingStatuses[b.status]||b.status);putCell(tr,b.created_at?new Date(b.created_at).toLocaleDateString('es-MX'):'—');
         bookingRows.appendChild(tr);
+        bookingMobileList.appendChild(mobileRecordCard(bookingExpeditions.get(b.expedition_id)?.name||'Expedición no disponible',[
+          ['Prospecto',bookingProspects.get(b.prospect_id)?.alias||'Sin prospecto'],
+          ['Estado',bookingStatuses[b.status]||b.status],
+          ['Canal',b.channel==='agency'?'Agencia: '+(bookingAgencies.get(b.agency_id)?.name||bookingAgencies.get(b.agency_id)?.agency_name||'Registrada'):'Directa'],
+          ['Viajeros',b.travelers],
+          ['Precio por viajero',mxn(b.unit_price_mxn)],
+          ['Total',mxn(Number(b.travelers)*Number(b.unit_price_mxn))],
+          ['Registro',b.created_at?new Date(b.created_at).toLocaleDateString('es-MX'):'—']
+        ]));
       }
       bookingCount.textContent=records.length===500?'500 registros mostrados':`${records.length} reserva${records.length===1?'':'s'}`;
       document.querySelector('#homeBookings').textContent=String(records.filter(x=>x.status==='confirmed').length)+(records.length===500?'+':'');
