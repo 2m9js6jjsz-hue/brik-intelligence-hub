@@ -280,11 +280,11 @@
             <label>Nombre o referencia del prospecto *<input id="pAlias" maxlength="120" required placeholder="Ej. Juan Pérez"></label>
             <label>Expedición *<select id="pExpedition" required><option value="">Cargando expediciones...</option></select></label>
             <label>Canal de contacto *<select id="pChannel" required><option value="">Seleccionar</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option><option value="directo">Directo</option><option value="agencia">Agencia</option><option value="otro">Otro</option></select></label>
-            <label>Etapa *<select id="pStage" required><option value="new">Nuevo</option><option value="follow_up">En seguimiento</option><option value="quoted">Cotización enviada</option><option value="won">Convertido</option><option value="lost">Perdido</option></select></label>
-            <button id="saveProspect" type="submit">Guardar prospecto</button>
+            <label>Etapa *<select id="pStage" required><option value="new">Nuevo</option><option value="follow_up">En seguimiento</option><option value="quoted">Cotización enviada</option><option value="converted">Convertido</option><option value="lost">Perdido</option></select></label>
+            <button id="saveProspect" type="submit">Guardar prospecto</button><button id="cancelProspectEdit" type="button" hidden style="background:#fff;color:#17252c;border:1px solid #ef915d">Cancelar edición</button>
           </form>
           <p id="prospectStatus" class="prospect-status" role="status"></p>
-          <div class="table-wrap"><table class="dash-table"><thead><tr><th>Prospecto</th><th>Canal</th><th>Expedición</th><th>Etapa</th><th>Registro</th></tr></thead><tbody id="prospectRows"><tr><td colspan="5">Inicia sesión para consultar los registros.</td></tr></tbody></table></div>
+          <div class="table-wrap"><table class="dash-table"><thead><tr><th>Prospecto</th><th>Canal</th><th>Expedición</th><th>Etapa</th><th>Registro</th><th>Acciones</th></tr></thead><tbody id="prospectRows"><tr><td colspan="5">Inicia sesión para consultar los registros.</td></tr></tbody></table></div>
           <p class="hint">Los registros se guardan en la nube. Las etapas son etiquetas operativas; valida sus valores con las reglas de tu base de datos.</p>
         </div></section>
         <section class="page" data-section="reservas"><div class="dash-panel">
@@ -578,7 +578,11 @@
     const prospectRows=document.querySelector('#prospectRows');
     const prospectStatus=document.querySelector('#prospectStatus');
     const prospectCount=document.querySelector('#prospectCount');
-    const stages={new:'Nuevo',follow_up:'En seguimiento',quoted:'Cotización enviada',won:'Convertido',lost:'Perdido',contacted:'Contactado',qualified:'Calificado'};
+    const stages={new:'Nuevo',follow_up:'En seguimiento',quoted:'Cotización enviada',converted:'Convertido',won:'Convertido (anterior)',reserved:'Reservado',lost:'Perdido',contacted:'En seguimiento',qualified:'Calificado'};
+    let editingProspectId=null;
+    const cancelProspectEdit=document.querySelector('#cancelProspectEdit');
+    function resetProspectEditor(){editingProspectId=null;prospectForm.reset();document.querySelector('#saveProspect').textContent='Guardar prospecto';cancelProspectEdit.hidden=true;}
+    cancelProspectEdit.addEventListener('click',()=>{resetProspectEditor();prospectStatus.textContent='Edición cancelada.';});
     const channelNames={whatsapp:'WhatsApp',instagram:'Instagram',directo:'Directo',agencia:'Agencia',otro:'Otro'};
     let expeditionsById=new Map();
     function putCell(row,value){const cell=document.createElement('td');cell.textContent=value==null?'—':String(value);row.appendChild(cell);}
@@ -598,8 +602,35 @@
       for(const e of expResult.data||[])sel.add(new Option(e.name,e.id));
       prospectRows.replaceChildren();
       const prospects=prosResult.data||[];
-      if(!prospects.length){const tr=document.createElement('tr');putCell(tr,'Todavía no hay prospectos registrados.');prospectRows.appendChild(tr);prospectRows.firstChild.firstChild.colSpan=5;}
-      for(const p of prospects){const tr=document.createElement('tr');putCell(tr,p.alias);putCell(tr,channelNames[p.channel]||p.channel);putCell(tr,expeditionsById.get(p.expedition_id)||'Sin expedición');putCell(tr,stages[p.stage]||p.stage);putCell(tr,p.created_at?new Date(p.created_at).toLocaleDateString('es-MX'):'—');prospectRows.appendChild(tr);}
+      if(!prospects.length){const tr=document.createElement('tr');putCell(tr,'Todavía no hay prospectos registrados.');prospectRows.appendChild(tr);prospectRows.firstChild.firstChild.colSpan=6;}
+      for(const p of prospects){
+        const tr=document.createElement('tr');
+        putCell(tr,p.alias);putCell(tr,channelNames[p.channel]||p.channel);
+        putCell(tr,expeditionsById.get(p.expedition_id)||'Sin expedición');
+        putCell(tr,stages[p.stage]||p.stage);
+        putCell(tr,p.created_at?new Date(p.created_at).toLocaleDateString('es-MX'):'—');
+        const actions=document.createElement('td');
+        if(currentRole==='admin'){
+          const edit=document.createElement('button');
+          edit.type='button';edit.textContent='Editar';
+          edit.style.cssText='width:auto;margin:0;padding:9px 12px;background:#fff;color:#17252c;border:1px solid #ef915d';
+          edit.addEventListener('click',()=>{
+            editingProspectId=p.id;
+            document.querySelector('#pAlias').value=p.alias||'';
+            document.querySelector('#pExpedition').value=p.expedition_id||'';
+            document.querySelector('#pChannel').value=p.channel||'';
+            const stageSelect=document.querySelector('#pStage');
+            stageSelect.value=p.stage==='won'?'converted':p.stage==='contacted'?'follow_up':p.stage;
+            if(!stageSelect.value)stageSelect.value='new';
+            document.querySelector('#saveProspect').textContent='Guardar cambios';
+            cancelProspectEdit.hidden=false;
+            prospectStatus.textContent='Editando prospecto: '+p.alias;
+            prospectForm.scrollIntoView({behavior:'smooth',block:'start'});
+          });
+          actions.appendChild(edit);
+        }else{actions.textContent='—';}
+        tr.appendChild(actions);prospectRows.appendChild(tr);
+      }
       prospectCount.textContent=prospects.length===500?'500 registros mostrados':`${prospects.length} prospecto${prospects.length===1?'':'s'}`;
       document.querySelector('#homeProspects').textContent=prospects.length===500?'500+':String(prospects.length);
       document.querySelector('#homeProspectsNote').textContent=prospects.length===500?'Muestra limitada a 500 registros':'Registros de Supabase';
@@ -614,11 +645,14 @@
       const payload={alias:document.querySelector('#pAlias').value.trim(),expedition_id:document.querySelector('#pExpedition').value,channel:document.querySelector('#pChannel').value,stage:document.querySelector('#pStage').value};
       try{
         if(!payload.alias||!expeditionsById.has(payload.expedition_id))throw new Error('Selecciona un nombre y una expedición válida');
-        const {error}=await supabase.from('prospects').insert(payload);
+        const {error}=editingProspectId
+          ? await supabase.from('prospects').update(payload).eq('id',editingProspectId).select('id').single()
+          : await supabase.from('prospects').insert(payload).select('id').single();
         if(error)throw error;
-        prospectForm.reset();
+        const wasEditing=Boolean(editingProspectId);
+        resetProspectEditor();
         await loadProspects();
-        prospectStatus.textContent='Prospecto guardado correctamente en Supabase.';
+        prospectStatus.textContent=wasEditing?'Prospecto actualizado correctamente en Supabase.':'Prospecto guardado correctamente en Supabase.';
       }catch(error){showProspectError(error);}finally{btn.disabled=false;}
     });
 
