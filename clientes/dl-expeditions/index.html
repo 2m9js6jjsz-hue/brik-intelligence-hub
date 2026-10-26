@@ -790,6 +790,7 @@
       const agency=document.querySelector('#bChannel').value==='agency';
       document.querySelector('#bAgencyWrap').hidden=!agency;
       document.querySelector('#bAgency').required=agency;
+      document.querySelector('#bAgency').disabled=agency; // Solo lectura: viene del prospecto
       if(!agency)document.querySelector('#bAgency').value='';
     }
     function syncBookingProspect(){
@@ -936,12 +937,13 @@
       const expId=document.querySelector('#bExpedition').value;
       const prospectId=document.querySelector('#bProspect').value;
       const channel=document.querySelector('#bChannel').value;
-      const agencyId=document.querySelector('#bAgency').value;
+      const linkedProspect=bookingProspects.get(prospectId);
+      const agencyId=linkedProspect&&isAgencyChannel(linkedProspect.channel)?linkedProspect.agency_id:null;
       const travelers=Number(document.querySelector('#bTravelers').value);
       const expPrice=bookingExpeditions.get(expId)?.public_price_mxn;
       const price=Number(expPrice);
       if(!bookingExpeditions.has(expId)||!Number.isInteger(travelers)||travelers<1||expPrice==null||!Number.isFinite(price)||price<=0){bookingStatus.textContent='La expedición debe tener un precio público mayor a cero. Configúralo en Expediciones.';return;}
-      if(channel==='agency'&&!bookingAgencies.has(agencyId)){bookingStatus.textContent='Selecciona una agencia registrada.';return;}
+      if(channel==='agency'&&(!prospectId||!bookingAgencies.has(agencyId))){bookingStatus.textContent='Esta reserva requiere un prospecto con agencia de origen registrada. Corrige el prospecto antes de reservar.';return;}
       if(prospectId&&!bookingProspects.has(prospectId)){bookingStatus.textContent='Selecciona un prospecto válido.';return;}
       if(prospectId&&bookingProspects.get(prospectId).expedition_id!==expId){bookingStatus.textContent='El prospecto seleccionado pertenece a otra expedición.';return;}
       if(prospectId){
@@ -1725,6 +1727,7 @@
       document.querySelector('#qAgencyWrap').hidden=!agency;
       document.querySelector('#qCommissionWrap').hidden=!agency;
       qAgency.required=agency;qCommission.required=agency;
+      qAgency.disabled=agency; // Agencia heredada; no se modifica desde Cotizador
       if(!agency)qAgency.value='';
     }
     function syncQuoteProspectChannel(){
@@ -1733,7 +1736,7 @@
       if(prospect){qChannel.value=isAgencyChannel(prospect.channel)||prospect.channel==='agency'?'agency':'direct';qChannel.disabled=true;}
       else qChannel.disabled=false;
       syncQuoteChannel();
-      if(prospect&&isAgencyChannel(prospect.channel)){qAgency.value=prospect.agency_id&&quoteAgencies.has(prospect.agency_id)?prospect.agency_id:'';qStatus.textContent=qAgency.value?'Agencia recuperada del prospecto.':'Asigna la agencia de origen en Prospectos.';}
+      if(prospect&&isAgencyChannel(prospect.channel)){qAgency.value=prospect.agency_id&&quoteAgencies.has(prospect.agency_id)?prospect.agency_id:'';qStatus.textContent=qAgency.value?'Agencia recuperada del prospecto (solo lectura).':'Asigna la agencia de origen en Prospectos.';}
       if(qForm.checkValidity())calculateQuote();
     }
     qProspect.addEventListener('change',()=>{syncQuoteProspectChannel();if(!qProspect.value)qFindProspect.value='';});
@@ -1777,7 +1780,8 @@
         qStatus.textContent='El prospecto seleccionado no corresponde a esta expedición.';return null;
       }
       const channel=qChannel.value;
-      const agency_id=channel==='agency'?qAgency.value:null;
+      const selectedProspect=quoteProspects.find(p=>p.id===prospect_id);
+      const agency_id=channel==='agency'?(selectedProspect?.agency_id||null):null;
       const commission_pct=channel==='agency'?Number(qCommission.value):0;
       if(!['direct','agency'].includes(channel)||
          (channel==='agency'&&!quoteAgencies.has(agency_id))||
