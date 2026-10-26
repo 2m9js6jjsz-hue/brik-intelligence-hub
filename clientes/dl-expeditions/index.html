@@ -293,7 +293,8 @@
             <label>Nombre o referencia del prospecto *<input id="pAlias" maxlength="120" required placeholder="Ej. Juan Pérez"></label>
             <label>Expedición *<select id="pExpedition" required><option value="">Cargando expediciones...</option></select></label>
             <label>Canal de contacto *<select id="pChannel" required><option value="">Seleccionar</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option><option value="directo">Directo</option><option value="agencia">Agencia</option><option value="otro">Otro</option></select></label>
-            <label>Etapa *<select id="pStage" required><option value="new">Nuevo</option><option value="follow_up">En seguimiento</option><option value="quoted">Cotización enviada</option><option value="converted">Convertido</option><option value="lost">Perdido</option></select></label>
+            <label id="pAgencyWrap" hidden>Agencia de origen *<select id="pAgency"><option value="">Seleccionar agencia</option></select></label>
+             <label>Etapa *<select id="pStage" required><option value="new">Nuevo</option><option value="follow_up">En seguimiento</option><option value="quoted">Cotización enviada</option><option value="converted">Convertido</option><option value="lost">Perdido</option></select></label>
             <button id="saveProspect" type="submit">Guardar prospecto</button><button id="cancelProspectEdit" type="button" hidden style="background:#fff;color:#17252c;border:1px solid #ef915d">Cancelar edición</button>
           </form>
           <p id="prospectStatus" class="prospect-status" role="status"></p>
@@ -384,7 +385,8 @@
                   <p class="hint">Registra el prospecto sin salir del cotizador. Se asociará automáticamente a la expedición seleccionada.</p>
                   <label>Nombre o referencia *<input id="qNewAlias" maxlength="120" placeholder="Ej. Juan Pérez" autocomplete="off"></label>
                   <label>Canal de contacto *<select id="qNewChannel"><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option><option value="directo">Directo</option><option value="agencia">Agencia</option><option value="otro">Otro</option></select></label>
-                  <div class="quote-actions"><button type="button" id="qSaveNewProspect">Guardar y asociar</button><button type="button" id="qCancelNewProspect" class="outline-btn">Cancelar</button></div>
+                  <label id="qNewAgencyWrap" hidden>Agencia de origen *<select id="qNewAgency"><option value="">Seleccionar agencia</option></select></label>
+                   <div class="quote-actions"><button type="button" id="qSaveNewProspect">Guardar y asociar</button><button type="button" id="qCancelNewProspect" class="outline-btn">Cancelar</button></div>
                   <p id="qQuickProspectStatus" class="hint" role="status"></p>
                 </div>
               </div>
@@ -602,8 +604,36 @@
     const prospectCount=document.querySelector('#prospectCount');
     const stages={new:'Nuevo',follow_up:'En seguimiento',quoted:'Cotización enviada',converted:'Convertido',won:'Convertido (anterior)',reserved:'Reservado',lost:'Perdido',contacted:'En seguimiento',qualified:'Calificado'};
     let editingProspectId=null;
+    let prospectAgencies=new Map();
+    function syncProspectAgency(){
+      const isAgency=document.querySelector('#pChannel').value==='agencia';
+      const wrap=document.querySelector('#pAgencyWrap'),sel=document.querySelector('#pAgency');
+      wrap.hidden=!isAgency;sel.required=isAgency;
+      if(!isAgency)sel.value='';
+    }
+    document.querySelector('#pChannel').addEventListener('change',syncProspectAgency);
+    function syncQuickAgency(){
+      const isAgency=document.querySelector('#qNewChannel').value==='agencia';
+      const wrap=document.querySelector('#qNewAgencyWrap'),sel=document.querySelector('#qNewAgency');
+      wrap.hidden=!isAgency;sel.required=isAgency;
+      if(!isAgency)sel.value='';
+    }
+    document.querySelector('#qNewChannel').addEventListener('change',syncQuickAgency);
+    function fillAgencySelect(select,records,placeholder='Seleccionar agencia'){
+      const previous=select.value;
+      select.replaceChildren(new Option(placeholder,''));
+      for(const a of records)select.add(new Option(a.name||a.agency_name||a.id,a.id));
+      if(records.some(a=>a.id===previous))select.value=previous;
+    }
+    async function refreshProspectAgencyCatalog(){
+      const {data,error}=await supabase.from('agencies').select('id,name').order('name').limit(500);
+      if(error)throw error;
+      prospectAgencies=new Map((data||[]).map(a=>[a.id,a]));
+      fillAgencySelect(document.querySelector('#pAgency'),data||[]);
+      fillAgencySelect(document.querySelector('#qNewAgency'),data||[]);
+    }
     const cancelProspectEdit=document.querySelector('#cancelProspectEdit');
-    function resetProspectEditor(){editingProspectId=null;prospectForm.reset();document.querySelector('#saveProspect').textContent='Guardar prospecto';cancelProspectEdit.hidden=true;}
+    function resetProspectEditor(){editingProspectId=null;prospectForm.reset();document.querySelector('#saveProspect').textContent='Guardar prospecto';cancelProspectEdit.hidden=true;syncProspectAgency();}
     cancelProspectEdit.addEventListener('click',()=>{resetProspectEditor();prospectStatus.textContent='Edición cancelada.';});
     const channelNames={whatsapp:'WhatsApp',instagram:'Instagram',directo:'Directo',agencia:'Agencia',otro:'Otro'};
     let expeditionsById=new Map();
@@ -626,12 +656,17 @@
     async function loadProspects(){
       prospectForm.hidden=currentRole!=='admin';
       prospectStatus.textContent='Cargando información...';
-      const [expResult,prosResult]=await Promise.all([
+      const [expResult,prosResult,agencyResult]=await Promise.all([
         supabase.from('expeditions').select('id,name').order('name'),
-        supabase.from('prospects').select('id,alias,channel,stage,expedition_id,created_at').order('created_at',{ascending:false}).limit(500)
+        supabase.from('prospects').select('id,alias,channel,stage,expedition_id,agency_id,created_at').order('created_at',{ascending:false}).limit(500),
+        supabase.from('agencies').select('id,name').order('name').limit(500)
       ]);
       if(expResult.error){showProspectError(expResult.error);return;}
-      if(prosResult.error){showProspectError(prosResult.error);return;}
+      if(prosResult.error||agencyResult.error){showProspectError(prosResult.error||agencyResult.error);return;}
+      prospectAgencies=new Map((agencyResult.data||[]).map(a=>[a.id,a]));
+      fillAgencySelect(document.querySelector('#pAgency'),agencyResult.data||[]);
+      fillAgencySelect(document.querySelector('#qNewAgency'),agencyResult.data||[]);
+      syncProspectAgency();
       expeditionsById=new Map((expResult.data||[]).map(x=>[x.id,x.name]));
       const sel=document.querySelector('#pExpedition');
       sel.replaceChildren(new Option('Seleccionar expedición',''));
@@ -642,7 +677,7 @@
       if(!prospects.length){const tr=document.createElement('tr');putCell(tr,'Todavía no hay prospectos registrados.');prospectRows.appendChild(tr);prospectRows.firstChild.firstChild.colSpan=6;prospectMobileList.textContent='Todavía no hay prospectos registrados.';}
       for(const p of prospects){
         const tr=document.createElement('tr');
-        putCell(tr,p.alias);putCell(tr,channelNames[p.channel]||p.channel);
+        putCell(tr,p.alias);putCell(tr,p.channel==='agencia'?'Agencia: '+(prospectAgencies.get(p.agency_id)?.name||'Sin asignar'):(channelNames[p.channel]||p.channel));
         putCell(tr,expeditionsById.get(p.expedition_id)||'Sin expedición');
         putCell(tr,stages[p.stage]||p.stage);
         putCell(tr,p.created_at?new Date(p.created_at).toLocaleDateString('es-MX'):'—');
@@ -657,6 +692,7 @@
             document.querySelector('#pAlias').value=p.alias||'';
             document.querySelector('#pExpedition').value=p.expedition_id||'';
             document.querySelector('#pChannel').value=p.channel||'';
+            syncProspectAgency();document.querySelector('#pAgency').value=p.agency_id||'';
             const stageSelect=document.querySelector('#pStage');
             stageSelect.value=p.stage==='won'?'converted':p.stage==='contacted'?'follow_up':p.stage;
             if(!stageSelect.value)stageSelect.value='new';
@@ -667,19 +703,42 @@
           };
           edit.addEventListener('click',editProspect);
           actions.appendChild(edit);
+          if(p.stage==='converted'||p.stage==='won'){
+            const create=document.createElement('button');create.type='button';create.textContent='Crear reserva';
+            create.style.cssText='width:auto;margin:6px 0 0 6px;padding:9px 12px;background:#ff9654;color:#17252c';
+            create.addEventListener('click',()=>openBookingFromProspect(p));actions.appendChild(create);
+          }
         }else{actions.textContent='—';}
         tr.appendChild(actions);prospectRows.appendChild(tr);
         prospectMobileList.appendChild(mobileRecordCard(p.alias||'Sin nombre',[
           ['Expedición',expeditionsById.get(p.expedition_id)||'Sin expedición'],
-          ['Canal',channelNames[p.channel]||p.channel],
+          ['Canal',p.channel==='agencia'?'Agencia: '+(prospectAgencies.get(p.agency_id)?.name||'Sin asignar'):(channelNames[p.channel]||p.channel)],
           ['Etapa',stages[p.stage]||p.stage],
           ['Registro',p.created_at?new Date(p.created_at).toLocaleDateString('es-MX'):'—']
         ],currentRole==='admin'?'Editar prospecto':null,editProspect));
+        if(currentRole==='admin'&&(p.stage==='converted'||p.stage==='won')){
+          const card=prospectMobileList.lastElementChild;
+          const create=document.createElement('button');create.type='button';create.textContent='Crear reserva';
+          create.style.cssText='background:#ff9654;color:#17252c';
+          create.addEventListener('click',()=>openBookingFromProspect(p));card.appendChild(create);
+        }
       }
       prospectCount.textContent=prospects.length===500?'500 registros mostrados':`${prospects.length} prospecto${prospects.length===1?'':'s'}`;
       document.querySelector('#homeProspects').textContent=prospects.length===500?'500+':String(prospects.length);
       document.querySelector('#homeProspectsNote').textContent=prospects.length===500?'Muestra limitada a 500 registros':'Registros de Supabase';
       prospectStatus.textContent=currentRole==='admin'?'Puedes registrar nuevos prospectos.':'Acceso de consulta: no puedes modificar registros.';
+    }
+    async function openBookingFromProspect(p){
+      if(currentRole!=='admin')return;
+      document.querySelector('[data-page="reservas"]').click();
+      await loadBookings();
+      if(!bookingProspects.has(p.id)){bookingStatus.textContent='No se encontró el prospecto para reservar.';return;}
+      resetBookingEditor();
+      document.querySelector('#bExpedition').value=p.expedition_id;
+      syncBookingPrice();syncBookingProspect();
+      document.querySelector('#bProspect').value=p.id;
+      syncBookingChannelFromProspect();
+      bookingForm.scrollIntoView({behavior:'smooth',block:'start'});
     }
     prospectForm.addEventListener('submit',async e=>{
       e.preventDefault();
@@ -687,9 +746,10 @@
       if(!prospectForm.reportValidity())return;
       const btn=document.querySelector('#saveProspect');btn.disabled=true;
       prospectStatus.textContent='Guardando prospecto...';
-      const payload={alias:document.querySelector('#pAlias').value.trim(),expedition_id:document.querySelector('#pExpedition').value,channel:document.querySelector('#pChannel').value,stage:document.querySelector('#pStage').value};
+      const payload={alias:document.querySelector('#pAlias').value.trim(),expedition_id:document.querySelector('#pExpedition').value,channel:document.querySelector('#pChannel').value,stage:document.querySelector('#pStage').value,agency_id:document.querySelector('#pChannel').value==='agencia'?document.querySelector('#pAgency').value:null};
       try{
         if(!payload.alias||!expeditionsById.has(payload.expedition_id))throw new Error('Selecciona un nombre y una expedición válida');
+        if(payload.channel==='agencia'&&!prospectAgencies.has(payload.agency_id))throw new Error('Selecciona la agencia de origen');
         const {error}=editingProspectId
           ? await supabase.from('prospects').update(payload).eq('id',editingProspectId).select('id').single()
           : await supabase.from('prospects').insert(payload).select('id').single();
@@ -745,7 +805,11 @@
       else channelEl.disabled=false;
       syncBookingAgency();
       const agencyWrap=document.querySelector('#bAgencyWrap');
-      if(p?.channel==='agencia')bookingStatus.textContent='Este prospecto viene de una agencia. Selecciona la agencia correspondiente.';
+      if(p?.channel==='agencia'){
+        const agencySel=document.querySelector('#bAgency');
+        agencySel.value=p.agency_id&&bookingAgencies.has(p.agency_id)?p.agency_id:'';
+        bookingStatus.textContent=agencySel.value?'Agencia recuperada del prospecto.':'Este prospecto aún no tiene agencia asignada. Edítalo en Prospectos antes de reservar.';
+      }
     }
     function syncDepositFields(){
       const show=document.querySelector('#bStatus').value==='deposit';
@@ -803,7 +867,7 @@
       bookingStatus.textContent='Cargando reservas...';
       const [expRes,proRes,agencyRes,bookingRes,bookingPaymentsRes]=await Promise.all([
         supabase.from('expeditions').select('id,name,public_price_mxn').order('name'),
-        supabase.from('prospects').select('id,alias,expedition_id,channel').order('created_at',{ascending:false}).limit(500),
+        supabase.from('prospects').select('id,alias,expedition_id,channel,agency_id').order('created_at',{ascending:false}).limit(500),
         supabase.from('agencies').select('*').limit(500),
         supabase.from('bookings').select('id,expedition_id,prospect_id,channel,agency_id,travelers,unit_price_mxn,status,created_at').order('created_at',{ascending:false}).limit(500),
         supabase.from('payments').select('booking_id,amount_mxn').limit(5000)
@@ -1369,7 +1433,7 @@
       if(!name){status.textContent='Escribe el nombre de la agencia.';return;}
       btn.disabled=true;status.textContent='Guardando agencia...';
       try{const {error}=await supabase.from('agencies').insert({name,contact_name:contact_name||null});if(error)throw error;
-        form.reset();await loadAgencyMaster();await loadBookings();status.textContent='Agencia guardada. Ya está disponible para reservas.';
+        form.reset();await loadAgencyMaster();await refreshProspectAgencyCatalog();await loadBookings();status.textContent='Agencia guardada. Ya está disponible para reservas.';
       }catch(err){status.textContent='No se pudo guardar la agencia: '+err.message;}finally{btn.disabled=false;}
     });
     let editingExpeditionId=null;
@@ -1588,6 +1652,8 @@
       if(currentRole!=='admin')return;
       const expedition_id=qSelect.value,alias=document.querySelector('#qNewAlias').value.trim();
       const channel=document.querySelector('#qNewChannel').value;
+      const agency_id=channel==='agencia'?document.querySelector('#qNewAgency').value:null;
+      if(channel==='agencia'&&!prospectAgencies.has(agency_id)){quickProspectStatus.textContent='Selecciona una agencia válida.';return;}
       if(!expedition_id||!quoteExpeditions.has(expedition_id)){quickProspectStatus.textContent='Selecciona una expedición válida.';return;}
       if(!alias){quickProspectStatus.textContent='Escribe el nombre o referencia del prospecto.';return;}
       const btn=document.querySelector('#qSaveNewProspect');btn.disabled=true;
@@ -1605,8 +1671,8 @@
         }
         quickProspectStatus.textContent='Guardando prospecto...';
         const {data,error}=await supabase.from('prospects')
-          .insert({alias,expedition_id,channel,stage:'new'})
-          .select('id,alias,expedition_id,channel').single();
+          .insert({alias,expedition_id,channel,agency_id,stage:'new'})
+          .select('id,alias,expedition_id,channel,agency_id').single();
         if(error)throw error;
         quoteProspects.push(data);
         syncQuoteProspects();qProspect.value=data.id;syncQuoteProspectChannel();
@@ -1636,6 +1702,7 @@
       if(prospect){qChannel.value=prospect.channel==='agencia'||prospect.channel==='agency'?'agency':'direct';qChannel.disabled=true;}
       else qChannel.disabled=false;
       syncQuoteChannel();
+      if(prospect?.channel==='agencia'){qAgency.value=prospect.agency_id&&quoteAgencies.has(prospect.agency_id)?prospect.agency_id:'';qStatus.textContent=qAgency.value?'Agencia recuperada del prospecto.':'Asigna la agencia de origen en Prospectos.';}
       if(qForm.checkValidity())calculateQuote();
     }
     qProspect.addEventListener('change',()=>{syncQuoteProspectChannel();if(!qProspect.value)qFindProspect.value='';});
@@ -1720,7 +1787,7 @@
           ? supabase.from('quotes').select('id,expedition_id,prospect_id,quote_type,travelers,unit_price_mxn,variable_cost_per_traveler_mxn,fixed_cost_mxn,total_price_mxn,total_cost_mxn,status,created_at,channel,agency_id,commission_pct').order('created_at',{ascending:false}).limit(500)
           : Promise.resolve({data:[],error:null}),
         currentRole==='admin'
-          ? supabase.from('prospects').select('id,alias,expedition_id,channel').order('alias').limit(1000)
+          ? supabase.from('prospects').select('id,alias,expedition_id,channel,agency_id').order('alias').limit(1000)
           : Promise.resolve({data:[],error:null}),
         supabase.from('agencies').select('*').limit(500)
       ]);
