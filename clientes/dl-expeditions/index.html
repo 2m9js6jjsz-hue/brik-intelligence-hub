@@ -1600,6 +1600,13 @@
       if(item?.id)row.dataset.costId=item.id;
       row.style.cssText='display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;margin:10px 0';
       row.innerHTML='<label>Concepto *<select class="cost-category" required><option value="">Seleccionar concepto</option><option>Hospedaje</option><option>Transporte</option><option>Alimentación</option><option>Actividades</option><option>Seguros</option><option>Coordinación</option><option>Guías</option><option>Entradas</option><option>Impuestos</option><option>Otros</option></select><input class="cost-custom" maxlength="120" placeholder="Escribe el concepto" hidden></label><label>Detalle<input class="cost-description" placeholder="Ej. 5 noches"></label><label>Tipo<select class="cost-type"><option value="per_traveler">Por viajero</option><option value="fixed">Fijo del grupo</option></select></label><label>Monto MXN *<input class="cost-amount" type="number" min="0" step="0.01" required placeholder="Ingresa monto"></label><button type="button" class="remove-cost" aria-label="Eliminar costo" style="margin:0;padding:11px;background:#fff;color:#8b342c;border:1px solid #ddd">×</button>';
+      // Cada fila nueva comienza vacía y sin autocompletado del navegador.
+      // Las filas existentes conservan sus datos únicamente durante la edición.
+      for(const field of row.querySelectorAll('input, select')){
+        field.setAttribute('autocomplete','off');
+        field.setAttribute('data-lpignore','true');
+        field.setAttribute('name','expedition_cost_'+crypto.randomUUID());
+      }
       const select=row.querySelector('.cost-category'),custom=row.querySelector('.cost-custom');
       function syncCustom(){custom.hidden=select.value!=='Otros';custom.required=select.value==='Otros';}
       select.addEventListener('change',syncCustom);
@@ -1611,12 +1618,24 @@
         row.querySelector('.cost-type').value=item.cost_type;
         row.querySelector('.cost-amount').value=item.amount_mxn??'';
       }
+      if(!item){
+        select.value='';
+        custom.value='';
+        row.querySelector('.cost-description').value='';
+        row.querySelector('.cost-type').value='per_traveler';
+        row.querySelector('.cost-amount').value='';
+      }
       syncCustom();
       row.querySelector('.remove-cost').addEventListener('click',()=>{row.remove();updateCostSummary();});
       row.addEventListener('input',updateCostSummary);row.addEventListener('change',updateCostSummary);
       document.getElementById('eCostLines').appendChild(row);updateCostSummary();
     }
-    document.getElementById('eAddCost').addEventListener('click',()=>addExpeditionCostLine());
+    document.getElementById('eAddCost').addEventListener('click',()=>{
+      addExpeditionCostLine(null);
+      const rows=document.querySelectorAll('.e-cost-line');
+      const newest=rows[rows.length-1];
+      newest?.querySelector('.cost-category')?.focus({preventScroll:true});
+    });
     // Navegación: no cambia la sesión de Supabase ni simula escrituras de datos.
     const sideNav=document.querySelector('#sideNav');
     const shade=document.querySelector('#navShade');
