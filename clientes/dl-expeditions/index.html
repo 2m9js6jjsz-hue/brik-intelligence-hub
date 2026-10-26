@@ -151,6 +151,9 @@
     .master-form button{grid-column:1/-1;width:auto;justify-self:start;margin:0;padding:12px 22px}
     .master-status{font-size:13px;line-height:1.6;overflow-wrap:anywhere}
     @media(max-width:650px){.master-form{grid-template-columns:1fr}}
+    .finance-mobile-list{display:none}
+    .finance-balance-preview{grid-column:1/-1;border:1px solid #efd0b9;background:#fff7f0;border-radius:12px;padding:13px;color:#714326;font-size:13px;line-height:1.7}
+    @media(max-width:650px){.finance-desktop-table{display:none}.finance-mobile-list{display:grid;gap:12px;margin-top:12px}.finance-mobile-card{background:#fff;border:1px solid #e3e0db;border-radius:14px;padding:15px;overflow-wrap:anywhere}.finance-mobile-card h3{font-size:17px;margin:0 0 12px}.finance-mobile-card dl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0}.finance-mobile-card dt{font-size:12px;color:#69777d}.finance-mobile-card dd{font-size:14px;font-weight:700;margin:4px 0 0;overflow-wrap:anywhere}}
     [hidden]{display:none!important}
     @media(max-width:650px){.booking-form{grid-template-columns:1fr}.e-cost-line{grid-template-columns:1fr!important}}
     @media print{body.logged-in .dash-top,body.logged-in .dash-side,body.logged-in .dash-demo,body.logged-in .dash-head,body.logged-in .dash-foot,body.logged-in .quote-form,body.logged-in .hint,body.logged-in .nav-shade{display:none!important}body.logged-in .dash-layout{display:block}body.logged-in .dash-content{padding:0}.page{display:none!important}.page[data-section="cotizador"]{display:block!important}.quote-result{display:grid;grid-template-columns:1fr 1fr}.dash-panel{box-shadow:none;border:0}.quote-result .dash-stat{break-inside:avoid}}
@@ -334,6 +337,7 @@
             <div class="dash-panel"><h2>Registrar pago de cliente</h2><p>Vincula el pago con una reserva existente. El pago no se registra automáticamente al crear una reserva.</p>
               <form id="paymentForm" class="finance-form" hidden>
                 <label>Reserva *<select id="fBooking" required><option value="">Seleccionar reserva</option></select></label>
+                <div id="fBalancePreview" class="finance-balance-preview" role="status">Selecciona una reserva para consultar su saldo pendiente.</div>
                 <label>Fecha del pago *<input id="fPaymentDate" type="date" required></label>
                 <label>Importe recibido (MXN) *<input id="fPaymentAmount" type="number" min="0.01" step="0.01" required></label>
                 <label>Método *<select id="fPaymentMethod" required><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="cash">Efectivo</option><option value="other">Otro</option></select></label>
@@ -352,8 +356,8 @@
               </form><p id="expenseStatus" class="finance-status" role="status"></p>
             </div>
           </div>
-          <div class="dash-panel" style="margin-top:17px"><h2>Pagos registrados</h2><div class="table-wrap"><table class="dash-table"><thead><tr><th>Fecha</th><th>Prospecto</th><th>Expedición / reserva</th><th>Método</th><th>Importe</th><th>Referencia</th></tr></thead><tbody id="paymentRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
-          <div class="dash-panel" style="margin-top:17px"><h2>Gastos registrados</h2><div class="table-wrap"><table class="dash-table"><thead><tr><th>Fecha</th><th>Expedición</th><th>Categoría</th><th>Descripción</th><th>Importe</th></tr></thead><tbody id="expenseRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
+          <div class="dash-panel" style="margin-top:17px"><h2>Pagos registrados</h2><div id="paymentMobileCards" class="finance-mobile-list"></div><div class="table-wrap finance-desktop-table"><table class="dash-table"><thead><tr><th>Fecha</th><th>Prospecto</th><th>Expedición / reserva</th><th>Método</th><th>Importe</th><th>Referencia</th></tr></thead><tbody id="paymentRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
+          <div class="dash-panel" style="margin-top:17px"><h2>Gastos registrados</h2><div id="expenseMobileCards" class="finance-mobile-list"></div><div class="table-wrap finance-desktop-table"><table class="dash-table"><thead><tr><th>Fecha</th><th>Expedición</th><th>Categoría</th><th>Descripción</th><th>Importe</th></tr></thead><tbody id="expenseRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
           <p class="hint">Los indicadores son registros operativos, no conciliación bancaria ni utilidad contable. Los pagos y gastos solo se guardan cuando Supabase confirma la operación. Los registros cancelados no se eliminan automáticamente.</p>
         </section>
         <section class="page" data-section="clientes"><div class="dash-panel">
@@ -929,6 +933,26 @@
     const financePaymentMethods={transfer:'Transferencia',card:'Tarjeta',cash:'Efectivo',other:'Otro'};
     const financeCategories={provider:'Proveedores / servicios',coordinator:'Coordinación',advertising:'Publicidad',fixed:'Costos fijos',gateway:'Comisiones de cobro',other:'Otro'};
     let financeBookings=new Map(),financeExpeditions=new Map(),financeProspects=new Map(),financePayments=[];
+    function financeMobileCard(target,title,fields){
+      const card=document.createElement('article');card.className='finance-mobile-card';
+      const h=document.createElement('h3');h.textContent=title;card.appendChild(h);
+      const dl=document.createElement('dl');
+      for(const [label,value] of fields){const cell=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=String(value??'—');cell.append(dt,dd);dl.appendChild(cell);}
+      card.appendChild(dl);target.appendChild(card);
+    }
+    function updateFinanceBalance(){
+      const target=fEl('fBalancePreview'),id=fEl('fBooking').value,b=financeBookings.get(id);
+      if(!b){target.textContent='Selecciona una reserva para consultar su saldo pendiente.';return;}
+      const total=Number(b.travelers)*Number(b.unit_price_mxn);
+      const paid=financePayments.filter(p=>p.booking_id===id).reduce((sum,p)=>sum+Number(p.amount_mxn||0),0);
+      const due=Math.max(0,Math.round((total-paid)*100)/100);
+      const name=financeProspects.get(b.prospect_id)?.alias||'Reserva sin prospecto asociado';
+      target.textContent=name+' · Total: '+mxn(total)+' · Abonado: '+mxn(paid)+' · Saldo pendiente: '+mxn(due);
+      const amount=fEl('fPaymentAmount');amount.max=String(due);amount.disabled=due<=0;
+      fEl('savePayment').disabled=due<=0;
+      if(due<=0)target.textContent+=' · Esta reserva está pagada completamente.';
+    }
+    fEl('fBooking').addEventListener('change',updateFinanceBalance);
     function financeEmpty(tbodyId,text){const t=fEl(tbodyId);t.replaceChildren();const r=document.createElement('tr'),c=document.createElement('td');c.colSpan=tbodyId==='paymentRows'?6:5;c.textContent=text;r.appendChild(c);t.appendChild(r);}
     function financeToday(){return new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);}
     function renderHomeFinance(bookings,payments,expenses){
@@ -979,11 +1003,21 @@
       for(const b of br.data||[]){if(b.status==='cancelled')continue;const exp=financeExpeditions.get(b.expedition_id)?.name||'Expedición';const client=financeProspects.get(b.prospect_id)?.alias||'Sin prospecto asociado';pb.add(new Option(`${client} · ${exp} · ${b.travelers} viajero(s) · ${mxn(Number(b.travelers)*Number(b.unit_price_mxn))}`,b.id));}
       for(const e of er.data||[])pe.add(new Option(e.name,e.id));
       if(financeBookings.has(oldB))pb.value=oldB;if(financeExpeditions.has(oldE))pe.value=oldE;
+      updateFinanceBalance();
       const payRows=fEl('paymentRows'),expRows=fEl('expenseRows');payRows.replaceChildren();expRows.replaceChildren();
-      for(const p of pr.data||[]){const r=document.createElement('tr'),b=financeBookings.get(p.booking_id);putCell(r,p.paid_at?new Date(p.paid_at).toLocaleDateString('es-MX'):'—');putCell(r,financeProspects.get(b?.prospect_id)?.alias||'Sin prospecto asociado');putCell(r,(financeExpeditions.get(b?.expedition_id)?.name||'Reserva')+' · '+p.booking_id.slice(0,8));putCell(r,financePaymentMethods[p.payment_method]||p.payment_method);putCell(r,mxn(p.amount_mxn));putCell(r,'—');payRows.appendChild(r);}
-      for(const x of xr.data||[]){const r=document.createElement('tr');putCell(r,x.spent_at||'—');putCell(r,financeExpeditions.get(x.expedition_id)?.name||'Expedición');putCell(r,financeCategories[x.category]||x.category);putCell(r,x.description);putCell(r,mxn(x.amount_mxn));expRows.appendChild(r);}
-      if(!(pr.data||[]).length)financeEmpty('paymentRows','Todavía no hay pagos registrados.');
-      if(!(xr.data||[]).length)financeEmpty('expenseRows','Todavía no hay gastos registrados.');
+      const payCards=fEl('paymentMobileCards'),expenseCards=fEl('expenseMobileCards');payCards.replaceChildren();expenseCards.replaceChildren();
+      for(const p of pr.data||[]){const r=document.createElement('tr'),b=financeBookings.get(p.booking_id);putCell(r,p.paid_at?new Date(p.paid_at).toLocaleDateString('es-MX'):'—');putCell(r,financeProspects.get(b?.prospect_id)?.alias||'Sin prospecto asociado');putCell(r,(financeExpeditions.get(b?.expedition_id)?.name||'Reserva')+' · '+p.booking_id.slice(0,8));putCell(r,financePaymentMethods[p.payment_method]||p.payment_method);putCell(r,mxn(p.amount_mxn));putCell(r,'—');payRows.appendChild(r);
+        financeMobileCard(payCards,financeProspects.get(b?.prospect_id)?.alias||'Sin prospecto asociado',[
+          ['Expedición',financeExpeditions.get(b?.expedition_id)?.name||'Reserva'],['Fecha',p.paid_at?new Date(p.paid_at).toLocaleDateString('es-MX'):'—'],['Importe',mxn(p.amount_mxn)],['Método',financePaymentMethods[p.payment_method]||p.payment_method]
+        ]);
+      }
+      for(const x of xr.data||[]){const r=document.createElement('tr');putCell(r,x.spent_at||'—');putCell(r,financeExpeditions.get(x.expedition_id)?.name||'Expedición');putCell(r,financeCategories[x.category]||x.category);putCell(r,x.description);putCell(r,mxn(x.amount_mxn));expRows.appendChild(r);
+        financeMobileCard(expenseCards,financeExpeditions.get(x.expedition_id)?.name||'Expedición',[
+          ['Fecha',x.spent_at||'—'],['Categoría',financeCategories[x.category]||x.category],['Descripción',x.description||'—'],['Importe',mxn(x.amount_mxn)]
+        ]);
+      }
+      if(!(pr.data||[]).length){financeEmpty('paymentRows','Todavía no hay pagos registrados.');payCards.textContent='Todavía no hay pagos registrados.';}
+      if(!(xr.data||[]).length){financeEmpty('expenseRows','Todavía no hay gastos registrados.');expenseCards.textContent='Todavía no hay gastos registrados.';}
       const received=(pr.data||[]).reduce((n,p)=>n+Number(p.amount_mxn),0),spent=(xr.data||[]).reduce((n,x)=>n+Number(x.amount_mxn),0);
       const booked=(br.data||[]).filter(b=>b.status!=='cancelled').reduce((n,b)=>n+Number(b.travelers)*Number(b.unit_price_mxn),0);
       const receivedActive=(pr.data||[]).filter(p=>financeBookings.get(p.booking_id)?.status!=='cancelled').reduce((n,p)=>n+Number(p.amount_mxn),0);
@@ -999,7 +1033,7 @@
       const booking_id=fEl('fBooking').value,amount_mxn=Number(fEl('fPaymentAmount').value),paid_on=fEl('fPaymentDate').value,payment_method=fEl('fPaymentMethod').value;
       if(!financeBookings.has(booking_id)||financeBookings.get(booking_id).status==='cancelled'||!Number.isFinite(amount_mxn)||amount_mxn<=0){fEl('paymentStatus').textContent='Selecciona una reserva activa y un importe válido.';return;}
       const b=financeBookings.get(booking_id),total=Number(b.travelers)*Number(b.unit_price_mxn),paid=financePayments.filter(p=>p.booking_id===booking_id).reduce((n,p)=>n+Number(p.amount_mxn),0);
-      if(amount_mxn>Math.round((total-paid)*100)/100){fEl('paymentStatus').textContent='El pago supera el saldo pendiente ('+mxn(Math.max(0,total-paid))+'). Revisa el importe.';return;}
+      if(!Number.isFinite(total)||!Number.isFinite(paid)||amount_mxn>Math.round((total-paid)*100)/100){fEl('paymentStatus').textContent='El pago supera el saldo pendiente ('+mxn(Math.max(0,total-paid))+'). Revisa el importe.';return;}
       const btn=fEl('savePayment');btn.disabled=true;fEl('paymentStatus').textContent='Guardando pago...';
       try{const {error}=await supabase.from('payments').insert({booking_id,amount_mxn,paid_at:new Date(paid_on+'T12:00:00').toISOString(),payment_method});if(error)throw error;fEl('paymentForm').reset();await loadFinances();fEl('paymentStatus').textContent='Pago guardado en Supabase.';}
       catch(err){fEl('paymentStatus').textContent='No se pudo guardar el pago: '+err.message;}finally{btn.disabled=false;}
