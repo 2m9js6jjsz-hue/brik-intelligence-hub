@@ -321,7 +321,7 @@
               <p id="bDepositHint" class="hint"></p>
             </div>
             <div class="booking-summary">Total estimado de la reserva: <strong id="bTotal">$0.00 MXN</strong></div>
-            <button id="saveBooking" type="submit">Guardar reserva</button><button id="cancelBookingEdit" type="button" hidden style="background:#fff;color:#17252c;border:1px solid #ef915d">Cancelar edición</button>
+            <div id="preparedQuoteNotice" class="booking-summary" hidden style="grid-column:1/-1"></div><button id="saveBooking" type="submit">Guardar reserva</button><button id="cancelBookingEdit" type="button" hidden style="background:#fff;color:#17252c;border:1px solid #ef915d">Cancelar edición</button>
           </form>
           <p id="bookingStatus" class="booking-status" role="status"></p>
           <div id="bookingMobileList" class="record-mobile-list" aria-label="Reservas registradas"></div><div class="table-wrap record-desktop-table"><table class="dash-table"><thead><tr><th>Expedición</th><th>Prospecto</th><th>Canal</th><th>Viajeros</th><th>Precio unitario</th><th>Total</th><th>Abonado</th><th>Saldo pendiente</th><th>Estado</th><th>Registro</th><th>Acciones</th></tr></thead><tbody id="bookingRows"><tr><td colspan="8">Inicia sesión para consultar las reservas.</td></tr></tbody></table></div>
@@ -841,6 +841,7 @@
     }
     function resetBookingEditor(){
       editingBookingId=null;preparedQuote=null;bookingForm.reset();
+      document.querySelector('#preparedQuoteNotice').hidden=true;
       document.querySelector('#saveBooking').textContent='Guardar reserva';
       document.querySelector('#cancelBookingEdit').hidden=true;
       syncBookingProspect();syncBookingPrice();syncDepositFields();
@@ -1938,7 +1939,7 @@
          qMoney(Number(q.total_price_mxn)-Number(q.total_cost_mxn)-(q.channel==='agency'?Number(q.total_price_mxn)*Number(q.commission_pct||0)/100:0)),q.status]
           .forEach(v=>putCell(tr,v));
         const actions=document.createElement('td');
-        const view=document.createElement('button');view.type='button';view.className='outline-btn';view.textContent='Cargar';
+        const view=document.createElement('button');view.type='button';view.className='outline-btn';view.textContent='Ver cotización';
         view.addEventListener('click',()=>restoreSavedQuote(q));
         const pdf=document.createElement('button');pdf.type='button';pdf.className='outline-btn';pdf.textContent='PDF';
         pdf.addEventListener('click',()=>printSavedQuote(q));
@@ -1951,11 +1952,11 @@
           const line=document.createElement('p');const bold=document.createElement('strong');bold.textContent=label+': ';line.append(bold,document.createTextNode(value));card.appendChild(line);
         }
         const cardActions=document.createElement('div');cardActions.className='quote-card-actions';
-        const loadButton=document.createElement('button');loadButton.type='button';loadButton.textContent='Cargar';loadButton.addEventListener('click',()=>restoreSavedQuote(q));
+        const loadButton=document.createElement('button');loadButton.type='button';loadButton.textContent='Ver cotización';loadButton.addEventListener('click',()=>restoreSavedQuote(q));
         const pdfButton=document.createElement('button');pdfButton.type='button';pdfButton.textContent='PDF';pdfButton.addEventListener('click',()=>printSavedQuote(q));
-        const reserveButton=document.createElement('button');reserveButton.type='button';reserveButton.textContent='Preparar reserva';reserveButton.addEventListener('click',()=>prepareBookingFromQuote(q));
+        const reserveButton=document.createElement('button');reserveButton.type='button';reserveButton.textContent='Convertir en reserva';reserveButton.addEventListener('click',()=>prepareBookingFromQuote(q));
         cardActions.append(loadButton,pdfButton,reserveButton);card.appendChild(cardActions);mobileCards.appendChild(card);
-        const desktopReserve=document.createElement('button');desktopReserve.type='button';desktopReserve.className='outline-btn';desktopReserve.textContent='Preparar reserva';desktopReserve.addEventListener('click',()=>prepareBookingFromQuote(q));actions.append(document.createTextNode(' '),desktopReserve);
+        const desktopReserve=document.createElement('button');desktopReserve.type='button';desktopReserve.className='outline-btn';desktopReserve.textContent='Convertir en reserva';desktopReserve.addEventListener('click',()=>prepareBookingFromQuote(q));actions.append(document.createTextNode(' '),desktopReserve);
       }
       if(!quotes.data?.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=12;td.textContent='Todavía no hay cotizaciones guardadas.';tr.appendChild(td);rows.appendChild(tr);}
       document.querySelector('#quoteCount').textContent=quotes.data.length===500?'500 registros mostrados':`${quotes.data.length} cotización(es)`;
@@ -1974,6 +1975,16 @@
       if(nav)nav.click();
       await loadBookings();
       if(!bookingExpeditions.has(q.expedition_id)){bookingStatus.textContent='No se encontró la expedición de la cotización.';return;}
+      const linked=bookingProspects.get(q.prospect_id);
+      if(!q.prospect_id||!linked){bookingStatus.textContent='Primero vincula esta cotización con un prospecto registrado. No se creó ninguna reserva.';return;}
+      if(linked.expedition_id!==q.expedition_id){bookingStatus.textContent='La expedición del prospecto no coincide con la cotización. Revisa el vínculo antes de reservar.';return;}
+      const expectedChannel=isAgencyChannel(linked.channel)?'agency':'direct';
+      if(expectedChannel!==(q.channel==='agency'?'agency':'direct')||(expectedChannel==='agency'&&linked.agency_id!==q.agency_id)){
+        bookingStatus.textContent='La agencia o el canal de esta cotización no coincide con el prospecto. Revisa los datos antes de reservar.';return;
+      }
+      if(Number(bookingExpeditions.get(q.expedition_id).public_price_mxn)!==Number(q.unit_price_mxn)){
+        bookingStatus.textContent='El precio de la expedición cambió desde que se guardó esta cotización. Para respetar el precio cotizado, revisa y actualiza la expedición o emite una nueva cotización antes de reservar.';return;
+      }
       resetBookingEditor();
       preparedQuote={id:q.id,expedition_id:q.expedition_id,prospect_id:q.prospect_id||null,travelers:q.travelers,unit_price_mxn:q.unit_price_mxn,channel:q.channel==='agency'?'agency':'direct',agency_id:q.channel==='agency'?q.agency_id:null};
       document.querySelector('#bExpedition').value=q.expedition_id;
@@ -1987,6 +1998,9 @@
       syncBookingAgency();
       if(channel==='agency'&&q.agency_id&&bookingAgencies.has(q.agency_id))document.querySelector('#bAgency').value=q.agency_id;
       updateBookingTotal();
+      const notice=document.querySelector('#preparedQuoteNotice');
+      notice.hidden=false;
+      notice.textContent='Cotización seleccionada · '+(linked.alias||'Prospecto')+' · '+(bookingExpeditions.get(q.expedition_id)?.name||'Expedición')+' · '+q.travelers+' viajero(s) · '+mxn(q.total_price_mxn)+' MXN. Revisa el estado y confirma con Guardar reserva.';
       bookingStatus.textContent='Reserva preparada y vinculada a su cotización. Revisa canal, agencia y estado. Si cambias viajeros, precio, prospecto o expedición, crea una nueva cotización. No se ha guardado ninguna reserva.';
       bookingForm.scrollIntoView({behavior:'smooth',block:'start'});
     }
