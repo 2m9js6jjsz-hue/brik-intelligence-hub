@@ -376,7 +376,8 @@
             <p>Selecciona una expedición y cotiza por viajero o por grupo. Los importes se calculan con los costos registrados para esa expedición; puedes ajustarlos antes de guardar.</p>
             <form id="quoteForm" class="quote-form">
               <label class="quote-first-prospect">Buscar prospecto (opcional)<select id="qFindProspect"><option value="">Seleccionar prospecto registrado</option></select></label>
-              <p class="hint quote-first-prospect" style="margin:0">Al seleccionar un prospecto, se recuperan su expedición y canal. Si es una venta de agencia, confirma la agencia y su comisión.</p>
+              <div class="quote-first-prospect"><button type="button" id="qChangePerson" class="outline-btn" hidden>Cambiar persona / iniciar otra cotización</button></div>
+              <p class="hint quote-first-prospect" style="margin:0">Al seleccionar un prospecto, su expedición, canal y agencia quedan vinculados. Para cotizar a otra persona, pulsa «Cambiar persona».</p>
               <label>Expedición *<select id="qExpedition" required><option value="">Seleccionar expedición</option></select></label>
               <label>Prospecto asociado (opcional)<select id="qProspect"><option value="">Sin prospecto asociado</option></select></label>
               <div id="qQuickProspectArea" class="quick-prospect-area">
@@ -415,7 +416,12 @@
           <article id="clientQuotePrint" hidden aria-label="Cotización para el cliente">
             <div class="print-brand">DL EXPEDITIONS</div>
             <h1>Cotización de expedición</h1>
-            <p>Fecha: <span id="printDate"></span></p>
+            <p>Fecha de emisión: <span id="printDate"></span></p>
+            <div class="print-detail"><span>Preparada para</span><strong id="printClient"></strong></div>
+            <div class="print-detail"><span>Destino / expedición</span><strong id="printDestination"></strong></div>
+            <div class="print-detail"><span>Salida</span><strong id="printDeparture"></strong></div>
+            <div class="print-detail"><span>Regreso</span><strong id="printReturn"></strong></div>
+            <div class="print-detail"><span>Canal</span><strong id="printChannel"></strong></div>
             <h2 id="printExpedition"></h2>
             <div class="print-detail"><span>Modalidad</span><strong id="printType"></strong></div>
             <div class="print-detail"><span>Cantidad de viajeros</span><strong id="printTravelers"></strong></div>
@@ -1724,6 +1730,22 @@
     const qProspect=document.querySelector('#qProspect');
     let quoteProspects=[];
     const qFindProspect=document.querySelector('#qFindProspect');
+    const qChangePerson=document.querySelector('#qChangePerson');
+    function lockQuoteIdentity(prospectId){
+      const locked=Boolean(prospectId);
+      qFindProspect.disabled=locked;
+      qSelect.disabled=locked;
+      qProspect.disabled=locked;
+      qChangePerson.hidden=!locked;
+      document.querySelector('#qNewProspect').disabled=locked;
+    }
+    qChangePerson.addEventListener('click',()=>{
+      lockQuoteIdentity(null);
+      qFindProspect.value='';
+      qProspect.value='';
+      syncQuoteProspectChannel();
+      qStatus.textContent='Puedes seleccionar otra persona. La cotización anterior no se modificó.';
+    });
     let quoteCostsLoading=false;
     const quickProspectPanel=document.querySelector('#qQuickProspectPanel');
     const quickProspectStatus=document.querySelector('#qQuickProspectStatus');
@@ -1790,6 +1812,7 @@
       if(prospect){qChannel.value=isAgencyChannel(prospect.channel)||prospect.channel==='agency'?'agency':'direct';qChannel.disabled=true;}
       else qChannel.disabled=false;
       syncQuoteChannel();
+      lockQuoteIdentity(prospect?.id||null);
       if(prospect&&isAgencyChannel(prospect.channel)){qAgency.value=prospect.agency_id&&quoteAgencies.has(prospect.agency_id)?prospect.agency_id:'';qStatus.textContent=qAgency.value?'Agencia recuperada del prospecto (solo lectura).':'Asigna la agencia de origen en Prospectos.';}
       if(qForm.checkValidity())calculateQuote();
     }
@@ -1798,6 +1821,7 @@
       const p=quoteProspects.find(item=>item.id===qFindProspect.value);
       if(!p)return;
       if(!quoteExpeditions.has(p.expedition_id)){qStatus.textContent='La expedición del prospecto no está disponible.';return;}
+      lockQuoteIdentity(null);
       qSelect.value=p.expedition_id;
       await syncQuoteExpedition();
       qProspect.value=p.id;
@@ -1871,7 +1895,7 @@
       document.getElementById('quoteInternalHint').hidden=currentRole!=='admin';
       for(const id of ['qVariable','qFixed'])document.getElementById(id).closest('label').hidden=currentRole!=='admin';
       const [exps,quotes,prospects,agencies]=await Promise.all([
-        supabase.from('expeditions').select('id,name,capacity,public_price_mxn,provider_cost_per_traveler_mxn,coordinator_cost_mxn,fixed_allocated_mxn').order('name'),
+        supabase.from('expeditions').select('id,name,departure_date,return_date,capacity,public_price_mxn,provider_cost_per_traveler_mxn,coordinator_cost_mxn,fixed_allocated_mxn').order('name'),
         currentRole==='admin'
           ? supabase.from('quotes').select('id,expedition_id,prospect_id,quote_type,travelers,unit_price_mxn,variable_cost_per_traveler_mxn,fixed_cost_mxn,total_price_mxn,total_cost_mxn,status,created_at,channel,agency_id,commission_pct').order('created_at',{ascending:false}).limit(500)
           : Promise.resolve({data:[],error:null}),
@@ -1967,6 +1991,7 @@
       bookingForm.scrollIntoView({behavior:'smooth',block:'start'});
     }
     function restoreSavedQuote(q){
+      lockQuoteIdentity(null);
       qSelect.value=q.expedition_id;
       syncQuoteExpedition();
       qProspect.value=q.prospect_id||'';
@@ -1986,7 +2011,15 @@
     }
     function printQuoteDetails(q){
       document.querySelector('#printDate').textContent=new Date().toLocaleDateString('es-MX');
-      document.querySelector('#printExpedition').textContent=quoteExpeditions.get(q.expedition_id)?.name||'';
+      const exp=quoteExpeditions.get(q.expedition_id);
+      const prospect=quoteProspects.find(p=>p.id===q.prospect_id);
+      document.querySelector('#printClient').textContent=prospect?.alias||'Cliente por confirmar';
+      document.querySelector('#printDestination').textContent=exp?.name||'Por confirmar';
+      document.querySelector('#printDeparture').textContent=exp?.departure_date||'Por confirmar';
+      document.querySelector('#printReturn').textContent=exp?.return_date||'Por confirmar';
+      document.querySelector('#printChannel').textContent=q.channel==='agency'
+        ? 'Agencia: '+(quoteAgencies.get(q.agency_id)?.name||'Por confirmar'):'Venta directa';
+      document.querySelector('#printExpedition').textContent=exp?.name||'';
       document.querySelector('#printType').textContent=q.quote_type==='group'?'Por grupo':'Por viajero';
       document.querySelector('#printTravelers').textContent=String(q.travelers);
       document.querySelector('#printUnit').textContent=qMoney(q.unit_price_mxn);
@@ -2027,7 +2060,7 @@
       qStatus.textContent=data?.length?'Precios y desglose de costos cargados desde la expedición.':'Precio y costos resumidos cargados desde la expedición.';
       calculateQuote();
     }
-    qSelect.addEventListener('change',()=>{quickProspectPanel.hidden=true;qFindProspect.value='';syncQuoteExpedition();});
+    qSelect.addEventListener('change',()=>{if(qSelect.disabled)return;quickProspectPanel.hidden=true;qFindProspect.value='';syncQuoteExpedition();});
     ['qType','qTravelers','qPrice','qVariable','qFixed'].forEach(id=>document.getElementById(id).addEventListener('input',()=>{if(qForm.checkValidity())calculateQuote();}));
     qForm.addEventListener('submit',calculateQuote);
     document.querySelector('#saveQuote').addEventListener('click',async()=>{
