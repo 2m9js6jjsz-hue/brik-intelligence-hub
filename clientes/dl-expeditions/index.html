@@ -353,12 +353,12 @@
                 <label>Categoría *<select id="fExpenseCategory" required><option value="provider">Proveedores / servicios</option><option value="coordinator">Coordinación</option><option value="advertising">Publicidad</option><option value="fixed">Costos fijos</option><option value="gateway">Comisiones de cobro</option><option value="other">Otro</option></select></label>
                 <label>Importe (MXN) *<input id="fExpenseAmount" type="number" min="0.01" step="0.01" required></label>
                 <label>Descripción *<input id="fExpenseDescription" maxlength="240" required placeholder="Ej. Anticipo hotel"></label>
-                <button id="saveExpense" type="submit">Guardar gasto</button>
+                <button id="saveExpense" type="submit">Guardar gasto</button><button id="cancelExpenseEdit" type="button" hidden style="background:#fff;color:#17252c;border:1px solid #ef915d">Cancelar edición</button>
               </form><p id="expenseStatus" class="finance-status" role="status"></p>
             </div>
           </div>
           <div class="dash-panel" style="margin-top:17px"><h2>Pagos registrados</h2><div id="paymentMobileCards" class="finance-mobile-list"></div><div class="table-wrap finance-desktop-table"><table class="dash-table"><thead><tr><th>Fecha</th><th>Prospecto</th><th>Expedición / reserva</th><th>Método</th><th>Importe</th><th>Referencia</th></tr></thead><tbody id="paymentRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
-          <div class="dash-panel" style="margin-top:17px"><h2>Gastos registrados</h2><div id="expenseMobileCards" class="finance-mobile-list"></div><div class="table-wrap finance-desktop-table"><table class="dash-table"><thead><tr><th>Fecha</th><th>Expedición</th><th>Categoría</th><th>Descripción</th><th>Importe</th></tr></thead><tbody id="expenseRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
+          <div class="dash-panel" style="margin-top:17px"><h2>Gastos registrados</h2><div id="expenseMobileCards" class="finance-mobile-list"></div><div class="table-wrap finance-desktop-table"><table class="dash-table"><thead><tr><th>Fecha</th><th>Expedición</th><th>Categoría</th><th>Descripción</th><th>Importe</th><th>Acciones</th></tr></thead><tbody id="expenseRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
           <p class="hint">Los indicadores son registros operativos, no conciliación bancaria ni utilidad contable. Los pagos y gastos solo se guardan cuando Supabase confirma la operación. Los registros cancelados no se eliminan automáticamente.</p>
         </section>
         <section class="page" data-section="clientes"><div class="dash-panel">
@@ -1061,6 +1061,32 @@
       for(const [label,value] of rows){const row=document.createElement('div');row.className='dash-row';const left=document.createElement('span'),right=document.createElement('b');left.textContent=label;right.textContent=String(value);row.append(left,right);commercial.appendChild(row);}
       fEl('homeDataNote').textContent='Datos de Supabase · '+year+'. El flujo neto es cobros menos gastos registrados, no utilidad contable. Las cifras dependen de los permisos y de los límites de consulta.';
     }
+    let editingExpenseId=null;
+    let financeExpenses=new Map();
+    function resetExpenseEditor(){
+      editingExpenseId=null;
+      fEl('expenseForm').reset();
+      fEl('saveExpense').textContent='Guardar gasto';
+      fEl('cancelExpenseEdit').hidden=true;
+      fEl('fExpenseDate').value=financeToday();
+    }
+    function editExpense(id){
+      if(currentRole!=='admin')return;
+      const x=financeExpenses.get(id);if(!x)return;
+      editingExpenseId=id;
+      fEl('fExpenseExpedition').value=x.expedition_id;
+      fEl('fExpenseDate').value=String(x.spent_at||'').slice(0,10);
+      fEl('fExpenseCategory').value=x.category;
+      fEl('fExpenseAmount').value=x.amount_mxn;
+      fEl('fExpenseDescription').value=x.description||'';
+      fEl('saveExpense').textContent='Guardar cambios';
+      fEl('cancelExpenseEdit').hidden=false;
+      fEl('expenseStatus').textContent='Editando gasto. Los cambios actualizarán este registro, sin duplicarlo.';
+      fEl('expenseForm').scrollIntoView({behavior:'smooth',block:'start'});
+    }
+    fEl('cancelExpenseEdit').addEventListener('click',()=>{
+      resetExpenseEditor();fEl('expenseStatus').textContent='Edición cancelada.';
+    });
     async function loadFinances(){
       fEl('paymentForm').hidden=currentRole!=='admin';fEl('expenseForm').hidden=currentRole!=='admin';
       fEl('paymentStatus').textContent='Cargando pagos...';fEl('expenseStatus').textContent='Cargando gastos...';
@@ -1073,6 +1099,7 @@
       ]);
       const err=er.error||br.error||pr.error||xr.error||prospectResult.error;
       if(err){const msg='No se pudo consultar Supabase: '+err.message+'. Revisa las columnas existentes y los permisos RLS.';fEl('paymentStatus').textContent=msg;fEl('expenseStatus').textContent=msg;return;}
+      financeExpenses=new Map((xr.data||[]).map(x=>[x.id,x]));
       financeExpeditions=new Map((er.data||[]).map(x=>[x.id,x]));
       financeProspects=new Map((prospectResult.data||[]).map(x=>[x.id,x]));
       financeBookings=new Map((br.data||[]).map(x=>[x.id,x]));financePayments=pr.data||[];
@@ -1089,10 +1116,27 @@
           ['Expedición',financeExpeditions.get(b?.expedition_id)?.name||'Reserva'],['Fecha',p.paid_at?new Date(p.paid_at).toLocaleDateString('es-MX'):'—'],['Importe',mxn(p.amount_mxn)],['Método',financePaymentMethods[p.payment_method]||p.payment_method]
         ]);
       }
-      for(const x of xr.data||[]){const r=document.createElement('tr');putCell(r,x.spent_at||'—');putCell(r,financeExpeditions.get(x.expedition_id)?.name||'Expedición');putCell(r,financeCategories[x.category]||x.category);putCell(r,x.description);putCell(r,mxn(x.amount_mxn));expRows.appendChild(r);
-        financeMobileCard(expenseCards,financeExpeditions.get(x.expedition_id)?.name||'Expedición',[
-          ['Fecha',x.spent_at||'—'],['Categoría',financeCategories[x.category]||x.category],['Descripción',x.description||'—'],['Importe',mxn(x.amount_mxn)]
-        ]);
+      for(const x of xr.data||[]){const r=document.createElement('tr');putCell(r,x.spent_at||'—');putCell(r,financeExpeditions.get(x.expedition_id)?.name||'Expedición');putCell(r,financeCategories[x.category]||x.category);putCell(r,x.description);putCell(r,mxn(x.amount_mxn));
+        const actions=document.createElement('td');
+        if(currentRole==='admin'){
+          const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';
+          edit.style.cssText='width:auto;margin:0;padding:9px 13px;background:white;color:#17252c;border:1px solid #ef915d';
+          edit.addEventListener('click',()=>editExpense(x.id));actions.appendChild(edit);
+        }
+        r.appendChild(actions);expRows.appendChild(r);
+        const card=document.createElement('div');card.className='finance-mobile-card';
+        const heading=document.createElement('h3');heading.textContent=financeExpeditions.get(x.expedition_id)?.name||'Expedición';card.appendChild(heading);
+        const dl=document.createElement('dl');
+        for(const [label,value] of [['Fecha',x.spent_at||'—'],['Categoría',financeCategories[x.category]||x.category],['Descripción',x.description||'—'],['Importe',mxn(x.amount_mxn)]]){
+          const group=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');dt.textContent=label;dd.textContent=value;group.append(dt,dd);dl.appendChild(group);
+        }
+        card.appendChild(dl);
+        if(currentRole==='admin'){
+          const edit=document.createElement('button');edit.type='button';edit.textContent='Editar gasto';
+          edit.style.cssText='width:100%;margin-top:14px;background:white;color:#17252c;border:1px solid #ef915d';
+          edit.addEventListener('click',()=>editExpense(x.id));card.appendChild(edit);
+        }
+        expenseCards.appendChild(card);
       }
       if(!(pr.data||[]).length){financeEmpty('paymentRows','Todavía no hay pagos registrados.');payCards.textContent='Todavía no hay pagos registrados.';}
       if(!(xr.data||[]).length){financeEmpty('expenseRows','Todavía no hay gastos registrados.');expenseCards.textContent='Todavía no hay gastos registrados.';}
@@ -1121,7 +1165,17 @@
       const expedition_id=fEl('fExpenseExpedition').value,amount_mxn=Number(fEl('fExpenseAmount').value),spent_on=fEl('fExpenseDate').value,category=fEl('fExpenseCategory').value,description=fEl('fExpenseDescription').value.trim();
       if(!financeExpeditions.has(expedition_id)||!Number.isFinite(amount_mxn)||amount_mxn<=0||!description){fEl('expenseStatus').textContent='Completa los campos con valores válidos.';return;}
       const btn=fEl('saveExpense');btn.disabled=true;fEl('expenseStatus').textContent='Guardando gasto...';
-      try{const {error}=await supabase.from('expenses').insert({expedition_id,amount_mxn,spent_at:spent_on,category,description});if(error)throw error;fEl('expenseForm').reset();await loadFinances();fEl('expenseStatus').textContent='Gasto guardado en Supabase.';}
+      try{
+        const payload={expedition_id,amount_mxn,spent_at:spent_on,category,description};
+        const wasEditing=Boolean(editingExpenseId);
+        const result=wasEditing
+          ? await supabase.from('expenses').update(payload).eq('id',editingExpenseId).select('id')
+          : await supabase.from('expenses').insert(payload).select('id');
+        if(result.error)throw result.error;
+        if(!result.data?.length)throw new Error('Supabase no confirmó el registro. Revisa los permisos UPDATE/INSERT y SELECT de expenses.');
+        resetExpenseEditor();await loadFinances();
+        fEl('expenseStatus').textContent=wasEditing?'Gasto actualizado correctamente en Supabase.':'Gasto guardado en Supabase.';
+      }
       catch(err){fEl('expenseStatus').textContent='No se pudo guardar el gasto: '+err.message;}finally{btn.disabled=false;}
     });
 
