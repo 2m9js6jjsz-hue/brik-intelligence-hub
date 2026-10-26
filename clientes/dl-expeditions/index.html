@@ -294,7 +294,7 @@
             <label>Expedición *<select id="pExpedition" required><option value="">Cargando expediciones...</option></select></label>
             <label>Canal de contacto *<select id="pChannel" required><option value="">Seleccionar</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option><option value="directo">Directo</option><option value="agency">Agencia</option><option value="otro">Otro</option></select></label>
             <label id="pAgencyWrap" hidden>Agencia de origen *<select id="pAgency"><option value="">Seleccionar agencia</option></select></label>
-             <label>Etapa *<select id="pStage" required><option value="new">Nuevo</option><option value="follow_up">En seguimiento</option><option value="quoted">Cotización enviada</option><option value="converted">Convertido</option><option value="lost">Perdido</option></select></label>
+             <label id="pStageWrap" hidden>Etapa *<select id="pStage" required><option value="new">Nuevo</option><option value="follow_up">En seguimiento</option><option value="quoted">Cotización enviada</option><option value="converted">Convertido</option><option value="lost">Perdido</option></select></label>
             <button id="saveProspect" type="submit">Guardar prospecto</button><button id="cancelProspectEdit" type="button" hidden style="background:#fff;color:#17252c;border:1px solid #ef915d">Cancelar edición</button>
           </form>
           <p id="prospectStatus" class="prospect-status" role="status"></p>
@@ -747,7 +747,12 @@
       if(!prospectForm.reportValidity())return;
       const btn=document.querySelector('#saveProspect');btn.disabled=true;
       prospectStatus.textContent='Guardando prospecto...';
-      const payload={alias:document.querySelector('#pAlias').value.trim(),expedition_id:document.querySelector('#pExpedition').value,channel:document.querySelector('#pChannel').value==='agencia'?'agency':document.querySelector('#pChannel').value,stage:document.querySelector('#pStage').value,agency_id:document.querySelector('#pChannel').value==='agency'?document.querySelector('#pAgency').value:null};
+      const selectedChannel=document.querySelector('#pChannel').value;
+      const channel=selectedChannel==='agencia'?'agency':selectedChannel;
+      const agency_id=isAgencyChannel(channel)?(document.querySelector('#pAgency').value||null):null;
+      const payload={alias:document.querySelector('#pAlias').value.trim(),expedition_id:document.querySelector('#pExpedition').value,channel,agency_id};
+      // Las etapas son resultado del flujo comercial, no un campo editable manualmente.
+      if(!editingProspectId)payload.stage='new';
       try{
         if(!payload.alias||!expeditionsById.has(payload.expedition_id))throw new Error('Selecciona un nombre y una expedición válida');
         if(isAgencyChannel(payload.channel)&&!prospectAgencies.has(payload.agency_id))throw new Error('Selecciona la agencia de origen');
@@ -985,10 +990,16 @@
           const {error:paymentError}=await supabase.from('payments').insert({booking_id:savedId,amount_mxn:depositAmount,payment_method:depositMethod,paid_at:new Date(depositDate+'T12:00:00').toISOString()});
           if(paymentError)throw new Error('Reserva guardada, pero el anticipo NO se registró: '+paymentError.message+'. Verifica Pagos antes de reintentar.');
         }
+        // Convertir únicamente tras guardar una reserva activa; nunca por una cotización.
+        let stageWarning='';
+        if(prospectId&&payload.status!=='cancelled'){
+          const {error:stageError}=await supabase.from('prospects').update({stage:'converted'}).eq('id',prospectId);
+          if(stageError)stageWarning=' La reserva se guardó, pero no se pudo actualizar la etapa del prospecto: '+stageError.message;
+        }
         resetBookingEditor();
         await loadBookings();
         if(wantsDeposit&&depositAmount>0)await loadFinances();
-        bookingStatus.textContent=wantsDeposit&&depositAmount>0?'Reserva y anticipo registrados correctamente en Supabase.':wasEditing?'Reserva actualizada correctamente en Supabase.':'Reserva guardada correctamente en Supabase.';
+        bookingStatus.textContent=(wantsDeposit&&depositAmount>0?'Reserva y anticipo registrados correctamente en Supabase.':wasEditing?'Reserva actualizada correctamente en Supabase.':'Reserva guardada correctamente en Supabase.')+stageWarning;
       }catch(err){if(err?.code==='23505')bookingStatus.textContent='Esta cotización ya tiene una reserva registrada. No se creó otra.';else bookingError(err);}finally{button.disabled=false;}
     });
 
