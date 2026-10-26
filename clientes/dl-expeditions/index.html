@@ -710,11 +710,7 @@
           };
           edit.addEventListener('click',editProspect);
           actions.appendChild(edit);
-          if(p.stage==='converted'||p.stage==='won'){
-            const create=document.createElement('button');create.type='button';create.textContent='Crear reserva';
-            create.style.cssText='width:auto;margin:6px 0 0 6px;padding:9px 12px;background:#ff9654;color:#17252c';
-            create.addEventListener('click',()=>openBookingFromProspect(p));actions.appendChild(create);
-          }
+
         }else{actions.textContent='—';}
         tr.appendChild(actions);prospectRows.appendChild(tr);
         prospectMobileList.appendChild(mobileRecordCard(p.alias||'Sin nombre',[
@@ -723,12 +719,7 @@
           ['Etapa',stages[p.stage]||p.stage],
           ['Registro',p.created_at?new Date(p.created_at).toLocaleDateString('es-MX'):'—']
         ],currentRole==='admin'?'Editar prospecto':null,editProspect));
-        if(currentRole==='admin'&&(p.stage==='converted'||p.stage==='won')){
-          const card=prospectMobileList.lastElementChild;
-          const create=document.createElement('button');create.type='button';create.textContent='Crear reserva';
-          create.style.cssText='background:#ff9654;color:#17252c';
-          create.addEventListener('click',()=>openBookingFromProspect(p));card.appendChild(create);
-        }
+
       }
       prospectCount.textContent=prospects.length===500?'500 registros mostrados':`${prospects.length} prospecto${prospects.length===1?'':'s'}`;
       document.querySelector('#homeProspects').textContent=prospects.length===500?'500+':String(prospects.length);
@@ -805,10 +796,9 @@
       for(const option of proSel.options){
         if(!option.value)continue;
         const p=bookingProspects.get(option.value);
-        option.hidden=!!expId&&p?.expedition_id!==expId;
-        option.disabled=!!expId&&p?.expedition_id!==expId;
+        option.hidden=false;
+        option.disabled=false;
       }
-      if(proSel.value&&bookingProspects.get(proSel.value)?.expedition_id!==expId)proSel.value='';
       syncBookingChannelFromProspect();
     }
     function syncBookingChannelFromProspect(){
@@ -846,6 +836,20 @@
       document.querySelector('#cancelBookingEdit').hidden=true;
       syncBookingProspect();syncBookingPrice();syncDepositFields();
       document.querySelector('#bDepositAmount').value='';
+    }
+    async function cancelBookingSafely(id){
+      if(currentRole!=='admin')return;
+      const b=bookingRecords.get(id);
+      if(!b||b.status==='cancelled')return;
+      const {data:payments,error:paymentError}=await supabase.from('payments').select('id,amount_mxn').eq('booking_id',id);
+      if(paymentError){bookingStatus.textContent='No se pudo verificar los pagos; no se anuló la reserva: '+paymentError.message;return;}
+      if(payments?.length){bookingStatus.textContent='Esta reserva tiene '+payments.length+' pago(s) registrado(s). No se anuló. Revisa primero los anticipos y la posible devolución en Finanzas.';return;}
+      const who=bookingProspects.get(b.prospect_id)?.alias||'este cliente';
+      if(!window.confirm('¿Anular la reserva de '+who+'? Se conservará en el historial y dejará de contar como reserva activa.'))return;
+      const {error}=await supabase.from('bookings').update({status:'cancelled'}).eq('id',id);
+      if(error){bookingStatus.textContent='No se pudo anular la reserva: '+error.message;return;}
+      await loadBookings();
+      bookingStatus.textContent='Reserva anulada. Se conserva el historial y no cuenta como venta activa.';
     }
     function editBooking(id){
       const b=bookingRecords.get(id);if(!b||currentRole!=='admin')return;
@@ -917,7 +921,7 @@
         putCell(tr,mxn(paidByBooking.get(b.id)||0));putCell(tr,b.status==='cancelled'?'Revisar cancelación':mxn(Math.max(0,Number(b.travelers)*Number(b.unit_price_mxn)-(paidByBooking.get(b.id)||0))));
         putCell(tr,bookingStatuses[b.status]||b.status);putCell(tr,b.created_at?new Date(b.created_at).toLocaleDateString('es-MX'):'—');
         const action=document.createElement('td');
-        if(currentRole==='admin'){const btn=document.createElement('button');btn.type='button';btn.textContent='Editar';btn.style.cssText='width:auto;margin:0;padding:9px 12px';btn.addEventListener('click',()=>editBooking(b.id));action.appendChild(btn);}
+        if(currentRole==='admin'){const btn=document.createElement('button');btn.type='button';btn.textContent='Editar';btn.style.cssText='width:auto;margin:0;padding:9px 12px';btn.addEventListener('click',()=>editBooking(b.id));action.appendChild(btn);if(b.status!=='cancelled'){const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Anular';cancel.className='outline-btn';cancel.style.cssText='width:auto;margin:6px 0 0 6px;padding:9px 12px';cancel.addEventListener('click',()=>cancelBookingSafely(b.id));action.appendChild(cancel);}}
         tr.appendChild(action);bookingRows.appendChild(tr);
         bookingMobileList.appendChild(mobileRecordCard(bookingExpeditions.get(b.expedition_id)?.name||'Expedición no disponible',[
           ['Prospecto',bookingProspects.get(b.prospect_id)?.alias||'Sin prospecto'],
@@ -930,11 +934,16 @@
           ['Saldo pendiente',b.status==='cancelled'?'Revisar cancelación':mxn(Math.max(0,Number(b.travelers)*Number(b.unit_price_mxn)-(paidByBooking.get(b.id)||0)))],
           ['Registro',b.created_at?new Date(b.created_at).toLocaleDateString('es-MX'):'—']
         ],currentRole==='admin'?'Editar reserva':null,()=>editBooking(b.id)));
+        if(currentRole==='admin'&&b.status!=='cancelled'){
+          const card=bookingMobileList.lastElementChild;
+          const cancel=document.createElement('button');cancel.type='button';cancel.className='outline-btn';cancel.textContent='Anular reserva';
+          cancel.addEventListener('click',()=>cancelBookingSafely(b.id));card.appendChild(cancel);
+        }
       }
       bookingCount.textContent=records.length===500?'500 registros mostrados':`${records.length} reserva${records.length===1?'':'s'}`;
       document.querySelector('#homeBookings').textContent=String(records.filter(x=>x.status==='confirmed').length)+(records.length===500?'+':'');
       document.querySelector('#homeBookingsNote').textContent=records.length===500?'Confirmadas entre 500 registros':'Reservas confirmadas · Supabase';
-      if((bookingPaymentsRes.data||[]).length<5000)bookingStatus.textContent=currentRole==='admin'?'Puedes registrar nuevas reservas. Los abonos se calculan desde Pagos.':'Acceso de consulta: no puedes registrar reservas.';
+      if((bookingPaymentsRes.data||[]).length<5000)bookingStatus.textContent=currentRole==='admin'?'Crea reservas desde una cotización aceptada. Los abonos se calculan desde Pagos.':'Acceso de consulta: no puedes registrar reservas.';
       syncBookingProspect();syncBookingPrice();syncDepositFields();
     }
     bookingForm.addEventListener('submit',async event=>{
@@ -952,11 +961,11 @@
       if(!bookingExpeditions.has(expId)||!Number.isInteger(travelers)||travelers<1||expPrice==null||!Number.isFinite(price)||price<=0){bookingStatus.textContent='La expedición debe tener un precio público mayor a cero. Configúralo en Expediciones.';return;}
       if(channel==='agency'&&(!prospectId||!bookingAgencies.has(agencyId))){bookingStatus.textContent='Esta reserva requiere un prospecto con agencia de origen registrada. Corrige el prospecto antes de reservar.';return;}
       if(prospectId&&!bookingProspects.has(prospectId)){bookingStatus.textContent='Selecciona un prospecto válido.';return;}
-      if(prospectId&&bookingProspects.get(prospectId).expedition_id!==expId){bookingStatus.textContent='El prospecto seleccionado pertenece a otra expedición.';return;}
       if(prospectId){
         const expected=isAgencyChannel(bookingProspects.get(prospectId).channel)?'agency':'direct';
         if(channel!==expected){bookingStatus.textContent='El canal de venta no coincide con el origen del prospecto. Corrígelo antes de guardar.';return;}
       }
+      if(!editingBookingId&&!preparedQuote){bookingStatus.textContent='Para crear una reserva, selecciona una cotización desde el historial del Cotizador. No se guardó ninguna reserva.';return;}
       if(preparedQuote&&!editingBookingId){
         if(expId!==preparedQuote.expedition_id || (prospectId||null)!==(preparedQuote.prospect_id||null) ||
            travelers!==Number(preparedQuote.travelers) || price!==Number(preparedQuote.unit_price_mxn) ||
@@ -1977,7 +1986,6 @@
       if(!bookingExpeditions.has(q.expedition_id)){bookingStatus.textContent='No se encontró la expedición de la cotización.';return;}
       const linked=bookingProspects.get(q.prospect_id);
       if(!q.prospect_id||!linked){bookingStatus.textContent='Primero vincula esta cotización con un prospecto registrado. No se creó ninguna reserva.';return;}
-      if(linked.expedition_id!==q.expedition_id){bookingStatus.textContent='La expedición del prospecto no coincide con la cotización. Revisa el vínculo antes de reservar.';return;}
       const expectedChannel=isAgencyChannel(linked.channel)?'agency':'direct';
       if(expectedChannel!==(q.channel==='agency'?'agency':'direct')||(expectedChannel==='agency'&&linked.agency_id!==q.agency_id)){
         bookingStatus.textContent='La agencia o el canal de esta cotización no coincide con el prospecto. Revisa los datos antes de reservar.';return;
