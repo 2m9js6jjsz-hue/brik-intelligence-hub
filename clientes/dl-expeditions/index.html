@@ -203,6 +203,20 @@
 #reportTotals{grid-template-columns:repeat(2,minmax(0,1fr))}#reportTotals .dash-stat{padding:14px}
 #reportTotals .dash-stat strong{font-size:clamp(15px,4.2vw,22px);letter-spacing:-.5px}
 }
+
+/* BRIK · Vista ejecutiva por expedición */
+.executive-toolbar{display:flex;justify-content:space-between;align-items:end;gap:14px;flex-wrap:wrap;margin-bottom:17px}
+.executive-toolbar label{margin:0;font-size:12px;font-weight:700;color:#46565c}
+.executive-toolbar select{display:block;width:min(100%,340px);min-width:210px;margin-top:7px;padding:12px;border:1px solid #cfd7d8;border-radius:9px;background:white;color:#17252c;font-size:14px}
+.executive-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.executive-grid .dash-stat{padding:16px}.executive-grid .dash-stat strong{font-size:clamp(17px,2vw,25px)}
+.executive-charts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+.executive-track{height:13px;background:#edf0f0;border-radius:20px;overflow:hidden;margin:10px 0}
+.executive-fill{height:100%;border-radius:20px;background:#ef915d;max-width:100%}
+.executive-line{margin:14px 0}.executive-line-head{display:flex;justify-content:space-between;gap:10px;font-size:12px}
+.executive-line-head strong{font-size:12px;text-align:right}.executive-note{font-size:12px;color:#68767d;line-height:1.5}
+@media(max-width:950px){.executive-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.executive-charts{grid-template-columns:1fr}}
+@media(max-width:650px){.executive-toolbar select{width:100%;min-width:0}.executive-toolbar label{width:100%}.executive-grid .dash-stat{padding:13px}}
 </style>
 </head>
 <body>
@@ -256,6 +270,16 @@
         <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión de demostración</span></div>
         <div class="dash-demo"><strong>ENTORNO DE PRUEBA</strong> — El acceso está conectado a Supabase. Prospectos, Reservas y Pagos y gastos están preparados para consultar y registrar datos en Supabase (sujetos a configuración de tablas y permisos). El panel principal presenta indicadores reales cuando Supabase responde correctamente; Clientes ofrece una vista de consulta; Reportes consulta la vista de expediciones cuando los permisos lo permiten. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</div>
         <section class="page active" data-section="inicio">
+<div class="dash-panel" style="margin-bottom:17px">
+  <div class="executive-toolbar"><div><div class="dash-kicker">VISTA EJECUTIVA</div><h2 style="margin:6px 0">Resultados de expediciones</h2><p class="hint" style="margin:0">Indicadores actualizados desde Supabase, sin duplicar registros.</p></div>
+    <label for="executiveExpedition">Filtrar expedición<select id="executiveExpedition"><option value="">Todas las expediciones</option></select></label></div>
+  <div id="executiveMetrics" class="executive-grid" aria-live="polite"><p class="hint">Cargando resultados...</p></div>
+  <div class="executive-charts">
+    <div><h3 style="font-size:15px;margin:16px 0 8px">Cobros y saldo pendiente</h3><div id="executiveCollections"></div></div>
+    <div><h3 style="font-size:15px;margin:16px 0 8px">Ocupación de expediciones</h3><div id="executiveOccupancy"></div></div>
+  </div>
+  <p id="executiveNote" class="executive-note" role="status">Esperando datos de Supabase.</p>
+</div>
 <div class="dash-grid">
   <div class="dash-stat"><small>Prospectos</small><strong id="homeProspects">—</strong><span id="homeProspectsNote">Consultando Supabase</span></div>
   <div class="dash-stat"><small>Reservas confirmadas</small><strong id="homeBookings">—</strong><span id="homeBookingsNote">Consultando Supabase</span></div>
@@ -1119,6 +1143,65 @@
     fEl('fBooking').addEventListener('change',updateFinanceBalance);
     function financeEmpty(tbodyId,text){const t=fEl(tbodyId);t.replaceChildren();const r=document.createElement('tr'),c=document.createElement('td');c.colSpan=tbodyId==='paymentRows'?6:5;c.textContent=text;r.appendChild(c);t.appendChild(r);}
     function financeToday(){return new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);}
+    // El filtro es local: no escribe ni modifica reservas, pagos o expediciones.
+    let executiveSnapshot=null;
+    function executiveStat(label,value,detail){
+      const card=document.createElement('div');card.className='dash-stat';
+      const small=document.createElement('small');small.textContent=label;
+      const strong=document.createElement('strong');strong.textContent=value;
+      const span=document.createElement('span');span.textContent=detail||'';
+      card.append(small,strong,span);return card;
+    }
+    function executiveBar(target,label,amount,total,color,detail){
+      const line=document.createElement('div');line.className='executive-line';
+      const head=document.createElement('div');head.className='executive-line-head';
+      const title=document.createElement('span');title.textContent=label;
+      const value=document.createElement('strong');value.textContent=detail;
+      head.append(title,value);
+      const track=document.createElement('div');track.className='executive-track';
+      const fill=document.createElement('div');fill.className='executive-fill';
+      fill.style.background=color;fill.style.width=(total>0?Math.min(100,Math.max(0,amount/total*100)):0)+'%';
+      track.appendChild(fill);line.append(head,track);target.appendChild(line);
+    }
+    function drawExecutive(){
+      if(!executiveSnapshot)return;
+      const {bookings,payments,expenses,expeditions,partial}=executiveSnapshot;
+      const selected=fEl('executiveExpedition').value;
+      const active=bookings.filter(b=>b.status!=='cancelled'&&(!selected||b.expedition_id===selected));
+      const ids=new Set(active.map(b=>b.id));
+      const filteredPayments=payments.filter(p=>ids.has(p.booking_id));
+      const filteredExpenses=expenses.filter(e=>!selected||e.expedition_id===selected);
+      const reserved=active.reduce((n,b)=>n+Number(b.travelers||0)*Number(b.unit_price_mxn||0),0);
+      const collected=filteredPayments.reduce((n,p)=>n+Number(p.amount_mxn||0),0);
+      const spent=filteredExpenses.reduce((n,e)=>n+Number(e.amount_mxn||0),0);
+      const travelers=active.reduce((n,b)=>n+Number(b.travelers||0),0);
+      const pending=Math.max(0,reserved-collected);
+      const metrics=fEl('executiveMetrics');metrics.replaceChildren();
+      const entries=[['Reservas activas',active.length,'Sin canceladas'],['Viajeros reservados',travelers,'Cupos ocupados'],['Valor reservado',mxn(reserved),'Ventas comprometidas'],['Cobrado',mxn(collected),'Pagos de reservas activas'],['Saldo pendiente',mxn(pending),'Por cobrar'],['Gastos registrados',mxn(spent),'No incluye costos futuros'],['Flujo neto',mxn(collected-spent),'Cobros menos gastos'],['Cobrado / reservado',reserved>0?(100*collected/reserved).toLocaleString('es-MX',{maximumFractionDigits:1})+' %':'—','No es margen de utilidad']];
+      for(const entry of entries)metrics.appendChild(executiveStat(...entry));
+      const collections=fEl('executiveCollections');collections.replaceChildren();
+      executiveBar(collections,'Cobrado',collected,reserved,'#ef915d',mxn(collected));
+      executiveBar(collections,'Por cobrar',pending,reserved,'#536d76',mxn(pending));
+      const occupancy=fEl('executiveOccupancy');occupancy.replaceChildren();
+      const chosen=expeditions.filter(e=>!selected||e.id===selected);
+      if(!chosen.length)occupancy.textContent='No hay expediciones registradas.';
+      for(const e of chosen){
+        const used=active.filter(b=>b.expedition_id===e.id).reduce((n,b)=>n+Number(b.travelers||0),0);
+        const cap=Number(e.capacity||0);
+        executiveBar(occupancy,e.name||'Expedición',used,cap,'#ef915d',cap>0?`${used} / ${cap} · ${(used/cap*100).toLocaleString('es-MX',{maximumFractionDigits:1})} %`:`${used} viajeros · cupo sin definir`);
+      }
+      fEl('executiveNote').textContent=(partial?'ATENCIÓN: alguna consulta alcanzó 1,000 registros; las cifras podrían ser parciales. ':'')+'Los cobros corresponden a reservas activas. Los pagos de reservas canceladas quedan fuera de esta vista; revisa Finanzas para conciliarlos. El flujo neto no es utilidad. Ocupación = viajeros reservados / capacidad.';
+    }
+    fEl('executiveExpedition').addEventListener('change',drawExecutive);
+    function updateExecutive(bookings,payments,expenses){
+      const expeditions=Array.from(financeExpeditions.values());
+      const select=fEl('executiveExpedition'),previous=select.value;
+      select.replaceChildren(new Option('Todas las expediciones',''));
+      for(const e of expeditions)select.add(new Option(e.name||'Sin nombre',e.id));
+      if(expeditions.some(e=>e.id===previous))select.value=previous;
+      executiveSnapshot={bookings,payments,expenses,expeditions,partial:[bookings,payments,expenses].some(a=>a.length>=1000)};
+      drawExecutive();
+    }
     function renderHomeFinance(bookings,payments,expenses){
       const sum=(items,key)=>items.reduce((a,x)=>a+Number(x[key]||0),0);
       const received=sum(payments,'amount_mxn'),spent=sum(expenses,'amount_mxn');
@@ -1177,7 +1260,7 @@
       fEl('paymentForm').hidden=currentRole!=='admin';fEl('expenseForm').hidden=currentRole!=='admin';
       fEl('paymentStatus').textContent='Cargando pagos...';fEl('expenseStatus').textContent='Cargando gastos...';
       const [er,br,pr,xr,prospectResult]=await Promise.all([
-        supabase.from('expeditions').select('id,name').order('name'),
+        supabase.from('expeditions').select('id,name,capacity').order('name'),
         supabase.from('bookings').select('id,expedition_id,prospect_id,travelers,unit_price_mxn,status,next_payment_due_on,created_at').order('created_at',{ascending:false}).limit(1000),
         supabase.from('payments').select('id,booking_id,amount_mxn,paid_at,payment_method,created_at').order('paid_at',{ascending:false}).limit(1000),
         supabase.from('expenses').select('id,expedition_id,amount_mxn,spent_at,category,description,created_at').order('spent_at',{ascending:false}).limit(1000),
@@ -1235,6 +1318,7 @@
       if(!fEl('fPaymentDate').value)fEl('fPaymentDate').value=financeToday();
       if(!fEl('fExpenseDate').value)fEl('fExpenseDate').value=financeToday();
       renderHomeFinance(br.data||[],pr.data||[],xr.data||[]);
+      updateExecutive(br.data||[],pr.data||[],xr.data||[]);
     }
     fEl('paymentForm').addEventListener('submit',async e=>{
       e.preventDefault();if(currentRole!=='admin'||!e.currentTarget.reportValidity())return;
