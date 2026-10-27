@@ -189,6 +189,20 @@
     .quote-mobile-card .quote-card-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
     .quote-mobile-card .quote-card-actions button{width:auto;padding:10px 13px;margin:0;font-size:13px}
     @media(max-width:650px){.quote-mobile-cards{display:block}.quote-desktop-table{display:none}}
+
+.client-mobile-list{display:none}
+.dash-stat strong{overflow-wrap:normal;word-break:normal;font-size:clamp(17px,2.1vw,29px);line-height:1.2;font-variant-numeric:tabular-nums}
+@media(max-width:650px){
+.client-desktop-table{display:none}.client-mobile-list{display:grid;gap:13px;margin-top:16px}
+.client-mobile-card{border:1px solid #e3e0db;border-radius:15px;background:#fff;padding:16px;min-width:0}
+.client-mobile-card h3{font-size:18px;margin:0 0 14px}
+.client-mobile-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.client-mobile-field{min-width:0}.client-mobile-field small{display:block;font-size:12px;color:#68767d;margin-bottom:5px}
+.client-mobile-field strong{display:block;font-size:15px;overflow-wrap:anywhere}
+.client-mobile-detail{margin-top:14px;padding-top:12px;border-top:1px solid #e7e4df;font-size:13px;line-height:1.5;color:#56646a}
+#reportTotals{grid-template-columns:repeat(2,minmax(0,1fr))}#reportTotals .dash-stat{padding:14px}
+#reportTotals .dash-stat strong{font-size:clamp(15px,4.2vw,22px);letter-spacing:-.5px}
+}
 </style>
 </head>
 <body>
@@ -252,8 +266,7 @@
 </div>
 <div class="dash-panel" style="margin-top:17px"><div class="section-head"><h2>Seguimiento de cobros</h2><span class="pill">Reservas activas · MXN</span></div><div id="homeCollectionSummary" class="dash-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:16px"></div><div id="homeCollectionList" class="table-wrap"><p class="hint">Consultando vencimientos...</p></div></div>
  <div class="dash-panels">
-   <div class="dash-panel"><div class="section-head"><h2>Ingresos y gastos por mes
-  <div class="dash-panel"><div class="section-head"><h2>Ingresos y gastos por mes</h2><span class="pill">MXN · Registros reales</span></div><div id="homeMonthly" class="monthly-chart"><p class="hint">Cargando información...</p></div></div>
+     <div class="dash-panel"><div class="section-head"><h2>Ingresos y gastos por mes</h2><span class="pill">MXN · Registros reales</span></div><div id="homeMonthly" class="monthly-chart"><p class="hint">Cargando información...</p></div></div>
   <div class="dash-panel"><h2>Seguimiento comercial</h2><div id="homeCommercial"><p class="hint">Cargando información...</p></div></div>
 </div>
 <p id="homeDataNote" class="hint">Información basada en los registros accesibles de Supabase. No equivale a conciliación bancaria ni utilidad contable.</p>
@@ -371,7 +384,7 @@
 <label style="display:block;max-width:460px;margin:16px 0">Buscar por referencia del prospecto
 <input id="clientSearch" type="search" placeholder="Escribe un nombre o referencia" autocomplete="off"></label>
 <p id="clientStatus" class="hint" role="status">Abre esta sección para consultar los datos.</p>
-<div class="table-wrap"><table class="dash-table"><thead><tr><th>Prospecto / referencia</th><th>Reservas</th><th>Viajeros reservados</th><th>Valor reservado (MXN)</th><th>Pagos asociados (MXN)</th><th>Saldo estimado (MXN)</th><th>Expediciones y estados</th></tr></thead><tbody id="clientRows"><tr><td colspan="7">Sin cargar</td></tr></tbody></table></div>
+<div id="clientMobileList" class="client-mobile-list" aria-label="Historial de clientes"></div><div class="table-wrap client-desktop-table"><table class="dash-table"><thead><tr><th>Prospecto / referencia</th><th>Reservas</th><th>Viajeros reservados</th><th>Valor reservado (MXN)</th><th>Pagos asociados (MXN)</th><th>Saldo estimado (MXN)</th><th>Expediciones y estados</th></tr></thead><tbody id="clientRows"><tr><td colspan="7">Sin cargar</td></tr></tbody></table></div>
 <p class="hint">El saldo es una estimación operativa sobre reservas no canceladas; no es una conciliación bancaria. Los importes se basan en registros accesibles para tu usuario. No se permite editar desde esta vista.</p>
 </div></section>
         <section class="page" data-section="cotizador">
@@ -1267,14 +1280,30 @@
     let clientViewRows=[];
     function drawClients(){
       const term=document.querySelector('#clientSearch').value.trim().toLocaleLowerCase('es');
-      const body=document.querySelector('#clientRows');body.replaceChildren();
+      const body=document.querySelector('#clientRows'),mobile=document.querySelector('#clientMobileList');
+      body.replaceChildren();mobile.replaceChildren();
       const filtered=clientViewRows.filter(x=>x.label.toLocaleLowerCase('es').includes(term));
       for(const x of filtered){
         const tr=document.createElement('tr');
         for(const v of [x.label,x.reservations,x.travelers,mxn(x.value),mxn(x.paid),mxn(Math.max(0,x.value-x.paid)),x.detail])putCell(tr,v);
         body.appendChild(tr);
+        const card=document.createElement('article');card.className='client-mobile-card';
+        const heading=document.createElement('h3');heading.textContent=x.label;card.appendChild(heading);
+        const fields=document.createElement('div');fields.className='client-mobile-fields';
+        for(const [label,value] of [['Reservas activas',x.reservations],['Viajeros',x.travelers],['Valor reservado',mxn(x.value)],['Pagos asociados',mxn(x.paid)],['Saldo estimado',mxn(Math.max(0,x.value-x.paid))]]){
+          const field=document.createElement('div');field.className='client-mobile-field';
+          const small=document.createElement('small');small.textContent=label;
+          const strong=document.createElement('strong');strong.textContent=String(value);
+          field.append(small,strong);fields.appendChild(field);
+        }
+        card.appendChild(fields);
+        const detail=document.createElement('div');detail.className='client-mobile-detail';detail.textContent='Expediciones: '+x.detail;
+        card.appendChild(detail);mobile.appendChild(card);
       }
-      if(!filtered.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=7;td.textContent='Sin resultados para esta búsqueda.';tr.appendChild(td);body.appendChild(tr);}
+      if(!filtered.length){
+        const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.textContent='Sin resultados para esta búsqueda.';tr.appendChild(td);body.appendChild(tr);
+        const empty=document.createElement('p');empty.className='empty-state';empty.textContent='Sin resultados para esta búsqueda.';mobile.appendChild(empty);
+      }
     }
     document.querySelector('#clientSearch').addEventListener('input',drawClients);
     async function loadClients(){
@@ -1295,8 +1324,8 @@
       let unlinked=0;
       for(const b of books.data||[]){
         if(!b.prospect_id||!grouped.has(b.prospect_id)){unlinked++;continue;}
-        const x=grouped.get(b.prospect_id);x.reservations++;
-        if(b.status!=='cancelled'){x.travelers+=Number(b.travelers||0);x.value+=Number(b.travelers||0)*Number(b.unit_price_mxn||0);x.paid+=payments.get(b.id)||0;}
+        const x=grouped.get(b.prospect_id);
+        if(b.status!=='cancelled'){x.reservations++;x.travelers+=Number(b.travelers||0);x.value+=Number(b.travelers||0)*Number(b.unit_price_mxn||0);x.paid+=payments.get(b.id)||0;}
         x.details.push((expNames.get(b.expedition_id)||'Expedición')+' ('+(b.status||'sin estado')+')');
       }
       clientViewRows=Array.from(grouped.values()).map(x=>({...x,detail:x.details.join(' · ')||'Sin reservas'})).sort((a,b)=>a.label.localeCompare(b.label,'es'));
