@@ -335,7 +335,7 @@
           <form id="agencyMasterForm" class="master-form" hidden>
             <label>Nombre de la agencia *<input id="aName" maxlength="160" required placeholder="Ej. Agencia Viajes México"></label>
             <label>Nombre del contacto<input id="aContact" maxlength="160" placeholder="Ej. María López"></label>
-            <label>Comisión acordada (%) *<input id="aCommission" type="number" min="0" max="100" step="0.01" value="0" required></label>
+            <label>Comisión acordada (%) *<input id="aCommission" type="number" min="0" max="100" step="0.01" placeholder="Ej. 10 (o 0 si no cobra comisión)" required></label>
             <button id="aSave" type="submit">Guardar agencia</button><button id="aCancelEdit" type="button" hidden style="background:#fff;color:#263b40;border:1px solid #d6d6d6">Cancelar edición</button>
           </form>
           <p id="agencyMasterStatus" class="master-status" role="status"></p>
@@ -1824,7 +1824,7 @@
     function resetAgencyEditor(){
       editingAgencyId=null;
       document.getElementById('agencyMasterForm').reset();
-      document.getElementById('aCommission').value='0';
+      document.getElementById('aCommission').value='';
       document.getElementById('aSave').textContent='Guardar agencia';
       document.getElementById('aCancelEdit').hidden=true;
     }
@@ -1845,7 +1845,7 @@
           btn.addEventListener('click',()=>{
             editingAgencyId=a.id;document.getElementById('aName').value=a.name;
             document.getElementById('aContact').value=a.contact_name||'';
-            document.getElementById('aCommission').value=String(a.commission_pct||0);
+            document.getElementById('aCommission').value=a.commission_pct == null ? '' : String(a.commission_pct);
             document.getElementById('aSave').textContent='Guardar cambios';
             document.getElementById('aCancelEdit').hidden=false;
             form.scrollIntoView({behavior:'smooth',block:'center'});
