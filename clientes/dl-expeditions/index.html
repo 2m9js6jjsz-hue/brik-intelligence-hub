@@ -231,6 +231,22 @@
 .page[data-section="reportes"] .dash-table tbody td[colspan]{display:block;text-align:left}
 .monthly-chart{max-width:100%}
 }
+
+/* BRIK: tarjetas de canales y agencias en móvil */
+.channel-mobile-list{display:none}
+.channel-mobile-card{border:1px solid #e3e0db;border-radius:15px;background:#fff;padding:16px;min-width:0}
+.channel-mobile-card h4{font-size:17px;margin:0 0 12px;color:#17252c}
+.channel-mobile-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.channel-mobile-field{min-width:0}.channel-mobile-field small{display:block;color:#68767d;font-size:12px;margin-bottom:5px}.channel-mobile-field strong{font-size:15px;overflow-wrap:anywhere}
+.commission-panel{margin-top:20px;padding:16px;border:1px solid #efd0b9;border-radius:14px;background:#fffaf6}
+.commission-panel h3{margin:0 0 8px;font-size:16px}.commission-panel p{font-size:12px;line-height:1.5;color:#64747a}
+.commission-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.commission-item{background:white;border:1px solid #e6ded7;border-radius:12px;padding:12px;min-width:0}
+.commission-item label{display:block;margin:8px 0;font-size:12px;color:#46565c}
+.commission-item input{width:100%;margin-top:5px;padding:10px;border:1px solid #cfd7d8;border-radius:8px;color:#17252c;background:#fff}
+.commission-item strong{display:block;font-size:13px;overflow-wrap:anywhere}
+.commission-summary{margin-top:14px;padding:12px;background:white;border-radius:10px;border:1px solid #ead9cc;line-height:1.7;font-size:13px}
+@media(max-width:650px){.channel-desktop-wrap{display:none}.channel-mobile-list{display:grid;gap:12px;margin-top:15px}}
 </style>
 </head>
 <body>
@@ -511,9 +527,15 @@
             <p>Compara reservas directas y de agencias. El valor reservado corresponde a reservas no canceladas; los cobros se atribuyen al canal de la reserva asociada.</p>
             <p id="channelStatus" class="hint" role="status">Abre Reportes para consultar los canales.</p>
             <div class="dash-grid" id="channelTotals" aria-label="Indicadores por canal"></div>
-            <div class="table-wrap" style="margin-top:20px"><table class="dash-table"><thead><tr><th>Canal</th><th>Reservas activas</th><th>Viajeros</th><th>Valor reservado (MXN)</th><th>Participación en valor</th><th>Cobrado (MXN)</th><th>Saldo estimado (MXN)</th></tr></thead><tbody id="channelRows"><tr><td colspan="7">Sin cargar</td></tr></tbody></table></div>
+            <div id="channelMobileCards" class="channel-mobile-list" aria-label="Ventas por canal"></div><div class="table-wrap channel-desktop-wrap" style="margin-top:20px"><table class="dash-table"><thead><tr><th>Canal</th><th>Reservas activas</th><th>Viajeros</th><th>Valor reservado (MXN)</th><th>Participación en valor</th><th>Cobrado (MXN)</th><th>Saldo estimado (MXN)</th></tr></thead><tbody id="channelRows"><tr><td colspan="7">Sin cargar</td></tr></tbody></table></div>
             <h3 style="margin-top:26px">Detalle de agencias</h3>
-            <div class="table-wrap"><table class="dash-table"><thead><tr><th>Agencia</th><th>Reservas activas</th><th>Viajeros</th><th>Valor reservado (MXN)</th><th>Cobrado (MXN)</th></tr></thead><tbody id="agencyRows"><tr><td colspan="5">Pendiente de agencias registradas</td></tr></tbody></table></div>
+            <div id="agencyMobileCards" class="channel-mobile-list" aria-label="Detalle de agencias"></div><div class="table-wrap channel-desktop-wrap"><table class="dash-table"><thead><tr><th>Agencia</th><th>Reservas activas</th><th>Viajeros</th><th>Valor reservado (MXN)</th><th>Cobrado (MXN)</th></tr></thead><tbody id="agencyRows"><tr><td colspan="5">Pendiente de agencias registradas</td></tr></tbody></table></div>
+            <div class="commission-panel" id="agencyCommissionPanel">
+              <h3>Simulador de comisiones de agencias</h3>
+              <p>Escribe el porcentaje acordado para cada agencia. Los resultados se calculan sobre el valor de reservas activas y son únicamente una simulación. No se guardan en Supabase ni se registran como gasto. No representan utilidad neta.</p>
+              <div id="agencyCommissionInputs" class="commission-grid"></div>
+              <div id="agencyCommissionSummary" class="commission-summary" role="status">Consulta las ventas por agencia para simular sus comisiones.</div>
+            </div>
             <p class="hint">Las reservas canceladas no se incluyen en valor reservado, viajeros ni saldo; los cobros de reservas canceladas se presentan por separado para no ocultar movimientos que puedan requerir devolución. Los totales dependen de las políticas RLS y del límite de consulta de Supabase. La participación es sobre valor reservado, no sobre ingresos cobrados.</p>
           </div>
 
@@ -1562,12 +1584,59 @@
       }
     }
 
+    // Tarjetas adaptables y simulación local: nunca escribe en Supabase.
+    const commissionSimulationRates=new Map();
+    function renderChannelCard(container,title,fields){
+      const card=document.createElement('article');card.className='channel-mobile-card';
+      const h=document.createElement('h4');h.textContent=title;card.appendChild(h);
+      const grid=document.createElement('div');grid.className='channel-mobile-fields';
+      for(const [label,value] of fields){
+        const field=document.createElement('div');field.className='channel-mobile-field';
+        const small=document.createElement('small');small.textContent=label;
+        const strong=document.createElement('strong');strong.textContent=String(value);
+        field.append(small,strong);grid.appendChild(field);
+      }
+      card.appendChild(grid);container.appendChild(card);
+    }
+    function renderCommissionSimulator(items){
+      const wrap=document.getElementById('agencyCommissionInputs');
+      const summary=document.getElementById('agencyCommissionSummary');
+      wrap.replaceChildren();
+      if(!items.length){summary.textContent='Todavía no hay ventas activas de agencias para simular comisiones.';return;}
+      function recalc(){
+        let total=0,commission=0;
+        for(const item of items){total+=item.value;commission+=item.value*(commissionSimulationRates.get(item.id)||0)/100;}
+        summary.replaceChildren();
+        const heading=document.createElement('strong');heading.textContent='Resumen estimado (MXN)';
+        const detail=document.createElement('div');detail.textContent='Valor reservado por agencias: '+mxn(total)+' · Comisiones estimadas: '+mxn(commission)+' · Valor después de comisiones: '+mxn(total-commission);
+        const note=document.createElement('small');note.textContent='Antes de costos, impuestos y otros gastos. No se registra ningún movimiento.';
+        summary.append(heading,detail,note);
+      }
+      for(const item of items){
+        const card=document.createElement('div');card.className='commission-item';
+        const name=document.createElement('strong');name.textContent=item.name;
+        const amount=document.createElement('p');amount.textContent='Valor reservado: '+mxn(item.value);
+        const label=document.createElement('label');label.textContent='Comisión acordada (%)';
+        const input=document.createElement('input');input.type='number';input.min='0';input.max='100';input.step='0.01';input.inputMode='decimal';input.value=String(commissionSimulationRates.get(item.id)||0);
+        input.setAttribute('aria-label','Porcentaje de comisión para '+item.name);
+        const result=document.createElement('strong');
+        function update(){const value=Number(input.value);const valid=input.value!==''&&Number.isFinite(value)&&value>=0&&value<=100;input.setCustomValidity(valid?'':'Introduce un porcentaje entre 0 y 100');if(!valid){result.textContent='Porcentaje no válido';return;}commissionSimulationRates.set(item.id,value);result.textContent='Comisión estimada: '+mxn(item.value*value/100);recalc();}
+        input.addEventListener('input',update);label.appendChild(input);card.append(name,amount,label,result);wrap.appendChild(card);update();
+      }
+      recalc();
+    }
+
     // Ventas por canal: consultas de solo lectura, sin datos de demostración.
     async function loadChannels(){
       const status=document.getElementById('channelStatus');
       const totals=document.getElementById('channelTotals');
       const rows=document.getElementById('channelRows');
       const agencyRows=document.getElementById('agencyRows');
+      const channelCards=document.getElementById('channelMobileCards');
+      const agencyCards=document.getElementById('agencyMobileCards');
+      channelCards.replaceChildren();agencyCards.replaceChildren();
+      document.getElementById('agencyCommissionInputs').replaceChildren();
+      document.getElementById('agencyCommissionSummary').textContent='Consultando datos para la simulación...';
       status.textContent='Consultando reservas, cobros y agencias...';
       totals.replaceChildren();rows.replaceChildren();agencyRows.replaceChildren();
       const cell=(tr,value)=>putCell(tr,value);
@@ -1630,17 +1699,25 @@
           const a=channels.get(key),tr=document.createElement('tr');
           for(const v of [label,a.count,a.travelers,mxn(a.value),percent(a.value),mxn(a.paid),mxn(a.value-a.paid)])cell(tr,v);
           rows.appendChild(tr);
+          renderChannelCard(channelCards,label,[['Reservas activas',a.count],['Viajeros',a.travelers],['Valor reservado',mxn(a.value)],['Participación',percent(a.value)],['Cobrado',mxn(a.paid)],['Saldo estimado',mxn(a.value-a.paid)]]);
         }
         const agencyMap=new Map(agencies.map(a=>[a.id,a]));
         const agencyName=(a,id)=>a?.name||a?.agency_name||a?.business_name||(id==='__unassigned__'?'Agencia sin asignar':'Agencia sin nombre ('+String(id).slice(0,8)+')');
+        const commissionItems=[];
         for(const [id,a] of [...byAgency.entries()].sort((x,y)=>y[1].value-x[1].value)){
           const tr=document.createElement('tr');
           for(const v of [agencyName(agencyMap.get(id),id),a.count,a.travelers,mxn(a.value),mxn(a.paid)])cell(tr,v);
           agencyRows.appendChild(tr);
+          const name=agencyName(agencyMap.get(id),id);
+          renderChannelCard(agencyCards,name,[['Reservas activas',a.count],['Viajeros',a.travelers],['Valor reservado',mxn(a.value)],['Cobrado',mxn(a.paid)],['Saldo estimado',mxn(a.value-a.paid)]]);
+          commissionItems.push({id,name,value:a.value});
         }
+        renderCommissionSimulator(commissionItems);
         if(!byAgency.size)empty(agencyRows,5,'Aún no hay reservas de agencias. Pendiente de la información de Paco.');
         status.textContent='Ventas por canal actualizadas · '+totalCount+' reserva(s) activa(s).'+(cancelledPayments?' Hay '+mxn(cancelledPayments)+' en pagos asociados a reservas canceladas, excluidos de estos indicadores.':'');
       }catch(err){
+        document.getElementById('agencyCommissionInputs').replaceChildren();
+        document.getElementById('agencyCommissionSummary').textContent='Simulación no disponible hasta completar la consulta.';
         status.textContent='No fue posible consultar canales: '+(err?.message||'Error desconocido')+'. Revisa SELECT y políticas RLS de bookings, payments y agencies.';
         empty(rows,7,'No se muestran cifras hasta confirmar la consulta.');
         empty(agencyRows,5,'Detalle no disponible.');
