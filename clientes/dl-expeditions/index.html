@@ -268,7 +268,7 @@
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
         <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión de demostración</span></div>
-        <div class="dash-demo"><strong>ENTORNO DE PRUEBA</strong> — El acceso está conectado a Supabase. Prospectos, Reservas y Pagos y gastos están preparados para consultar y registrar datos en Supabase (sujetos a configuración de tablas y permisos). El panel principal presenta indicadores reales cuando Supabase responde correctamente; Clientes ofrece una vista de consulta; Reportes consulta la vista de expediciones cuando los permisos lo permiten. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</div>
+        <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
   <div class="executive-toolbar"><div><div class="dash-kicker">VISTA EJECUTIVA</div><h2 style="margin:6px 0">Resultados de expediciones</h2><p class="hint" style="margin:0">Indicadores actualizados desde Supabase, sin duplicar registros.</p></div>
@@ -277,6 +277,10 @@
   <div class="executive-charts">
     <div><h3 style="font-size:15px;margin:16px 0 8px">Cobros y saldo pendiente</h3><div id="executiveCollections"></div></div>
     <div><h3 style="font-size:15px;margin:16px 0 8px">Ocupación de expediciones</h3><div id="executiveOccupancy"></div></div>
+  </div>
+  <div class="executive-charts" style="margin-top:8px">
+    <div><h3 style="font-size:15px;margin:16px 0 8px">Canales de venta</h3><div id="executiveChannels"></div></div>
+    <div><h3 style="font-size:15px;margin:16px 0 8px">Desempeño de agencias</h3><div id="executiveAgencies"></div></div>
   </div>
   <p id="executiveNote" class="executive-note" role="status">Esperando datos de Supabase.</p>
 </div>
@@ -1188,8 +1192,36 @@
       for(const e of chosen){
         const used=active.filter(b=>b.expedition_id===e.id).reduce((n,b)=>n+Number(b.travelers||0),0);
         const cap=Number(e.capacity||0);
-        executiveBar(occupancy,e.name||'Expedición',used,cap,'#ef915d',cap>0?`${used} / ${cap} · ${(used/cap*100).toLocaleString('es-MX',{maximumFractionDigits:1})} %`:`${used} viajeros · cupo sin definir`);
+        const minimum=Number(e.min_travelers??e.minimum_travelers??e.min_participants??e.minimum_pax??0);
+        const threshold=minimum>0?(used>=minimum?' · Mínimo alcanzado':` · Faltan ${minimum-used} para mínimo`):' · Mínimo no configurado';
+        executiveBar(occupancy,e.name||'Expedición',used,cap,'#ef915d',(cap>0?`${used} / ${cap} · ${(used/cap*100).toLocaleString('es-MX',{maximumFractionDigits:1})} %`:`${used} viajeros · cupo sin definir`)+threshold);
       }
+      // Agrupación derivada de reservas activas; no escribe en Supabase.
+      const channels=fEl('executiveChannels'),agenciesBox=fEl('executiveAgencies');
+      channels.replaceChildren();agenciesBox.replaceChildren();
+      const grouped=new Map(),agencyTotals=new Map();
+      for(const b of active){
+        const isAgency=b.channel==='agency'||b.channel==='agencia';
+        const channel=isAgency?'Agencias':'Venta directa';
+        const value=Number(b.travelers||0)*Number(b.unit_price_mxn||0);
+        const item=grouped.get(channel)||{count:0,travelers:0,value:0};
+        item.count++;item.travelers+=Number(b.travelers||0);item.value+=value;grouped.set(channel,item);
+        if(isAgency){
+          const agencyName=bookingAgencies.get(b.agency_id)?.name||'Agencia sin identificar';
+          const a=agencyTotals.get(agencyName)||{count:0,travelers:0,value:0};
+          a.count++;a.travelers+=Number(b.travelers||0);a.value+=value;agencyTotals.set(agencyName,a);
+        }
+      }
+      for(const [name,v] of grouped){
+        executiveBar(channels,name,v.value,reserved,name==='Agencias'?'#536d76':'#ef915d',
+          `${v.count} reserva(s) · ${v.travelers} viajeros · ${mxn(v.value)}`);
+      }
+      if(!grouped.size)channels.textContent='Todavía no hay reservas activas.';
+      for(const [name,v] of [...agencyTotals.entries()].sort((a,b)=>b[1].value-a[1].value)){
+        executiveBar(agenciesBox,name,v.value,reserved,'#536d76',
+          `${v.count} reserva(s) · ${v.travelers} viajeros · ${mxn(v.value)}`);
+      }
+      if(!agencyTotals.size)agenciesBox.textContent='No hay reservas activas de agencias para este filtro.';
       fEl('executiveNote').textContent=(partial?'ATENCIÓN: alguna consulta alcanzó 1,000 registros; las cifras podrían ser parciales. ':'')+'Los cobros corresponden a reservas activas. Los pagos de reservas canceladas quedan fuera de esta vista; revisa Finanzas para conciliarlos. El flujo neto no es utilidad. Ocupación = viajeros reservados / capacidad.';
     }
     fEl('executiveExpedition').addEventListener('change',drawExecutive);
