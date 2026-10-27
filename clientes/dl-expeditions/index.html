@@ -250,7 +250,9 @@
   <div class="dash-stat"><small>Flujo neto registrado</small><strong id="homeNet">—</strong><span>MXN · Cobros menos gastos; no es utilidad</span></div>
   <div class="dash-stat"><small>Saldo por cobrar</small><strong id="homeOutstanding">—</strong><span>MXN · Reservas activas menos pagos</span></div>
 </div>
-<div class="dash-panels">
+<div class="dash-panel" style="margin-top:17px"><div class="section-head"><h2>Seguimiento de cobros</h2><span class="pill">Reservas activas · MXN</span></div><div id="homeCollectionSummary" class="dash-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:16px"></div><div id="homeCollectionList" class="table-wrap"><p class="hint">Consultando vencimientos...</p></div></div>
+ <div class="dash-panels">
+   <div class="dash-panel"><div class="section-head"><h2>Ingresos y gastos por mes
   <div class="dash-panel"><div class="section-head"><h2>Ingresos y gastos por mes</h2><span class="pill">MXN · Registros reales</span></div><div id="homeMonthly" class="monthly-chart"><p class="hint">Cargando información...</p></div></div>
   <div class="dash-panel"><h2>Seguimiento comercial</h2><div id="homeCommercial"><p class="hint">Cargando información...</p></div></div>
 </div>
@@ -320,11 +322,12 @@
               <label>Fecha del pago<input id="bDepositDate" type="date"></label>
               <p id="bDepositHint" class="hint"></p>
             </div>
-            <div class="booking-summary">Total estimado de la reserva: <strong id="bTotal">$0.00 MXN</strong></div>
+            <label>Próxima fecha de pago (opcional)<input id="bDueDate" type="date"><small style="display:block;margin-top:6px;color:#69777d">Para hacer seguimiento al saldo. Si ya está pagado, no genera alerta.</small></label>
+             <div class="booking-summary">Total estimado de la reserva: <strong id="bTotal">$0.00 MXN</strong></div>
             <div id="preparedQuoteNotice" class="booking-summary" hidden style="grid-column:1/-1"></div><button id="saveBooking" type="submit">Guardar reserva</button><button id="cancelBookingEdit" type="button" hidden style="background:#fff;color:#17252c;border:1px solid #ef915d">Cancelar edición</button>
           </form>
           <p id="bookingStatus" class="booking-status" role="status"></p>
-          <div id="bookingMobileList" class="record-mobile-list" aria-label="Reservas registradas"></div><div class="table-wrap record-desktop-table"><table class="dash-table"><thead><tr><th>Expedición</th><th>Prospecto</th><th>Canal</th><th>Viajeros</th><th>Precio unitario</th><th>Total</th><th>Abonado</th><th>Saldo pendiente</th><th>Estado</th><th>Registro</th><th>Acciones</th></tr></thead><tbody id="bookingRows"><tr><td colspan="8">Inicia sesión para consultar las reservas.</td></tr></tbody></table></div>
+          <div id="bookingMobileList" class="record-mobile-list" aria-label="Reservas registradas"></div><div class="table-wrap record-desktop-table"><table class="dash-table"><thead><tr><th>Expedición</th><th>Prospecto</th><th>Canal</th><th>Viajeros</th><th>Precio unitario</th><th>Total</th><th>Abonado</th><th>Saldo pendiente</th><th>Próximo pago</th><th>Seguimiento</th><th>Estado</th><th>Registro</th><th>Acciones</th></tr></thead><tbody id="bookingRows"><tr><td colspan="8">Inicia sesión para consultar las reservas.</td></tr></tbody></table></div>
           <p class="hint">Solo administración puede registrar reservas. Los usuarios de consulta pueden verlas, sujeto a los permisos RLS de Supabase. Para cambiar estados o registrar pagos se habilitarán módulos específicos.</p>
         </div></section>
         <section class="page" data-section="finanzas">
@@ -335,13 +338,14 @@
             <div class="dash-stat"><small>Saldo por cobrar</small><strong id="fOutstanding">—</strong><span>MXN · Reservas no canceladas, menos pagos</span></div>
           </div>
           <div class="finance-panels">
-            <div class="dash-panel"><h2>Registrar pago de cliente</h2><p>Vincula el pago con una reserva existente. El pago no se registra automáticamente al crear una reserva.</p>
+            <div class="dash-panel"><h2>Registrar pago de cliente</h2><p>Vincula el pago con una reserva existente. Los anticipos registrados desde Reservas ya aparecen aquí; no los dupliques.</p>
               <form id="paymentForm" class="finance-form" hidden>
                 <label>Reserva *<select id="fBooking" required><option value="">Seleccionar reserva</option></select></label>
                 <div id="fBalancePreview" class="finance-balance-preview" role="status">Selecciona una reserva para consultar su saldo pendiente.</div>
                 <label>Fecha del pago *<input id="fPaymentDate" type="date" required></label>
                 <label>Importe recibido (MXN) *<input id="fPaymentAmount" type="number" min="0.01" step="0.01" required></label>
-                <label>Método *<select id="fPaymentMethod" required><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="cash">Efectivo</option><option value="other">Otro</option></select></label>
+                <label>Próxima fecha de pago (opcional)<input id="fNextDueDate" type="date"><small style="display:block;margin-top:6px;color:#69777d">Si queda saldo después de este pago, actualiza el próximo vencimiento.</small></label>
+                 <label>Método *<select id="fPaymentMethod" required><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="cash">Efectivo</option><option value="other">Otro</option></select></label>
                 <p class="hint">Las referencias de pago estarán disponibles cuando se habilite ese campo en Supabase.</p>
                 <button id="savePayment" type="submit">Guardar pago</button>
               </form><p id="paymentStatus" class="finance-status" role="status"></p>
@@ -835,7 +839,7 @@
       document.querySelector('#saveBooking').textContent='Guardar reserva';
       document.querySelector('#cancelBookingEdit').hidden=true;
       syncBookingProspect();syncBookingPrice();syncDepositFields();
-      document.querySelector('#bDepositAmount').value='';
+      document.querySelector('#bDepositAmount').value='';document.querySelector('#bDueDate').value='';
     }
     async function cancelBookingSafely(id){
       if(currentRole!=='admin')return;
@@ -862,6 +866,7 @@
       syncBookingAgency();
       document.querySelector('#bAgency').value=b.agency_id||'';
       document.querySelector('#bTravelers').value=b.travelers;
+      document.querySelector('#bDueDate').value=b.next_payment_due_on||'';
       syncBookingPrice();
       document.querySelector('#bStatus').value=b.status;
       document.querySelector('#bDepositAmount').value='';syncDepositFields();
@@ -880,6 +885,54 @@
       const e=bookingExpeditions.get(document.querySelector('#bExpedition').value);
       syncBookingPrice();syncBookingProspect();
     });
+    function collectionState(b,paid){
+      if(b.status==='cancelled')return {label:'Cancelada',kind:'cancelled'};
+      const due=Math.round((Number(b.travelers)*Number(b.unit_price_mxn)-paid)*100)/100;
+      if(due<=0)return {label:'Pagado',kind:'paid'};
+      if(!b.next_payment_due_on)return {label:'Sin fecha',kind:'undated'};
+      const today=new Date();today.setHours(0,0,0,0);
+      const target=new Date(b.next_payment_due_on+'T00:00:00');
+      const days=Math.round((target-today)/86400000);
+      if(days<0)return {label:'Vencido',kind:'overdue'};
+      if(days<=7)return {label:'Próximo a vencer',kind:'soon'};
+      return {label:'Al día',kind:'current'};
+    }
+    function renderCollections(records,paidByBooking){
+      const summary=document.querySelector('#homeCollectionSummary'),list=document.querySelector('#homeCollectionList');
+      if(!summary||!list)return;
+      summary.replaceChildren();list.replaceChildren();
+      const counts={overdue:0,soon:0,undated:0,current:0,paid:0};
+      const outstanding=[];
+      for(const b of records){
+        if(b.status==='cancelled')continue;
+        const paid=paidByBooking.get(b.id)||0;
+        const balance=Math.max(0,Math.round((Number(b.travelers)*Number(b.unit_price_mxn)-paid)*100)/100);
+        const state=collectionState(b,paid);
+        counts[state.kind]=(counts[state.kind]||0)+1;
+        if(balance>0)outstanding.push({b,balance,state});
+      }
+      for(const [name,value] of [['Vencidos',counts.overdue],['Próximos 7 días',counts.soon],['Sin fecha',counts.undated],['Al día',counts.current],['Pagados',counts.paid]]){
+        const div=document.createElement('div');div.className='dash-stat';
+        const label=document.createElement('small');label.textContent=name;
+        const number=document.createElement('strong');number.textContent=String(value);
+        div.append(label,number);summary.appendChild(div);
+      }
+      if(!outstanding.length){const p=document.createElement('p');p.className='hint';p.textContent='No hay saldos pendientes en las reservas consultadas.';list.appendChild(p);return;}
+      const table=document.createElement('table');table.className='dash-table';
+      const head=document.createElement('thead'),hr=document.createElement('tr');
+      for(const h of ['Cliente','Expedición','Saldo','Próximo pago','Seguimiento']){const th=document.createElement('th');th.textContent=h;hr.appendChild(th);}head.appendChild(hr);table.appendChild(head);
+      const body=document.createElement('tbody');
+      const priority={overdue:0,soon:1,undated:2,current:3};
+      outstanding.sort((a,b)=>(priority[a.state.kind]??9)-(priority[b.state.kind]??9)||(a.b.next_payment_due_on||'').localeCompare(b.b.next_payment_due_on||''));
+      for(const {b,balance,state} of outstanding.slice(0,30)){
+        const tr=document.createElement('tr');
+        for(const val of [bookingProspects.get(b.prospect_id)?.alias||'Sin prospecto',bookingExpeditions.get(b.expedition_id)?.name||'Expedición',mxn(balance),b.next_payment_due_on||'Sin definir',state.label])putCell(tr,val);
+        body.appendChild(tr);
+      }
+      table.appendChild(body);list.appendChild(table);
+      if(outstanding.length>30){const note=document.createElement('p');note.className='hint';note.textContent='Se muestran los primeros 30 saldos pendientes.';list.appendChild(note);}
+      if(records.length===500||paidByBooking.size>=5000){const note=document.createElement('p');note.className='hint';note.textContent='Consulta parcial: revisa los límites de Supabase antes de utilizar los totales.';list.appendChild(note);}
+    }
     async function loadBookings(){
       bookingForm.hidden=currentRole!=='admin';
       bookingStatus.textContent='Cargando reservas...';
@@ -887,7 +940,7 @@
         supabase.from('expeditions').select('id,name,public_price_mxn').order('name'),
         supabase.from('prospects').select('id,alias,expedition_id,channel,agency_id').order('created_at',{ascending:false}).limit(500),
         supabase.from('agencies').select('*').limit(500),
-        supabase.from('bookings').select('id,expedition_id,prospect_id,channel,agency_id,travelers,unit_price_mxn,status,created_at').order('created_at',{ascending:false}).limit(500),
+        supabase.from('bookings').select('id,expedition_id,prospect_id,channel,agency_id,travelers,unit_price_mxn,status,next_payment_due_on,created_at').order('created_at',{ascending:false}).limit(500),
         supabase.from('payments').select('booking_id,amount_mxn').limit(5000)
       ]);
       const error=expRes.error||proRes.error||agencyRes.error||bookingRes.error||bookingPaymentsRes.error;
@@ -911,7 +964,8 @@
       const records=bookingRes.data||[];bookingRecords=new Map(records.map(b=>[b.id,b]));
       const paidByBooking=new Map();
       for(const payment of bookingPaymentsRes.data||[]){paidByBooking.set(payment.booking_id,(paidByBooking.get(payment.booking_id)||0)+Number(payment.amount_mxn||0));}
-      if(!records.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=11;td.textContent='Todavía no hay reservas registradas.';tr.appendChild(td);bookingRows.appendChild(tr);bookingMobileList.textContent='Todavía no hay reservas registradas.';}
+      renderCollections(records,paidByBooking);
+      if(!records.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=13;td.textContent='Todavía no hay reservas registradas.';tr.appendChild(td);bookingRows.appendChild(tr);bookingMobileList.textContent='Todavía no hay reservas registradas.';}
       for(const b of records){
         const tr=document.createElement('tr');
         putCell(tr,bookingExpeditions.get(b.expedition_id)?.name||'Expedición no disponible');
@@ -919,6 +973,7 @@
         putCell(tr,b.channel==='agency'?'Agencia: '+(bookingAgencies.get(b.agency_id)?.name||bookingAgencies.get(b.agency_id)?.agency_name||'Registrada'):'Directa');
         putCell(tr,b.travelers);putCell(tr,mxn(b.unit_price_mxn));putCell(tr,mxn(Number(b.travelers)*Number(b.unit_price_mxn)));
         putCell(tr,mxn(paidByBooking.get(b.id)||0));putCell(tr,b.status==='cancelled'?'Revisar cancelación':mxn(Math.max(0,Number(b.travelers)*Number(b.unit_price_mxn)-(paidByBooking.get(b.id)||0))));
+        putCell(tr,b.next_payment_due_on||'—');putCell(tr,collectionState(b,paidByBooking.get(b.id)||0).label);
         putCell(tr,bookingStatuses[b.status]||b.status);putCell(tr,b.created_at?new Date(b.created_at).toLocaleDateString('es-MX'):'—');
         const action=document.createElement('td');
         if(currentRole==='admin'){const btn=document.createElement('button');btn.type='button';btn.textContent='Editar';btn.style.cssText='width:auto;margin:0;padding:9px 12px';btn.addEventListener('click',()=>editBooking(b.id));action.appendChild(btn);if(b.status!=='cancelled'){const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Anular';cancel.className='outline-btn';cancel.style.cssText='width:auto;margin:6px 0 0 6px;padding:9px 12px';cancel.addEventListener('click',()=>cancelBookingSafely(b.id));action.appendChild(cancel);}}
@@ -932,6 +987,8 @@
           ['Total',mxn(Number(b.travelers)*Number(b.unit_price_mxn))],
           ['Abonado',mxn(paidByBooking.get(b.id)||0)],
           ['Saldo pendiente',b.status==='cancelled'?'Revisar cancelación':mxn(Math.max(0,Number(b.travelers)*Number(b.unit_price_mxn)-(paidByBooking.get(b.id)||0)))],
+          ['Próximo pago',b.next_payment_due_on||'Sin definir'],
+          ['Seguimiento',collectionState(b,paidByBooking.get(b.id)||0).label],
           ['Registro',b.created_at?new Date(b.created_at).toLocaleDateString('es-MX'):'—']
         ],currentRole==='admin'?'Editar reserva':null,()=>editBooking(b.id)));
         if(currentRole==='admin'&&b.status!=='cancelled'){
@@ -983,7 +1040,7 @@
         bookingStatus.textContent='Para registrar el anticipo, ingresa un monto válido y la fecha del pago.';return;
       }
       if(wantsDeposit&&depositAmount>travelers*price){bookingStatus.textContent='El anticipo supera el total de la reserva.';return;}
-      const payload={expedition_id:expId,prospect_id:prospectId||null,channel,agency_id:channel==='agency'?agencyId:null,travelers,unit_price_mxn:price,status:document.querySelector('#bStatus').value,is_test:true};
+      const payload={expedition_id:expId,prospect_id:prospectId||null,channel,agency_id:channel==='agency'?agencyId:null,travelers,unit_price_mxn:price,status:document.querySelector('#bStatus').value,next_payment_due_on:document.querySelector('#bDueDate').value||null,is_test:true};
       if(preparedQuote&&!editingBookingId)payload.quote_id=preparedQuote.id;
       const button=document.querySelector('#saveBooking');button.disabled=true;
       bookingStatus.textContent='Guardando reserva...';
@@ -1108,7 +1165,7 @@
       fEl('paymentStatus').textContent='Cargando pagos...';fEl('expenseStatus').textContent='Cargando gastos...';
       const [er,br,pr,xr,prospectResult]=await Promise.all([
         supabase.from('expeditions').select('id,name').order('name'),
-        supabase.from('bookings').select('id,expedition_id,prospect_id,travelers,unit_price_mxn,status,created_at').order('created_at',{ascending:false}).limit(1000),
+        supabase.from('bookings').select('id,expedition_id,prospect_id,travelers,unit_price_mxn,status,next_payment_due_on,created_at').order('created_at',{ascending:false}).limit(1000),
         supabase.from('payments').select('id,booking_id,amount_mxn,paid_at,payment_method,created_at').order('paid_at',{ascending:false}).limit(1000),
         supabase.from('expenses').select('id,expedition_id,amount_mxn,spent_at,category,description,created_at').order('spent_at',{ascending:false}).limit(1000),
         supabase.from('prospects').select('id,alias').limit(1000)
@@ -1173,7 +1230,18 @@
       const b=financeBookings.get(booking_id),total=Number(b.travelers)*Number(b.unit_price_mxn),paid=financePayments.filter(p=>p.booking_id===booking_id).reduce((n,p)=>n+Number(p.amount_mxn),0);
       if(!Number.isFinite(total)||!Number.isFinite(paid)||amount_mxn>Math.round((total-paid)*100)/100){fEl('paymentStatus').textContent='El pago supera el saldo pendiente ('+mxn(Math.max(0,total-paid))+'). Revisa el importe.';return;}
       const btn=fEl('savePayment');btn.disabled=true;fEl('paymentStatus').textContent='Guardando pago...';
-      try{const {error}=await supabase.from('payments').insert({booking_id,amount_mxn,paid_at:new Date(paid_on+'T12:00:00').toISOString(),payment_method});if(error)throw error;fEl('paymentForm').reset();await loadFinances();fEl('paymentStatus').textContent='Pago guardado en Supabase.';}
+      try{
+        const nextDue=fEl('fNextDueDate').value;
+        const {error}=await supabase.from('payments').insert({booking_id,amount_mxn,paid_at:new Date(paid_on+'T12:00:00').toISOString(),payment_method});if(error)throw error;
+        let warning='';
+        if(nextDue){
+          const remaining=Math.round((total-paid-amount_mxn)*100)/100;
+          const {error:dueError}=await supabase.from('bookings').update({next_payment_due_on:remaining>0?nextDue:null}).eq('id',booking_id);
+          if(dueError)warning=' El pago se guardó, pero no se pudo actualizar el vencimiento: '+dueError.message;
+        }
+        fEl('paymentForm').reset();await loadFinances();await loadBookings();
+        fEl('paymentStatus').textContent='Pago guardado en Supabase.'+warning;
+      }
       catch(err){fEl('paymentStatus').textContent='No se pudo guardar el pago: '+err.message;}finally{btn.disabled=false;}
     });
     fEl('expenseForm').addEventListener('submit',async e=>{
