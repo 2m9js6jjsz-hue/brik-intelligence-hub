@@ -532,8 +532,8 @@
             <h3 style="margin-top:26px">Detalle de agencias</h3>
             <div id="agencyMobileCards" class="channel-mobile-list" aria-label="Detalle de agencias"></div><div class="table-wrap channel-desktop-wrap"><table class="dash-table"><thead><tr><th>Agencia</th><th>Reservas activas</th><th>Viajeros</th><th>Valor reservado (MXN)</th><th>Cobrado (MXN)</th></tr></thead><tbody id="agencyRows"><tr><td colspan="5">Pendiente de agencias registradas</td></tr></tbody></table></div>
             <div class="commission-panel" id="agencyCommissionPanel">
-              <h3>Comisiones estimadas por agencia de agencias</h3>
-              <p>Escribe el porcentaje acordado para cada agencia. Los resultados se calculan sobre el valor de reservas activas y son únicamente una simulación. No se guardan en Supabase ni se registran como gasto. No representan utilidad neta.</p>
+              <h3>Comisiones estimadas por agencia</h3>
+              <p>Los porcentajes se administran en Agencias y se consultan desde Supabase. El cálculo es estimado sobre reservas activas; no se registra como gasto ni representa utilidad neta.</p>
               <div id="agencyCommissionInputs" class="commission-grid"></div>
               <div id="agencyCommissionSummary" class="commission-summary" role="status">Consulta las ventas por agencia para simular sus comisiones.</div>
             </div>
@@ -547,6 +547,13 @@
             <div class="dash-grid" id="profitTotals" aria-label="Indicadores preliminares de rentabilidad"></div>
             <div class="table-wrap" style="margin-top:20px"><table class="dash-table"><thead><tr><th>Expedición</th><th>Valor reservado</th><th>Cobrado</th><th>Gastos registrados</th><th>Resultado preliminar sobre reservas</th><th>Margen preliminar</th><th>Flujo neto registrado</th><th>Saldo por cobrar</th></tr></thead><tbody id="profitRows"><tr><td colspan="8">Sin cargar</td></tr></tbody></table></div>
             <p class="hint">Resultado preliminar = valor reservado − gastos registrados. Margen preliminar = resultado preliminar / valor reservado, cuando el valor reservado es positivo. Flujo neto = cobrado − gastos registrados. No tomar decisiones de precio o rentabilidad final con estas cifras hasta incorporar todos los costos estimados y comprometidos.</p>
+          </div>
+          <div class="dash-panel" style="margin-top:18px">
+            <div class="section-head"><h2>Proyección económica y punto de equilibrio</h2><span class="pill">MXN · Estimación</span></div>
+            <p>Proyección sobre reservas activas. Usa el desglose de costos por expedición y la comisión guardada en cada agencia. <strong>No suma los gastos ya registrados</strong> a los costos presupuestados para evitar descontarlos dos veces. Los gastos reales se muestran por separado en el reporte anterior.</p>
+            <p id="projectionStatus" class="hint" role="status">Abre Reportes para consultar la proyección.</p>
+            <div id="projectionCards" class="channel-mobile-list"></div>
+            <p class="hint">Punto de equilibrio estimado: costos fijos ÷ (precio promedio por viajero − costo variable por viajero − comisión promedio por viajero), redondeado hacia arriba. Es una estimación basada en la mezcla actual de reservas; si cambian los precios o las agencias, cambia el resultado. Si no hay reservas, no se estima el punto de equilibrio. Impuestos, devoluciones y costos no registrados quedan fuera.</p>
           </div>
           <div class="dash-panel" style="margin-top:18px">
             <div class="section-head"><h2>Centro de alertas · seguimiento</h2><span class="pill">Supabase · Solo lectura</span></div>
@@ -1727,6 +1734,62 @@
 
 
     // Rentabilidad preliminar: reutiliza la vista agregada validada en Supabase.
+    async function loadEconomicProjection(){
+      const status=document.getElementById('projectionStatus'),root=document.getElementById('projectionCards');
+      root.replaceChildren();status.textContent='Consultando presupuestos, reservas y comisiones...';
+      try{
+        const results=await Promise.all([
+          supabase.from('expeditions').select('id,name,capacity').limit(1000),
+          supabase.from('bookings').select('id,expedition_id,channel,agency_id,travelers,unit_price_mxn,status').limit(1000),
+          supabase.from('agencies').select('id,name,commission_pct').limit(1000),
+          supabase.from('expedition_cost_items').select('id,expedition_id,cost_type,amount_mxn').limit(1000)
+        ]);
+        for(const r of results)if(r.error)throw r.error;
+        if(results.some(r=>(r.data||[]).length>=1000))throw new Error('Se alcanzó el límite de consulta de 1,000 registros; no se calculan proyecciones incompletas.');
+        const [expeditions,bookings,agencies,costs]=results.map(r=>r.data||[]);
+        const rates=new Map(agencies.map(a=>[a.id,a.commission_pct]));
+        const money=n=>mxn(n);
+        const row=(container,label,value)=>{
+          const line=document.createElement('div');line.style.cssText='display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #e7e7e7;align-items:start';
+          const left=document.createElement('strong');left.textContent=label;left.style.flex='1';
+          const right=document.createElement('span');right.textContent=String(value);right.style.textAlign='right';
+          line.append(left,right);container.appendChild(line);
+        };
+        for(const e of expeditions){
+          const active=bookings.filter(b=>b.expedition_id===e.id&&b.status!=='cancelled');
+          const travelers=active.reduce((n,b)=>n+Number(b.travelers||0),0);
+          const sales=active.reduce((n,b)=>n+Number(b.travelers||0)*Number(b.unit_price_mxn||0),0);
+          const agencyBookings=active.filter(b=>b.channel==='agency');
+          const unknown=agencyBookings.filter(b=>!b.agency_id||rates.get(b.agency_id)==null);
+          const commission=agencyBookings.reduce((n,b)=>n+Number(b.travelers||0)*Number(b.unit_price_mxn||0)*Number(rates.get(b.agency_id)||0)/100,0);
+          const ownCosts=costs.filter(c=>c.expedition_id===e.id);
+          const fixed=ownCosts.filter(c=>c.cost_type==='fixed').reduce((n,c)=>n+Number(c.amount_mxn||0),0);
+          const perTraveler=ownCosts.filter(c=>c.cost_type==='per_traveler').reduce((n,c)=>n+Number(c.amount_mxn||0),0);
+          const variable=travelers*perTraveler;
+          const total=fixed+variable;
+          const projected=sales-total-commission;
+          const contribution=travelers>0?(sales-variable-commission)/travelers:0;
+          const breakEven=travelers>0&&contribution>0?Math.ceil(fixed/contribution):null;
+          const card=document.createElement('div');card.className='channel-mobile-card';card.style.marginBottom='14px';
+          const heading=document.createElement('h3');heading.textContent=e.name||'Expedición';card.appendChild(heading);
+          row(card,'Viajeros reservados',travelers);
+          row(card,'Valor reservado',money(sales));
+          row(card,'Costo fijo presupuestado',money(fixed));
+          row(card,'Costo variable presupuestado',money(variable));
+          row(card,'Comisiones estimadas',unknown.length?'No disponible: agencia sin comisión':money(commission));
+          row(card,'Resultado proyectado',unknown.length?'Pendiente de comisiones':money(projected));
+          row(card,'Margen proyectado',unknown.length||sales<=0?'No disponible':(100*projected/sales).toLocaleString('es-MX',{maximumFractionDigits:1})+' %');
+          row(card,'Punto de equilibrio',unknown.length?'Pendiente de comisiones':breakEven===null?'No calculable':breakEven+' viajeros');
+          row(card,'Capacidad',e.capacity==null?'Sin definir':e.capacity+' viajeros');
+          if(breakEven!==null&&!unknown.length&&e.capacity!=null&&breakEven>Number(e.capacity)){
+            const warning=document.createElement('p');warning.textContent='Atención: el punto de equilibrio supera la capacidad registrada.';warning.style.fontWeight='bold';card.appendChild(warning);
+          }
+          if(!ownCosts.length){const note=document.createElement('p');note.textContent='Presupuesto no registrado: el resultado no es fiable hasta completar el desglose de costos.';note.style.fontWeight='bold';card.appendChild(note);}
+          root.appendChild(card);
+        }
+        status.textContent='Proyecciones actualizadas · '+expeditions.length+' expedición(es). No equivalen a utilidad contable.';
+      }catch(err){root.replaceChildren();status.textContent='No se pudo calcular la proyección: '+(err?.message||'Error desconocido')+'. Comprueba los permisos de lectura.';}
+    }
     async function loadProfitability(){
       const status=document.getElementById('profitStatus');
       const totals=document.getElementById('profitTotals');
@@ -2083,7 +2146,7 @@
       if(page==='finanzas'&&currentRole)loadFinances();
       if(page==='clientes'&&currentRole)loadClients();
       if(page==='cotizador'&&currentRole)loadQuotes();
-      if(page==='reportes'&&currentRole){loadReports();loadCommercial();loadChannels();loadProfitability();loadAlerts();}
+      if(page==='reportes'&&currentRole){loadReports();loadCommercial();loadChannels();loadProfitability();loadEconomicProjection();loadAlerts();}
       closeMenu();window.scrollTo({top:0,behavior:'instant'});
     }));
     // Cotizador conectado a public.quotes; las políticas RLS determinan quién puede consultar y guardar.
