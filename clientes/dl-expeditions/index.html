@@ -217,6 +217,20 @@
 .executive-line-head strong{font-size:12px;text-align:right}.executive-note{font-size:12px;color:#68767d;line-height:1.5}
 @media(max-width:950px){.executive-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.executive-charts{grid-template-columns:1fr}}
 @media(max-width:650px){.executive-toolbar select{width:100%;min-width:0}.executive-toolbar label{width:100%}.executive-grid .dash-stat{padding:13px}}
+
+/* Reportes adaptados a pantallas pequeñas, sin desplazar horizontalmente */
+@media(max-width:650px){
+.page[data-section="reportes"] .table-wrap{overflow-x:visible;min-width:0}
+.page[data-section="reportes"] .dash-table{display:block;width:100%;min-width:0}
+.page[data-section="reportes"] .dash-table thead{display:none}
+.page[data-section="reportes"] .dash-table tbody{display:grid;gap:12px}
+.page[data-section="reportes"] .dash-table tbody tr{display:block;border:1px solid #e3e0db;border-radius:14px;padding:12px;background:#fff;min-width:0}
+.page[data-section="reportes"] .dash-table tbody td{display:flex;align-items:baseline;justify-content:space-between;gap:12px;width:100%;min-width:0;padding:9px 2px;overflow-wrap:anywhere;text-align:right}
+.page[data-section="reportes"] .dash-table tbody td::before{content:attr(data-label);font-weight:700;color:#64747a;text-align:left;flex:0 0 45%}
+.page[data-section="reportes"] .dash-table tbody td[colspan]::before{content:none}
+.page[data-section="reportes"] .dash-table tbody td[colspan]{display:block;text-align:left}
+.monthly-chart{max-width:100%}
+}
 </style>
 </head>
 <body>
@@ -286,7 +300,7 @@
 </div>
 <div class="dash-grid">
   <div class="dash-stat"><small>Prospectos</small><strong id="homeProspects">—</strong><span id="homeProspectsNote">Consultando Supabase</span></div>
-  <div class="dash-stat"><small>Reservas confirmadas</small><strong id="homeBookings">—</strong><span id="homeBookingsNote">Consultando Supabase</span></div>
+  <div class="dash-stat"><small>Reservas activas</small><strong id="homeBookings">—</strong><span id="homeBookingsNote">Consultando Supabase</span></div>
   <div class="dash-stat"><small>Ingresos cobrados</small><strong id="homeReceived">—</strong><span>MXN · Pagos registrados</span></div>
   <div class="dash-stat"><small>Gastos registrados</small><strong id="homeSpent">—</strong><span>MXN · Gastos registrados</span></div>
   <div class="dash-stat"><small>Flujo neto registrado</small><strong id="homeNet">—</strong><span>MXN · Cobros menos gastos; no es utilidad</span></div>
@@ -1039,8 +1053,8 @@
         }
       }
       bookingCount.textContent=records.length===500?'500 registros mostrados':`${records.length} reserva${records.length===1?'':'s'}`;
-      document.querySelector('#homeBookings').textContent=String(records.filter(x=>x.status==='confirmed').length)+(records.length===500?'+':'');
-      document.querySelector('#homeBookingsNote').textContent=records.length===500?'Confirmadas entre 500 registros':'Reservas confirmadas · Supabase';
+      document.querySelector('#homeBookings').textContent=String(records.filter(x=>x.status!=='cancelled').length)+(records.length===500?'+':'');
+      document.querySelector('#homeBookingsNote').textContent=records.length===500?'Activas entre 500 registros':'No canceladas · Incluye pendientes y con anticipo';
       if((bookingPaymentsRes.data||[]).length<5000)bookingStatus.textContent=currentRole==='admin'?'Crea reservas desde una cotización aceptada. Los abonos se calculan desde Pagos.':'Acceso de consulta: no puedes registrar reservas.';
       syncBookingProspect();syncBookingPrice();syncDepositFields();
     }
@@ -1149,6 +1163,14 @@
     function financeToday(){return new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);}
     // El filtro es local: no escribe ni modifica reservas, pagos o expediciones.
     let executiveSnapshot=null;
+    let executiveAgencyNames=new Map();
+    function executiveAttribution(b){
+      const p=financeProspects.get(b.prospect_id);
+      const fromProspect=p&&(p.channel==='agency'||p.channel==='agencia');
+      const fromBooking=b.channel==='agency'||b.channel==='agencia';
+      const agencyId=(fromProspect&&p.agency_id)||b.agency_id||null;
+      return {isAgency:!!(fromProspect||fromBooking||agencyId),agencyId,conflict:!!(fromProspect&&!fromBooking)};
+    }
     function executiveStat(label,value,detail){
       const card=document.createElement('div');card.className='dash-stat';
       const small=document.createElement('small');small.textContent=label;
@@ -1200,14 +1222,18 @@
       const channels=fEl('executiveChannels'),agenciesBox=fEl('executiveAgencies');
       channels.replaceChildren();agenciesBox.replaceChildren();
       const grouped=new Map(),agencyTotals=new Map();
+      let conflicts=0,unidentified=0;
       for(const b of active){
-        const isAgency=b.channel==='agency'||b.channel==='agencia';
+        const attribution=executiveAttribution(b);
+        const isAgency=attribution.isAgency;
+        if(attribution.conflict)conflicts++;
+        if(isAgency&&!executiveAgencyNames.has(attribution.agencyId))unidentified++;
         const channel=isAgency?'Agencias':'Venta directa';
         const value=Number(b.travelers||0)*Number(b.unit_price_mxn||0);
         const item=grouped.get(channel)||{count:0,travelers:0,value:0};
         item.count++;item.travelers+=Number(b.travelers||0);item.value+=value;grouped.set(channel,item);
         if(isAgency){
-          const agencyName=bookingAgencies.get(b.agency_id)?.name||'Agencia sin identificar';
+          const agencyName=executiveAgencyNames.get(attribution.agencyId)||'Agencia sin identificar';
           const a=agencyTotals.get(agencyName)||{count:0,travelers:0,value:0};
           a.count++;a.travelers+=Number(b.travelers||0);a.value+=value;agencyTotals.set(agencyName,a);
         }
@@ -1222,7 +1248,7 @@
           `${v.count} reserva(s) · ${v.travelers} viajeros · ${mxn(v.value)}`);
       }
       if(!agencyTotals.size)agenciesBox.textContent='No hay reservas activas de agencias para este filtro.';
-      fEl('executiveNote').textContent=(partial?'ATENCIÓN: alguna consulta alcanzó 1,000 registros; las cifras podrían ser parciales. ':'')+'Los cobros corresponden a reservas activas. Los pagos de reservas canceladas quedan fuera de esta vista; revisa Finanzas para conciliarlos. El flujo neto no es utilidad. Ocupación = viajeros reservados / capacidad.';
+      fEl('executiveNote').textContent=(partial?'ATENCIÓN: alguna consulta alcanzó 1,000 registros; las cifras podrían ser parciales. ':'')+(conflicts?`${conflicts} reserva(s) tienen un canal distinto al del prospecto; se clasifican por el origen del prospecto. Revisa los registros antes de producción. `:'')+(unidentified?`${unidentified} reserva(s) de agencia sin nombre identificable. `:'')+'Los cobros corresponden a reservas activas. Los pagos de reservas canceladas quedan fuera de esta vista; revisa Finanzas para conciliarlos. El flujo neto no es utilidad. Ocupación = viajeros reservados / capacidad.';
     }
     fEl('executiveExpedition').addEventListener('change',drawExecutive);
     function updateExecutive(bookings,payments,expenses){
@@ -1291,18 +1317,20 @@
     async function loadFinances(){
       fEl('paymentForm').hidden=currentRole!=='admin';fEl('expenseForm').hidden=currentRole!=='admin';
       fEl('paymentStatus').textContent='Cargando pagos...';fEl('expenseStatus').textContent='Cargando gastos...';
-      const [er,br,pr,xr,prospectResult]=await Promise.all([
+      const [er,br,pr,xr,prospectResult,agencyResult]=await Promise.all([
         supabase.from('expeditions').select('id,name,capacity').order('name'),
-        supabase.from('bookings').select('id,expedition_id,prospect_id,travelers,unit_price_mxn,status,next_payment_due_on,created_at').order('created_at',{ascending:false}).limit(1000),
+        supabase.from('bookings').select('id,expedition_id,prospect_id,channel,agency_id,travelers,unit_price_mxn,status,next_payment_due_on,created_at').order('created_at',{ascending:false}).limit(1000),
         supabase.from('payments').select('id,booking_id,amount_mxn,paid_at,payment_method,created_at').order('paid_at',{ascending:false}).limit(1000),
         supabase.from('expenses').select('id,expedition_id,amount_mxn,spent_at,category,description,created_at').order('spent_at',{ascending:false}).limit(1000),
-        supabase.from('prospects').select('id,alias').limit(1000)
+        supabase.from('prospects').select('id,alias,channel,agency_id').limit(1000),
+        supabase.from('agencies').select('id,name').limit(1000)
       ]);
-      const err=er.error||br.error||pr.error||xr.error||prospectResult.error;
+      const err=er.error||br.error||pr.error||xr.error||prospectResult.error||agencyResult.error;
       if(err){const msg='No se pudo consultar Supabase: '+err.message+'. Revisa las columnas existentes y los permisos RLS.';fEl('paymentStatus').textContent=msg;fEl('expenseStatus').textContent=msg;return;}
       financeExpenses=new Map((xr.data||[]).map(x=>[x.id,x]));
       financeExpeditions=new Map((er.data||[]).map(x=>[x.id,x]));
       financeProspects=new Map((prospectResult.data||[]).map(x=>[x.id,x]));
+      executiveAgencyNames=new Map((agencyResult.data||[]).map(x=>[x.id,x.name]));
       financeBookings=new Map((br.data||[]).map(x=>[x.id,x]));financePayments=pr.data||[];
       const pb=fEl('fBooking'),pe=fEl('fExpenseExpedition'),oldB=pb.value,oldE=pe.value;
       pb.replaceChildren(new Option('Seleccionar reserva',''));pe.replaceChildren(new Option('Seleccionar expedición',''));
@@ -2327,5 +2355,24 @@
     setTimeout(() => { if (!recovering) refresh(); }, 350);
 
   </script>
+<script>
+/* Etiquetas de columnas para las tarjetas móviles de reportes. Solo presentación. */
+(function(){
+  function labelReportTables(){
+    document.querySelectorAll('.page[data-section="reportes"] .dash-table').forEach(table=>{
+      const headers=Array.from(table.querySelectorAll('thead th'),th=>th.textContent.trim());
+      table.querySelectorAll('tbody tr').forEach(row=>{
+        row.querySelectorAll('td').forEach((cell,i)=>{if(!cell.hasAttribute('colspan'))cell.setAttribute('data-label',headers[i]||'Dato');});
+      });
+    });
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    labelReportTables();
+    const page=document.querySelector('.page[data-section="reportes"]');
+    if(page){const observer=new MutationObserver(labelReportTables);
+      page.querySelectorAll('tbody').forEach(t=>observer.observe(t,{childList:true}));}
+  });
+})();
+</script>
 </body>
 </html>
