@@ -335,10 +335,11 @@
           <form id="agencyMasterForm" class="master-form" hidden>
             <label>Nombre de la agencia *<input id="aName" maxlength="160" required placeholder="Ej. Agencia Viajes México"></label>
             <label>Nombre del contacto<input id="aContact" maxlength="160" placeholder="Ej. María López"></label>
-            <button id="aSave" type="submit">Guardar agencia</button>
+            <label>Comisión acordada (%) *<input id="aCommission" type="number" min="0" max="100" step="0.01" value="0" required></label>
+            <button id="aSave" type="submit">Guardar agencia</button><button id="aCancelEdit" type="button" hidden style="background:#fff;color:#263b40;border:1px solid #d6d6d6">Cancelar edición</button>
           </form>
           <p id="agencyMasterStatus" class="master-status" role="status"></p>
-          <div class="table-wrap"><table class="dash-table"><thead><tr><th>Agencia</th><th>Contacto</th><th>Fecha de registro</th></tr></thead><tbody id="agencyMasterRows"><tr><td colspan="3">Abre esta sección para consultar agencias.</td></tr></tbody></table></div>
+          <div class="table-wrap"><table class="dash-table"><thead><tr><th>Agencia</th><th>Contacto</th><th>Comisión</th><th>Fecha de registro</th><th>Acción</th></tr></thead><tbody id="agencyMasterRows"><tr><td colspan="3">Abre esta sección para consultar agencias.</td></tr></tbody></table></div>
         </div></section>
         <section class="page" data-section="expediciones"><div class="dash-panel">
           <div class="section-head"><h2>Administración de expediciones</h2><span class="pill" id="expMasterCount">Sin cargar</span></div>
@@ -531,7 +532,7 @@
             <h3 style="margin-top:26px">Detalle de agencias</h3>
             <div id="agencyMobileCards" class="channel-mobile-list" aria-label="Detalle de agencias"></div><div class="table-wrap channel-desktop-wrap"><table class="dash-table"><thead><tr><th>Agencia</th><th>Reservas activas</th><th>Viajeros</th><th>Valor reservado (MXN)</th><th>Cobrado (MXN)</th></tr></thead><tbody id="agencyRows"><tr><td colspan="5">Pendiente de agencias registradas</td></tr></tbody></table></div>
             <div class="commission-panel" id="agencyCommissionPanel">
-              <h3>Simulador de comisiones de agencias</h3>
+              <h3>Comisiones estimadas por agencia de agencias</h3>
               <p>Escribe el porcentaje acordado para cada agencia. Los resultados se calculan sobre el valor de reservas activas y son únicamente una simulación. No se guardan en Supabase ni se registran como gasto. No representan utilidad neta.</p>
               <div id="agencyCommissionInputs" class="commission-grid"></div>
               <div id="agencyCommissionSummary" class="commission-summary" role="status">Consulta las ventas por agencia para simular sus comisiones.</div>
@@ -1585,7 +1586,6 @@
     }
 
     // Tarjetas adaptables y simulación local: nunca escribe en Supabase.
-    const commissionSimulationRates=new Map();
     function renderChannelCard(container,title,fields){
       const card=document.createElement('article');card.className='channel-mobile-card';
       const h=document.createElement('h4');h.textContent=title;card.appendChild(h);
@@ -1605,23 +1605,23 @@
       if(!items.length){summary.textContent='Todavía no hay ventas activas de agencias para simular comisiones.';return;}
       function recalc(){
         let total=0,commission=0;
-        for(const item of items){total+=item.value;commission+=item.value*(commissionSimulationRates.get(item.id)||0)/100;}
+        for(const item of items){total+=item.value;commission+=item.value*(agencyRateCache.get(item.id)||0)/100;}
         summary.replaceChildren();
         const heading=document.createElement('strong');heading.textContent='Resumen estimado (MXN)';
         const detail=document.createElement('div');detail.textContent='Valor reservado por agencias: '+mxn(total)+' · Comisiones estimadas: '+mxn(commission)+' · Valor después de comisiones: '+mxn(total-commission);
-        const note=document.createElement('small');note.textContent='Antes de costos, impuestos y otros gastos. No se registra ningún movimiento.';
+        const note=document.createElement('small');note.textContent='Antes de costos, impuestos y otros gastos. No se registra ningún movimiento. Las tasas se editan en Agencias.';
         summary.append(heading,detail,note);
       }
       for(const item of items){
         const card=document.createElement('div');card.className='commission-item';
         const name=document.createElement('strong');name.textContent=item.name;
         const amount=document.createElement('p');amount.textContent='Valor reservado: '+mxn(item.value);
-        const label=document.createElement('label');label.textContent='Comisión acordada (%)';
-        const input=document.createElement('input');input.type='number';input.min='0';input.max='100';input.step='0.01';input.inputMode='decimal';input.value=String(commissionSimulationRates.get(item.id)||0);
+        const label=document.createElement('label');label.textContent='Comisión guardada (%) · Editar en Agencias';
+        const input=document.createElement('input');input.type='number';input.min='0';input.max='100';input.step='0.01';input.inputMode='decimal';input.value=String(agencyRateCache.get(item.id)||0);input.readOnly=true;input.title='Configura la comisión en el Directorio de agencias';
         input.setAttribute('aria-label','Porcentaje de comisión para '+item.name);
         const result=document.createElement('strong');
-        function update(){const value=Number(input.value);const valid=input.value!==''&&Number.isFinite(value)&&value>=0&&value<=100;input.setCustomValidity(valid?'':'Introduce un porcentaje entre 0 y 100');if(!valid){result.textContent='Porcentaje no válido';return;}commissionSimulationRates.set(item.id,value);result.textContent='Comisión estimada: '+mxn(item.value*value/100);recalc();}
-        input.addEventListener('input',update);label.appendChild(input);card.append(name,amount,label,result);wrap.appendChild(card);update();
+        function update(){const value=Number(input.value);const valid=input.value!==''&&Number.isFinite(value)&&value>=0&&value<=100;input.setCustomValidity(valid?'':'Introduce un porcentaje entre 0 y 100');if(!valid){result.textContent='Porcentaje no válido';return;}result.textContent='Comisión estimada: '+mxn(item.value*value/100);recalc();}
+        label.appendChild(input);card.append(name,amount,label,result);wrap.appendChild(card);update();
       }
       recalc();
     }
@@ -1636,7 +1636,7 @@
       const agencyCards=document.getElementById('agencyMobileCards');
       channelCards.replaceChildren();agencyCards.replaceChildren();
       document.getElementById('agencyCommissionInputs').replaceChildren();
-      document.getElementById('agencyCommissionSummary').textContent='Consultando datos para la simulación...';
+      document.getElementById('agencyCommissionSummary').textContent='Consultando comisiones guardadas...';
       status.textContent='Consultando reservas, cobros y agencias...';
       totals.replaceChildren();rows.replaceChildren();agencyRows.replaceChildren();
       const cell=(tr,value)=>putCell(tr,value);
@@ -1650,6 +1650,7 @@
         ]);
         for(const r of [br,pr,ar])if(r.error)throw r.error;
         const bookings=br.data||[],payments=pr.data||[],agencies=ar.data||[];
+        agencyRateCache.clear();for(const a of agencies)agencyRateCache.set(a.id,Number(a.commission_pct||0));
         if([bookings,payments,agencies].some(a=>a.length>=1000)){
           status.textContent='Consulta parcial: se alcanzó el límite de 1,000 registros. No se presentan cifras para evitar totales incorrectos.';
           empty(rows,7,'Se necesita paginación para calcular totales completos.');
@@ -1717,7 +1718,7 @@
         status.textContent='Ventas por canal actualizadas · '+totalCount+' reserva(s) activa(s).'+(cancelledPayments?' Hay '+mxn(cancelledPayments)+' en pagos asociados a reservas canceladas, excluidos de estos indicadores.':'');
       }catch(err){
         document.getElementById('agencyCommissionInputs').replaceChildren();
-        document.getElementById('agencyCommissionSummary').textContent='Simulación no disponible hasta completar la consulta.';
+        document.getElementById('agencyCommissionSummary').textContent='Comisiones no disponibles hasta completar la consulta.';
         status.textContent='No fue posible consultar canales: '+(err?.message||'Error desconocido')+'. Revisa SELECT y políticas RLS de bookings, payments y agencies.';
         empty(rows,7,'No se muestran cifras hasta confirmar la consulta.');
         empty(agencyRows,5,'Detalle no disponible.');
@@ -1818,25 +1819,60 @@
     }
 
     // Catálogos maestros: escrituras protegidas por RLS de Supabase.
+    let editingAgencyId=null;
+    const agencyRateCache=new Map();
+    function resetAgencyEditor(){
+      editingAgencyId=null;
+      document.getElementById('agencyMasterForm').reset();
+      document.getElementById('aCommission').value='0';
+      document.getElementById('aSave').textContent='Guardar agencia';
+      document.getElementById('aCancelEdit').hidden=true;
+    }
+    document.getElementById('aCancelEdit').addEventListener('click',resetAgencyEditor);
     async function loadAgencyMaster(){
       const form=document.getElementById('agencyMasterForm'),status=document.getElementById('agencyMasterStatus');
       const rows=document.getElementById('agencyMasterRows');form.hidden=currentRole!=='admin';status.textContent='Consultando agencias...';
-      const {data,error}=await supabase.from('agencies').select('id,name,contact_name,created_at').order('name').limit(500);
-      if(error){status.textContent='No fue posible consultar agencias: '+error.message;return;}
-      rows.replaceChildren();for(const a of data||[]){const tr=document.createElement('tr');for(const v of [a.name,a.contact_name||'—',a.created_at?new Date(a.created_at).toLocaleDateString('es-MX'):'—'])putCell(tr,v);rows.appendChild(tr);}
-      if(!data?.length){const empty=document.createElement('p');empty.className='empty-state';empty.textContent='Todavía no hay expediciones registradas.';mobileList.appendChild(empty);const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=3;td.textContent='Todavía no hay agencias registradas.';tr.appendChild(td);rows.appendChild(tr);}
+      const {data,error}=await supabase.from('agencies').select('id,name,contact_name,commission_pct,created_at').order('name').limit(500);
+      if(error){status.textContent='No fue posible consultar agencias: '+error.message+'. ¿Ejecutaste la migración SQL de comisiones?';return;}
+      rows.replaceChildren();agencyRateCache.clear();
+      for(const a of data||[]){
+        agencyRateCache.set(a.id,Number(a.commission_pct||0));
+        const tr=document.createElement('tr');
+        for(const v of [a.name,a.contact_name||'—',Number(a.commission_pct||0).toLocaleString('es-MX')+' %',a.created_at?new Date(a.created_at).toLocaleDateString('es-MX'):'—'])putCell(tr,v);
+        const td=document.createElement('td');
+        if(currentRole==='admin'){
+          const btn=document.createElement('button');btn.type='button';btn.textContent='Editar';btn.className='secondary';
+          btn.addEventListener('click',()=>{
+            editingAgencyId=a.id;document.getElementById('aName').value=a.name;
+            document.getElementById('aContact').value=a.contact_name||'';
+            document.getElementById('aCommission').value=String(a.commission_pct||0);
+            document.getElementById('aSave').textContent='Guardar cambios';
+            document.getElementById('aCancelEdit').hidden=false;
+            form.scrollIntoView({behavior:'smooth',block:'center'});
+          });
+          td.appendChild(btn);
+        }else td.textContent='—';
+        tr.appendChild(td);rows.appendChild(tr);
+      }
+      if(!data?.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=5;td.textContent='Todavía no hay agencias registradas.';tr.appendChild(td);rows.appendChild(tr);}
       document.getElementById('agencyMasterCount').textContent=data.length===500?'500 mostradas':data.length+' agencia(s)';
-      status.textContent=currentRole==='admin'?'Puedes registrar agencias.':'Acceso de consulta.';
+      status.textContent=currentRole==='admin'?'Puedes registrar o editar agencias y sus comisiones.':'Acceso de consulta.';
     }
     document.getElementById('agencyMasterForm').addEventListener('submit',async ev=>{
       ev.preventDefault();if(currentRole!=='admin')return;
       const form=ev.currentTarget,status=document.getElementById('agencyMasterStatus'),btn=document.getElementById('aSave');
-      if(!form.reportValidity())return;const name=document.getElementById('aName').value.trim(),contact_name=document.getElementById('aContact').value.trim();
-      if(!name){status.textContent='Escribe el nombre de la agencia.';return;}
+      if(!form.reportValidity())return;
+      const name=document.getElementById('aName').value.trim(),contact_name=document.getElementById('aContact').value.trim();
+      const commission_pct=Number(document.getElementById('aCommission').value);
+      if(!name||!Number.isFinite(commission_pct)||commission_pct<0||commission_pct>100){status.textContent='Revisa el nombre y el porcentaje de comisión (0 a 100).';return;}
       btn.disabled=true;status.textContent='Guardando agencia...';
-      try{const {error}=await supabase.from('agencies').insert({name,contact_name:contact_name||null});if(error)throw error;
-        form.reset();await loadAgencyMaster();await refreshProspectAgencyCatalog();await loadBookings();status.textContent='Agencia guardada. Ya está disponible para reservas.';
-      }catch(err){status.textContent='No se pudo guardar la agencia: '+err.message;}finally{btn.disabled=false;}
+      try{
+        const payload={name,contact_name:contact_name||null,commission_pct};
+        const query=editingAgencyId?supabase.from('agencies').update(payload).eq('id',editingAgencyId):supabase.from('agencies').insert(payload);
+        const {error}=await query;if(error)throw error;
+        resetAgencyEditor();await loadAgencyMaster();await refreshProspectAgencyCatalog();await loadBookings();
+        status.textContent='Agencia y comisión guardadas en Supabase.';
+      }catch(err){status.textContent='No se pudo guardar: '+err.message;}finally{btn.disabled=false;}
     });
     let editingExpeditionId=null;
     const expeditionFields=['eName','eDeparture','eReturn','eCapacity','eMinimum','ePrice','eProvider','eCoordinator'];
