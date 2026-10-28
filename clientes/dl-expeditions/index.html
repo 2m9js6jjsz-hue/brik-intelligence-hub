@@ -2215,6 +2215,7 @@
 
     // Calendarios: operaciones protegidas por RLS; sin avisos externos.
     let scheduleCache={booking:[],provider:[]};
+    let scheduleBookingDetails=new Map();
     const scheduleEl=id=>document.getElementById(id);
     const schedulePick=(obj,keys)=>keys.map(k=>obj?.[k]).find(v=>v!==undefined&&v!==null&&v!=='');
     const scheduleAmount=x=>Number(schedulePick(x,['amount_mxn','amount','scheduled_amount_mxn','amount_due_mxn','total_mxn'])||0);
@@ -2243,7 +2244,7 @@
         if(!rows.length){const empty=document.createElement('div');empty.className='empty-state';empty.textContent='No hay vencimientos para este filtro.';host.append(empty);continue;}
         rows.forEach(x=>{
           const card=document.createElement('article');card.className='record-mobile-card';
-          const h=document.createElement('h3');h.textContent=String(schedulePick(x,kind==='booking'?['traveler_name','customer_name','description','booking_id']:['provider_name','supplier_name','description','expedition_id'])||'Registro programado');
+          const h=document.createElement('h3');h.textContent=kind==='booking'?(scheduleBookingDetails.get(x.booking_id)?.person||'Reserva sin prospecto identificado') : String(schedulePick(x,['provider_name','supplier_name','description','expedition_id'])||'Proveedor sin identificar');
           card.append(h);
           if(currentRole==='admin'){
             const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
@@ -2255,7 +2256,8 @@
             }
             card.append(actions);
           }
-          const fields=[['Vencimiento',scheduleDate(x).slice(0,10)||'Sin fecha'],['Monto',scheduleMoney(scheduleAmount(x))],['Estado',schedulePaid(x)?'Pagado':scheduleDate(x).slice(0,10)<scheduleToday()?'Vencido':'Pendiente']];
+          const detail=kind==='booking'?scheduleBookingDetails.get(x.booking_id):null;
+          const fields=[...(kind==='booking'? [['Expedición',detail?.expedition||'No identificada'],['Reserva',detail?.code||String(x.booking_id||'').slice(0,8)||'Sin referencia'],['Viajeros',detail?.travelers??'No disponible'],['Tipo',detail?.is_test?'PRUEBA':'Registro']]:[['Concepto',x.concept||'No indicado']]),['Vencimiento',scheduleDate(x).slice(0,10)||'Sin fecha'],['Monto',scheduleMoney(scheduleAmount(x))],['Estado',schedulePaid(x)?'Pagado':scheduleDate(x).slice(0,10)<scheduleToday()?'Vencido':'Pendiente']];
           fields.forEach(([label,value])=>{const row=document.createElement('div');row.className='dash-row';const k=document.createElement('span');k.textContent=label;const v=document.createElement('b');v.textContent=value;row.append(k,v);card.append(row)});host.append(card);
         });
       }
@@ -2270,8 +2272,29 @@
           scheduleEl(statusId).textContent=`${scheduleCache[kind].length} registros accesibles · registros accesibles.`;
         }catch(err){scheduleCache[kind]=[];scheduleEl(statusId).textContent='No se pudo consultar '+table+': '+err.message;}
       }
+      await scheduleLoadBookingDetails();
       scheduleShow();
       if(currentRole==='admin')await scheduleLoadOptions();
+    }
+    async function scheduleLoadBookingDetails(){
+      scheduleBookingDetails=new Map();
+      const ids=[...new Set(scheduleCache.booking.map(x=>x.booking_id).filter(Boolean))];
+      if(!ids.length)return;
+      const {data:bookings,error}=await supabase.from('bookings').select('id,expedition_id,prospect_id,travelers,is_test').in('id',ids);
+      if(error){scheduleEl('scheduleBookingStatus').textContent+=' · No se pudieron identificar las reservas: '+error.message;return;}
+      const expIds=[...new Set((bookings||[]).map(b=>b.expedition_id).filter(Boolean))];
+      const prospectIds=[...new Set((bookings||[]).map(b=>b.prospect_id).filter(Boolean))];
+      const [exps,people]=await Promise.all([
+        expIds.length?supabase.from('expeditions').select('id,name').in('id',expIds):Promise.resolve({data:[]}),
+        prospectIds.length?supabase.from('prospects').select('id,alias').in('id',prospectIds):Promise.resolve({data:[]})
+      ]);
+      const expMap=new Map((exps.data||[]).map(x=>[x.id,x.name]));
+      const personMap=new Map((people.data||[]).map(x=>[x.id,x.alias]));
+      (bookings||[]).forEach(b=>scheduleBookingDetails.set(b.id,{
+        person:b.prospect_id?(personMap.get(b.prospect_id)||'Prospecto no disponible'):'Sin prospecto vinculado',
+        expedition:expMap.get(b.expedition_id)||'Expedición no disponible',
+        code:'#'+String(b.id).slice(0,8),travelers:b.travelers,is_test:b.is_test
+      }));
     }
     async function scheduleLoadOptions(){
       scheduleEl('scheduleAdmin').hidden=false;
