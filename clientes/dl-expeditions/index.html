@@ -2275,16 +2275,38 @@
     }
     async function scheduleLoadOptions(){
       scheduleEl('scheduleAdmin').hidden=false;
-      const defs=[['bookings','scBooking','Reserva'],['expeditions','spExpedition','Expedición']];
-      for(const [table,id,label] of defs){
-        const select=scheduleEl(id);select.replaceChildren(new Option('Seleccionar '+label.toLowerCase(),''));
-        const {data,error}=await supabase.from(table).select('*').limit(500);
-        if(error){select.add(new Option('No se pudieron cargar registros',''));continue;}
-        (data||[]).forEach(row=>{
-          const name=table==='expeditions'?(row.name||row.title||row.destination||'Expedición'):(row.customer_name||row.traveler_name||row.name||'Reserva');
-          select.add(new Option(name+' · '+String(row.id).slice(0,8),row.id));
-        });
+      const bookingSelect=scheduleEl('scBooking');
+      const expeditionSelect=scheduleEl('spExpedition');
+      bookingSelect.replaceChildren(new Option('Seleccionar reserva',''));
+      expeditionSelect.replaceChildren(new Option('Seleccionar expedición',''));
+      const [bookingsResult,expeditionsResult,prospectsResult]=await Promise.all([
+        supabase.from('bookings').select('id,expedition_id,prospect_id,travelers,unit_price_mxn,status,is_test').limit(500),
+        supabase.from('expeditions').select('id,name').limit(500),
+        supabase.from('prospects').select('id,alias').limit(500)
+      ]);
+      if(expeditionsResult.error){
+        expeditionSelect.add(new Option('Error al cargar expediciones',''));
+      }else{
+        (expeditionsResult.data||[]).forEach(e=>expeditionSelect.add(new Option(e.name||'Expedición',e.id)));
       }
+      if(bookingsResult.error){
+        bookingSelect.add(new Option('Error al cargar reservas',''));
+        scheduleEl('scMessage').textContent='No se pudieron consultar las reservas: '+bookingsResult.error.message;
+        return;
+      }
+      const expeditionNames=new Map((expeditionsResult.data||[]).map(e=>[e.id,e.name||'Expedición']));
+      const prospectNames=new Map((prospectsResult.data||[]).map(p=>[p.id,p.alias||'Sin nombre']));
+      const active=(bookingsResult.data||[]).filter(b=>!['cancelled','canceled','cancelada'].includes(String(b.status||'').toLowerCase()));
+      active.sort((a,b)=>String(expeditionNames.get(a.expedition_id)||'').localeCompare(String(expeditionNames.get(b.expedition_id)||''),'es'));
+      active.forEach(b=>{
+        const exp=expeditionNames.get(b.expedition_id)||'Expedición no disponible';
+        const person=b.prospect_id?(prospectNames.get(b.prospect_id)||'Prospecto no disponible'):'Sin prospecto vinculado';
+        const travelers=Number(b.travelers)||0;
+        const label=exp+' · '+person+' · '+travelers+' viajero'+(travelers===1?'':'s')+(b.is_test?' · PRUEBA':'')+' · #'+String(b.id).slice(0,8);
+        bookingSelect.add(new Option(label,b.id));
+      });
+      if(prospectsResult.error){scheduleEl('scMessage').textContent='Advertencia: no se pudieron cargar nombres de prospectos: '+prospectsResult.error.message;}
+      if(!active.length)bookingSelect.add(new Option('No hay reservas activas',''));
     }
     async function scheduleSave(kind,record,messageId,form){
       const msg=scheduleEl(messageId);msg.textContent='Guardando...';
