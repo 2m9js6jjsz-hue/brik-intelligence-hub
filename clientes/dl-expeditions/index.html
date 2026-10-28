@@ -441,12 +441,33 @@
         <section class="page" data-section="calendarios">
           <div class="dash-panel">
             <div class="section-head"><h2>Calendario de cobros y proveedores</h2><span class="pill">MXN · Supabase</span></div>
-            <p class="hint">Consulta las fechas registradas en las dos tablas de programación. Esta primera vista es de solo lectura: no envía recordatorios ni registra pagos automáticamente.</p>
+            <p class="hint">Consulta las fechas registradas en las dos tablas de programación. Los administradores pueden programar vencimientos y marcar pagos como realizados. No se envían recordatorios ni se transfieren fondos automáticamente.</p>
             <div class="executive-toolbar">
               <label>Mostrar<select id="scheduleFilter"><option value="all">Todos los vencimientos</option><option value="overdue">Vencidos</option><option value="next">Próximos 30 días</option><option value="paid">Pagados</option></select></label>
               <button type="button" id="scheduleRefresh" style="width:auto;margin:0;padding:12px 16px">Actualizar</button>
             </div>
-            <div id="scheduleTotals" class="dash-grid" style="grid-template-columns:repeat(auto-fit,minmax(145px,1fr));margin-bottom:18px"></div>
+                         <div id="scheduleAdmin" class="finance-panels" hidden style="margin-bottom:20px">
+               <div class="dash-panel"><h3>Programar cobro a viajero</h3><p class="hint">Selecciona una reserva existente. Registrar un vencimiento no significa que el dinero ya se recibió.</p>
+                 <form id="scheduleBookingForm" class="finance-form" style="grid-template-columns:1fr">
+                   <label>Reserva *<select id="scBooking" required><option value="">Seleccionar reserva</option></select></label>
+                   <label>Fecha de vencimiento *<input id="scDue" type="date" required></label>
+                   <label>Monto (MXN) *<input id="scAmount" type="number" min="0.01" step="0.01" required></label>
+                   <label>Descripción *<input id="scDescription" maxlength="240" value="Pago programado" required></label>
+                   <button type="submit">Guardar cobro programado</button>
+                 </form><p id="scMessage" class="finance-status" role="status"></p>
+               </div>
+               <div class="dash-panel"><h3>Programar pago a proveedor</h3><p class="hint">Elige una expedición y registra la fecha comprometida con el proveedor.</p>
+                 <form id="scheduleProviderForm" class="finance-form" style="grid-template-columns:1fr">
+                   <label>Expedición *<select id="spExpedition" required><option value="">Seleccionar expedición</option></select></label>
+                   <label>Proveedor *<input id="spSupplier" maxlength="180" required></label>
+                   <label>Concepto *<input id="spConcept" maxlength="240" required></label>
+                   <label>Fecha de vencimiento *<input id="spDue" type="date" required></label>
+                   <label>Monto (MXN) *<input id="spAmount" type="number" min="0.01" step="0.01" required></label>
+                   <button type="submit">Guardar pago programado</button>
+                 </form><p id="spMessage" class="finance-status" role="status"></p>
+               </div>
+             </div>
+<div id="scheduleTotals" class="dash-grid" style="grid-template-columns:repeat(auto-fit,minmax(145px,1fr));margin-bottom:18px"></div>
             <h3>Cobros programados a viajeros</h3><p id="scheduleBookingStatus" class="hint" role="status">Pendiente de consulta.</p>
             <div id="scheduleBookingList" class="record-mobile-list" style="display:grid;gap:12px"></div>
             <h3 style="margin-top:28px">Pagos programados a proveedores</h3><p id="scheduleProviderStatus" class="hint" role="status">Pendiente de consulta.</p>
@@ -2192,7 +2213,7 @@
       closeMenu();window.scrollTo({top:0,behavior:'instant'});
     }));
 
-    // Calendarios: lectura protegida por RLS; sin modificaciones ni avisos externos.
+    // Calendarios: operaciones protegidas por RLS; sin avisos externos.
     let scheduleCache={booking:[],provider:[]};
     const scheduleEl=id=>document.getElementById(id);
     const schedulePick=(obj,keys)=>keys.map(k=>obj?.[k]).find(v=>v!==undefined&&v!==null&&v!=='');
@@ -2224,6 +2245,16 @@
           const card=document.createElement('article');card.className='record-mobile-card';
           const h=document.createElement('h3');h.textContent=String(schedulePick(x,kind==='booking'?['traveler_name','customer_name','description','booking_id']:['provider_name','supplier_name','description','expedition_id'])||'Registro programado');
           card.append(h);
+          if(currentRole==='admin'){
+            const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
+            const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';edit.style.cssText='width:auto;margin:12px 0 0;padding:9px 13px';
+            edit.addEventListener('click',()=>scheduleEdit(kind,x));actions.append(edit);
+            if(!schedulePaid(x)){
+              const paid=document.createElement('button');paid.type='button';paid.textContent='Marcar pagado';paid.style.cssText='width:auto;margin:12px 0 0;padding:9px 13px;background:#17252c;color:white';
+              paid.addEventListener('click',()=>scheduleMarkPaid(kind,x));actions.append(paid);
+            }
+            card.append(actions);
+          }
           const fields=[['Vencimiento',scheduleDate(x).slice(0,10)||'Sin fecha'],['Monto',scheduleMoney(scheduleAmount(x))],['Estado',schedulePaid(x)?'Pagado':scheduleDate(x).slice(0,10)<scheduleToday()?'Vencido':'Pendiente']];
           fields.forEach(([label,value])=>{const row=document.createElement('div');row.className='dash-row';const k=document.createElement('span');k.textContent=label;const v=document.createElement('b');v.textContent=value;row.append(k,v);card.append(row)});host.append(card);
         });
@@ -2236,10 +2267,57 @@
           const {data,error}=await supabase.from(table).select('*').limit(500);
           if(error)throw error;
           scheduleCache[kind]=data||[];
-          scheduleEl(statusId).textContent=`${scheduleCache[kind].length} registros accesibles · consulta de solo lectura.`;
+          scheduleEl(statusId).textContent=`${scheduleCache[kind].length} registros accesibles · registros accesibles.`;
         }catch(err){scheduleCache[kind]=[];scheduleEl(statusId).textContent='No se pudo consultar '+table+': '+err.message;}
       }
       scheduleShow();
+      if(currentRole==='admin')await scheduleLoadOptions();
+    }
+    async function scheduleLoadOptions(){
+      scheduleEl('scheduleAdmin').hidden=false;
+      const defs=[['bookings','scBooking','Reserva'],['expeditions','spExpedition','Expedición']];
+      for(const [table,id,label] of defs){
+        const select=scheduleEl(id);select.replaceChildren(new Option('Seleccionar '+label.toLowerCase(),''));
+        const {data,error}=await supabase.from(table).select('*').limit(500);
+        if(error){select.add(new Option('No se pudieron cargar registros',''));continue;}
+        (data||[]).forEach(row=>{
+          const name=table==='expeditions'?(row.name||row.title||row.destination||'Expedición'):(row.customer_name||row.traveler_name||row.name||'Reserva');
+          select.add(new Option(name+' · '+String(row.id).slice(0,8),row.id));
+        });
+      }
+    }
+    async function scheduleSave(kind,record,messageId,form){
+      const msg=scheduleEl(messageId);msg.textContent='Guardando...';
+      if(currentRole!=='admin'){msg.textContent='Solo administración puede guardar.';return false;}
+      const table=kind==='booking'?'booking_payment_schedule':'provider_payment_schedule';
+      const {error}=await supabase.from(table).insert(record);
+      if(error){msg.textContent='No se pudo guardar: '+error.message;return false;}
+      msg.textContent='Registro guardado correctamente.';form.reset();await loadSchedules();return true;
+    }
+    scheduleEl('scheduleBookingForm').addEventListener('submit',async e=>{
+      e.preventDefault();const f=e.currentTarget;
+      await scheduleSave('booking',{booking_id:scheduleEl('scBooking').value,due_on:scheduleEl('scDue').value,amount_mxn:Number(scheduleEl('scAmount').value),description:scheduleEl('scDescription').value.trim(),status:'pending'},'scMessage',f);
+    });
+    scheduleEl('scheduleProviderForm').addEventListener('submit',async e=>{
+      e.preventDefault();const f=e.currentTarget;
+      await scheduleSave('provider',{expedition_id:scheduleEl('spExpedition').value,supplier_name:scheduleEl('spSupplier').value.trim(),concept:scheduleEl('spConcept').value.trim(),due_on:scheduleEl('spDue').value,amount_mxn:Number(scheduleEl('spAmount').value),status:'pending'},'spMessage',f);
+    });
+    async function scheduleMarkPaid(kind,row){
+      if(currentRole!=='admin'||!confirm('¿Confirmas que este pago ya se realizó? Esta acción NO registra un movimiento en Finanzas.'))return;
+      const table=kind==='booking'?'booking_payment_schedule':'provider_payment_schedule';
+      const patch=kind==='provider'?{status:'paid',paid_on:scheduleToday()}:{status:'paid'};
+      const {error}=await supabase.from(table).update(patch).eq('id',row.id);
+      if(error)alert('No se pudo actualizar: '+error.message);else await loadSchedules();
+    }
+    async function scheduleEdit(kind,row){
+      if(currentRole!=='admin')return;
+      const due=prompt('Nueva fecha de vencimiento (AAAA-MM-DD)',row.due_on||'');if(due===null)return;
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(due)||Number.isNaN(Date.parse(due))){alert('Fecha inválida.');return;}
+      const amount=prompt('Nuevo monto MXN',String(row.amount_mxn));if(amount===null)return;
+      if(!Number.isFinite(Number(amount))||Number(amount)<=0){alert('Monto inválido.');return;}
+      const table=kind==='booking'?'booking_payment_schedule':'provider_payment_schedule';
+      const {error}=await supabase.from(table).update({due_on:due,amount_mxn:Number(amount)}).eq('id',row.id);
+      if(error)alert('No se pudo actualizar: '+error.message);else await loadSchedules();
     }
     scheduleEl('scheduleFilter').addEventListener('change',scheduleShow);
     scheduleEl('scheduleRefresh').addEventListener('click',loadSchedules);
