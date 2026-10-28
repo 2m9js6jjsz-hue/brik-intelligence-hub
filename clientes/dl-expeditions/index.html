@@ -551,6 +551,17 @@
           <div class="dash-panel" style="margin-top:18px">
             <div class="section-head"><h2>Proyección económica y punto de equilibrio</h2><span class="pill">MXN · Estimación</span></div>
             <p>Proyección sobre reservas activas. Usa el desglose de costos por expedición y la comisión guardada en cada agencia. <strong>No suma los gastos ya registrados</strong> a los costos presupuestados para evitar descontarlos dos veces. Los gastos reales se muestran por separado en el reporte anterior.</p>
+            <div class="dash-panel" style="margin:14px 0;background:#fffaf6;border-color:#efd0b9">
+              <h3 style="margin:0 0 8px;font-size:16px">Supuestos de cobro con tarjeta</h3>
+              <p class="hint">Estimación por expedición: supone un pago por viajero y aplica la comisión sobre el precio reservado. Modifica estos supuestos para simular escenarios. No registra gastos ni modifica datos de Supabase.</p>
+              <div class="finance-form" style="display:grid">
+                <label>Viajeros que pagan con tarjeta (%)<input id="mpCardShare" type="number" min="0" max="100" step="1" value="70"></label>
+                <label>Comisión porcentual (%)<input id="mpPercent" type="number" min="0" max="100" step="0.01" value="3.49"></label>
+                <label>Comisión fija por pago (MXN)<input id="mpFixed" type="number" min="0" step="0.01" value="4"></label>
+                <label>IVA sobre comisión (%)<input id="mpVat" type="number" min="0" max="100" step="0.01" value="16"></label>
+              </div>
+              <p class="hint">La tarifa y el tratamiento del IVA deben verificarse con Mercado Pago y el contador de Paco. El IVA se considera costo conservadoramente; no se presupone acreditamiento fiscal.</p>
+            </div>
             <p id="projectionStatus" class="hint" role="status">Abre Reportes para consultar la proyección.</p>
             <div id="projectionCards" class="channel-mobile-list"></div>
             <p class="hint">Punto de equilibrio estimado: costos fijos ÷ (precio promedio por viajero − costo variable por viajero − comisión promedio por viajero), redondeado hacia arriba. Es una estimación basada en la mezcla actual de reservas; si cambian los precios o las agencias, cambia el resultado. Si no hay reservas, no se estima el punto de equilibrio. Impuestos, devoluciones y costos no registrados quedan fuera.</p>
@@ -1749,6 +1760,11 @@
         const [expeditions,bookings,agencies,costs]=results.map(r=>r.data||[]);
         const rates=new Map(agencies.map(a=>[a.id,a.commission_pct]));
         const money=n=>mxn(n);
+        const feeInput=(id,min,max)=>{const n=Number(document.getElementById(id)?.value);return Number.isFinite(n)?Math.max(min,Math.min(max,n)):0;};
+        const cardShare=feeInput('mpCardShare',0,100)/100;
+        const feePct=feeInput('mpPercent',0,100)/100;
+        const feeFixed=feeInput('mpFixed',0,1e9);
+        const feeVat=feeInput('mpVat',0,100)/100;
         const row=(container,label,value)=>{
           const line=document.createElement('div');line.style.cssText='display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid #e7e7e7;align-items:start';
           const left=document.createElement('strong');left.textContent=label;left.style.flex='1';
@@ -1767,8 +1783,11 @@
           const perTraveler=ownCosts.filter(c=>c.cost_type==='per_traveler').reduce((n,c)=>n+Number(c.amount_mxn||0),0);
           const variable=travelers*perTraveler;
           const total=fixed+variable;
-          const projected=sales-total-commission;
-          const contribution=travelers>0?(sales-variable-commission)/travelers:0;
+          // Supuesto explícito: un cargo de tarjeta por viajero, no por reserva ni por abono.
+          // Los pagos reales y las comisiones registradas como gastos no se suman aquí.
+          const cardFees=active.reduce((n,b)=>n+Number(b.travelers||0)*cardShare*(Number(b.unit_price_mxn||0)*feePct+feeFixed)*(1+feeVat),0);
+          const projected=sales-total-commission-cardFees;
+          const contribution=travelers>0?(sales-variable-commission-cardFees)/travelers:0;
           const breakEven=travelers>0&&contribution>0?Math.ceil(fixed/contribution):null;
           const card=document.createElement('div');card.className='channel-mobile-card';card.style.marginBottom='14px';
           const heading=document.createElement('h3');heading.textContent=e.name||'Expedición';card.appendChild(heading);
@@ -1776,7 +1795,8 @@
           row(card,'Valor reservado',money(sales));
           row(card,'Costo fijo presupuestado',money(fixed));
           row(card,'Costo variable presupuestado',money(variable));
-          row(card,'Comisiones estimadas',unknown.length?'No disponible: agencia sin comisión':money(commission));
+          row(card,'Comisiones de agencias estimadas',unknown.length?'No disponible: agencia sin comisión':money(commission));
+          row(card,'Comisiones por tarjeta estimadas (incluye IVA)',money(cardFees));
           row(card,'Resultado proyectado',unknown.length?'Pendiente de comisiones':money(projected));
           row(card,'Margen proyectado',unknown.length||sales<=0?'No disponible':(100*projected/sales).toLocaleString('es-MX',{maximumFractionDigits:1})+' %');
           row(card,'Punto de equilibrio',unknown.length?'Pendiente de comisiones':breakEven===null?'No calculable':breakEven+' viajeros');
@@ -1784,11 +1804,15 @@
           if(breakEven!==null&&!unknown.length&&e.capacity!=null&&breakEven>Number(e.capacity)){
             const warning=document.createElement('p');warning.textContent='Atención: el punto de equilibrio supera la capacidad registrada.';warning.style.fontWeight='bold';card.appendChild(warning);
           }
+          if(fixed===0){const note=document.createElement('p');note.className='hint';note.textContent='Sin costos fijos presupuestados: el punto de equilibrio matemático puede ser 0. Esto NO sustituye el mínimo operativo de viajeros ni confirma que el viaje sea viable.';card.appendChild(note);}
           if(!ownCosts.length){const note=document.createElement('p');note.textContent='Presupuesto no registrado: el resultado no es fiable hasta completar el desglose de costos.';note.style.fontWeight='bold';card.appendChild(note);}
           root.appendChild(card);
         }
         status.textContent='Proyecciones actualizadas · '+expeditions.length+' expedición(es). No equivalen a utilidad contable.';
       }catch(err){root.replaceChildren();status.textContent='No se pudo calcular la proyección: '+(err?.message||'Error desconocido')+'. Comprueba los permisos de lectura.';}
+    }
+    for(const id of ['mpCardShare','mpPercent','mpFixed','mpVat']){
+      document.getElementById(id)?.addEventListener('change',()=>{if(currentRole)loadEconomicProjection();});
     }
     async function loadProfitability(){
       const status=document.getElementById('profitStatus');
