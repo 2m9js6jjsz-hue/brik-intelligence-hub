@@ -292,6 +292,7 @@
         <button class="dash-nav" data-page="prospectos" type="button">♙ &nbsp; Prospectos</button>
         <button class="dash-nav" data-page="reservas" type="button">▣ &nbsp; Reservas</button>
         <button class="dash-nav" data-page="finanzas" type="button">◈ &nbsp; Pagos y gastos</button>
+        <button class="dash-nav" data-page="calendarios" type="button">▦ &nbsp; Calendarios de pagos</button>
         <button class="dash-nav" data-page="clientes" type="button">♧ &nbsp; Clientes</button>
         <button class="dash-nav" data-page="cotizador" type="button">▤ &nbsp; Cotizador</button>
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
@@ -436,6 +437,22 @@
           <div class="dash-panel" style="margin-top:17px"><h2>Pagos registrados</h2><div id="paymentMobileCards" class="finance-mobile-list"></div><div class="table-wrap finance-desktop-table"><table class="dash-table"><thead><tr><th>Fecha</th><th>Prospecto</th><th>Expedición / reserva</th><th>Método</th><th>Importe</th><th>Referencia</th></tr></thead><tbody id="paymentRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
           <div class="dash-panel" style="margin-top:17px"><h2>Gastos registrados</h2><div id="expenseMobileCards" class="finance-mobile-list"></div><div class="table-wrap finance-desktop-table"><table class="dash-table"><thead><tr><th>Fecha</th><th>Expedición</th><th>Categoría</th><th>Descripción</th><th>Importe</th><th>Acciones</th></tr></thead><tbody id="expenseRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
           <p class="hint">Los indicadores son registros operativos, no conciliación bancaria ni utilidad contable. Los pagos y gastos solo se guardan cuando Supabase confirma la operación. Los registros cancelados no se eliminan automáticamente.</p>
+        </section>
+        <section class="page" data-section="calendarios">
+          <div class="dash-panel">
+            <div class="section-head"><h2>Calendario de cobros y proveedores</h2><span class="pill">MXN · Supabase</span></div>
+            <p class="hint">Consulta las fechas registradas en las dos tablas de programación. Esta primera vista es de solo lectura: no envía recordatorios ni registra pagos automáticamente.</p>
+            <div class="executive-toolbar">
+              <label>Mostrar<select id="scheduleFilter"><option value="all">Todos los vencimientos</option><option value="overdue">Vencidos</option><option value="next">Próximos 30 días</option><option value="paid">Pagados</option></select></label>
+              <button type="button" id="scheduleRefresh" style="width:auto;margin:0;padding:12px 16px">Actualizar</button>
+            </div>
+            <div id="scheduleTotals" class="dash-grid" style="grid-template-columns:repeat(auto-fit,minmax(145px,1fr));margin-bottom:18px"></div>
+            <h3>Cobros programados a viajeros</h3><p id="scheduleBookingStatus" class="hint" role="status">Pendiente de consulta.</p>
+            <div id="scheduleBookingList" class="record-mobile-list" style="display:grid;gap:12px"></div>
+            <h3 style="margin-top:28px">Pagos programados a proveedores</h3><p id="scheduleProviderStatus" class="hint" role="status">Pendiente de consulta.</p>
+            <div id="scheduleProviderList" class="record-mobile-list" style="display:grid;gap:12px"></div>
+            <p class="hint" style="margin-top:20px">Las fechas y montos se consultan directamente de Supabase. Si una tabla usa nombres de columnas diferentes, la vista lo indicará para completar su integración. Los importes programados no equivalen a pagos efectivamente realizados.</p>
+          </div>
         </section>
         <section class="page" data-section="clientes"><div class="dash-panel">
 <div class="section-head"><h2>Clientes · historial comercial</h2><span class="pill" id="clientCount">Cargando...</span></div>
@@ -2157,7 +2174,7 @@
     menuToggle.addEventListener('click',()=>{const opening=!sideNav.classList.contains('open');sideNav.classList.toggle('open',opening);shade.hidden=!opening;menuToggle.setAttribute('aria-expanded',String(opening));});
     shade.addEventListener('click',closeMenu);
     document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
-    const pageTitles={inicio:['Panel principal','DL Expeditions · Resumen comercial y financiero'],agencias:['Agencias','Directorio de aliados comerciales'],expediciones:['Expediciones','Catálogo y configuración de viajes'],prospectos:['Prospectos','Seguimiento de oportunidades'],reservas:['Reservas','Control de expediciones'],finanzas:['Pagos y gastos','Resumen financiero'],clientes:['Clientes','Historial de viajeros'],cotizador:['Cotizador','Cálculo de precios y márgenes'],reportes:['Reportes y análisis','Inteligencia comercial']};
+    const pageTitles={inicio:['Panel principal','DL Expeditions · Resumen comercial y financiero'],agencias:['Agencias','Directorio de aliados comerciales'],expediciones:['Expediciones','Catálogo y configuración de viajes'],prospectos:['Prospectos','Seguimiento de oportunidades'],reservas:['Reservas','Control de expediciones'],finanzas:['Pagos y gastos','Resumen financiero'],calendarios:['Calendarios de pagos','Vencimientos de viajeros y proveedores'],clientes:['Clientes','Historial de viajeros'],cotizador:['Cotizador','Cálculo de precios y márgenes'],reportes:['Reportes y análisis','Inteligencia comercial']};
     sideNav.querySelectorAll('[data-page]').forEach(btn=>btn.addEventListener('click',()=>{
       const page=btn.dataset.page;
       sideNav.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b===btn);if(b===btn)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
@@ -2168,11 +2185,65 @@
       if(page==='agencias'&&currentRole)loadAgencyMaster();
       if(page==='expediciones'&&currentRole)loadExpeditionMaster();
       if(page==='finanzas'&&currentRole)loadFinances();
+      if(page==='calendarios'&&currentRole)loadSchedules();
       if(page==='clientes'&&currentRole)loadClients();
       if(page==='cotizador'&&currentRole)loadQuotes();
       if(page==='reportes'&&currentRole){loadReports();loadCommercial();loadChannels();loadProfitability();loadEconomicProjection();loadAlerts();}
       closeMenu();window.scrollTo({top:0,behavior:'instant'});
     }));
+
+    // Calendarios: lectura protegida por RLS; sin modificaciones ni avisos externos.
+    let scheduleCache={booking:[],provider:[]};
+    const scheduleEl=id=>document.getElementById(id);
+    const schedulePick=(obj,keys)=>keys.map(k=>obj?.[k]).find(v=>v!==undefined&&v!==null&&v!=='');
+    const scheduleAmount=x=>Number(schedulePick(x,['amount_mxn','amount','scheduled_amount_mxn','amount_due_mxn','total_mxn'])||0);
+    const scheduleDate=x=>String(schedulePick(x,['due_on','due_date','payment_due_on','scheduled_for','scheduled_date','payment_date'])||'');
+    const scheduleStatus=x=>String(schedulePick(x,['status','payment_status'])||'pending').toLowerCase();
+    const schedulePaid=x=>['paid','completed','pagado','settled'].includes(scheduleStatus(x));
+    const scheduleToday=()=>new Date().toLocaleDateString('en-CA');
+    const scheduleMoney=n=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(n);
+    function scheduleShow(){
+      const filter=scheduleEl('scheduleFilter').value,today=scheduleToday();
+      const all=[...scheduleCache.booking,...scheduleCache.provider];
+      const pending=all.filter(x=>!schedulePaid(x));
+      const overdue=pending.filter(x=>scheduleDate(x)&&scheduleDate(x).slice(0,10)<today);
+      const totals=[['Programados',all.length],['Pendientes',pending.length],['Vencidos',overdue.length],['Monto pendiente',scheduleMoney(pending.reduce((a,x)=>a+scheduleAmount(x),0))]];
+      const totalsBox=scheduleEl('scheduleTotals');totalsBox.replaceChildren();
+      totals.forEach(([label,value])=>{const card=document.createElement('div');card.className='dash-stat';const small=document.createElement('small');small.textContent=label;const strong=document.createElement('strong');strong.textContent=value;card.append(small,strong);totalsBox.append(card)});
+      for(const [kind,target] of [['booking','scheduleBookingList'],['provider','scheduleProviderList']]){
+        const host=scheduleEl(target);host.replaceChildren();
+        let rows=scheduleCache[kind].filter(x=>{
+          const due=scheduleDate(x).slice(0,10),paid=schedulePaid(x);
+          if(filter==='paid')return paid;
+          if(filter==='overdue')return !paid&&due&&due<today;
+          if(filter==='next'){const limit=new Date();limit.setDate(limit.getDate()+30);return !paid&&due>=today&&due<=limit.toLocaleDateString('en-CA');}
+          return true;
+        }).sort((a,b)=>scheduleDate(a).localeCompare(scheduleDate(b)));
+        if(!rows.length){const empty=document.createElement('div');empty.className='empty-state';empty.textContent='No hay vencimientos para este filtro.';host.append(empty);continue;}
+        rows.forEach(x=>{
+          const card=document.createElement('article');card.className='record-mobile-card';
+          const h=document.createElement('h3');h.textContent=String(schedulePick(x,kind==='booking'?['traveler_name','customer_name','description','booking_id']:['provider_name','supplier_name','description','expedition_id'])||'Registro programado');
+          card.append(h);
+          const fields=[['Vencimiento',scheduleDate(x).slice(0,10)||'Sin fecha'],['Monto',scheduleMoney(scheduleAmount(x))],['Estado',schedulePaid(x)?'Pagado':scheduleDate(x).slice(0,10)<scheduleToday()?'Vencido':'Pendiente']];
+          fields.forEach(([label,value])=>{const row=document.createElement('div');row.className='dash-row';const k=document.createElement('span');k.textContent=label;const v=document.createElement('b');v.textContent=value;row.append(k,v);card.append(row)});host.append(card);
+        });
+      }
+    }
+    async function loadSchedules(){
+      for(const [kind,table,statusId] of [['booking','booking_payment_schedule','scheduleBookingStatus'],['provider','provider_payment_schedule','scheduleProviderStatus']]){
+        scheduleEl(statusId).textContent='Consultando Supabase...';
+        try{
+          const {data,error}=await supabase.from(table).select('*').limit(500);
+          if(error)throw error;
+          scheduleCache[kind]=data||[];
+          scheduleEl(statusId).textContent=`${scheduleCache[kind].length} registros accesibles · consulta de solo lectura.`;
+        }catch(err){scheduleCache[kind]=[];scheduleEl(statusId).textContent='No se pudo consultar '+table+': '+err.message;}
+      }
+      scheduleShow();
+    }
+    scheduleEl('scheduleFilter').addEventListener('change',scheduleShow);
+    scheduleEl('scheduleRefresh').addEventListener('click',loadSchedules);
+
     // Cotizador conectado a public.quotes; las políticas RLS determinan quién puede consultar y guardar.
     const qForm=document.querySelector('#quoteForm');
     const qResult=document.querySelector('#quoteResult');
