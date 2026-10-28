@@ -450,9 +450,11 @@
                <div class="dash-panel"><h3>Programar cobro a viajero</h3><p class="hint">Selecciona una reserva existente. Registrar un vencimiento no significa que el dinero ya se recibió.</p>
                  <form id="scheduleBookingForm" class="finance-form" style="grid-template-columns:1fr">
                    <label>Reserva *<select id="scBooking" required><option value="">Seleccionar reserva</option></select></label>
+                    <div id="scBalance" class="finance-balance-preview" role="status">Selecciona una reserva para ver su valor, pagos y saldo disponible.</div>
                    <label>Fecha de vencimiento *<input id="scDue" type="date" required></label>
                    <label>Monto (MXN) *<input id="scAmount" type="number" min="0.01" step="0.01" required></label>
-                   <label>Descripción *<input id="scDescription" maxlength="240" value="Pago programado" required></label>
+                   <label>Concepto del cobro *<select id="scConcept"><option value="Anticipo">Anticipo</option><option value="Segundo pago">Segundo pago</option><option value="Pago parcial">Pago parcial</option><option value="Liquidación">Liquidación / pago final</option><option value="Otro">Otro</option></select></label>
+                    <label>Descripción *<input id="scDescription" maxlength="240" placeholder="Ej. Segundo abono del viaje" required></label>
                    <button type="submit">Guardar cobro programado</button>
                  </form><p id="scMessage" class="finance-status" role="status"></p>
                </div>
@@ -2216,6 +2218,7 @@
     // Calendarios: operaciones protegidas por RLS; sin avisos externos.
     let scheduleCache={booking:[],provider:[]};
     let scheduleBookingDetails=new Map();
+    let scheduleBookings=new Map(),schedulePayments=[],scheduleDataReady=false;
     const scheduleEl=id=>document.getElementById(id);
     const schedulePick=(obj,keys)=>keys.map(k=>obj?.[k]).find(v=>v!==undefined&&v!==null&&v!=='');
     const scheduleAmount=x=>Number(schedulePick(x,['amount_mxn','amount','scheduled_amount_mxn','amount_due_mxn','total_mxn'])||0);
@@ -2251,13 +2254,13 @@
             const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';edit.style.cssText='width:auto;margin:12px 0 0;padding:9px 13px';
             edit.addEventListener('click',()=>scheduleEdit(kind,x));actions.append(edit);
             if(!schedulePaid(x)){
-              const paid=document.createElement('button');paid.type='button';paid.textContent='Marcar pagado';paid.style.cssText='width:auto;margin:12px 0 0;padding:9px 13px;background:#17252c;color:white';
+              const paid=document.createElement('button');paid.type='button';paid.textContent='Vincular pago recibido';paid.style.cssText='width:auto;margin:12px 0 0;padding:9px 13px;background:#17252c;color:white';
               paid.addEventListener('click',()=>scheduleMarkPaid(kind,x));actions.append(paid);
             }
             card.append(actions);
           }
           const detail=kind==='booking'?scheduleBookingDetails.get(x.booking_id):null;
-          const fields=[...(kind==='booking'? [['Expedición',detail?.expedition||'No identificada'],['Reserva',detail?.code||String(x.booking_id||'').slice(0,8)||'Sin referencia'],['Viajeros',detail?.travelers??'No disponible'],['Tipo',detail?.is_test?'PRUEBA':'Registro']]:[['Concepto',x.concept||'No indicado']]),['Vencimiento',scheduleDate(x).slice(0,10)||'Sin fecha'],['Monto',scheduleMoney(scheduleAmount(x))],['Estado',schedulePaid(x)?'Pagado':scheduleDate(x).slice(0,10)<scheduleToday()?'Vencido':'Pendiente']];
+          const fields=[...(kind==='booking'? [['Expedición',detail?.expedition||'No identificada'],['Reserva',detail?.code||String(x.booking_id||'').slice(0,8)||'Sin referencia'],['Viajeros',detail?.travelers??'No disponible'],['Concepto',x.description||'No indicado'],['Tipo',detail?.is_test?'PRUEBA':'Registro']]:[['Concepto',x.concept||'No indicado']]),['Vencimiento',scheduleDate(x).slice(0,10)||'Sin fecha'],['Monto',scheduleMoney(scheduleAmount(x))],['Estado',schedulePaid(x)?'Pagado':scheduleDate(x).slice(0,10)<scheduleToday()?'Vencido':'Pendiente']];
           fields.forEach(([label,value])=>{const row=document.createElement('div');row.className='dash-row';const k=document.createElement('span');k.textContent=label;const v=document.createElement('b');v.textContent=value;row.append(k,v);card.append(row)});host.append(card);
         });
       }
@@ -2269,12 +2272,12 @@
           const {data,error}=await supabase.from(table).select('*').limit(500);
           if(error)throw error;
           scheduleCache[kind]=data||[];
-          scheduleEl(statusId).textContent=`${scheduleCache[kind].length} registros accesibles · registros accesibles.`;
+          scheduleEl(statusId).textContent=`${scheduleCache[kind].length} registros accesibles.`;
         }catch(err){scheduleCache[kind]=[];scheduleEl(statusId).textContent='No se pudo consultar '+table+': '+err.message;}
       }
       await scheduleLoadBookingDetails();
-      scheduleShow();
       if(currentRole==='admin')await scheduleLoadOptions();
+      scheduleShow();
     }
     async function scheduleLoadBookingDetails(){
       scheduleBookingDetails=new Map();
@@ -2302,10 +2305,11 @@
       const expeditionSelect=scheduleEl('spExpedition');
       bookingSelect.replaceChildren(new Option('Seleccionar reserva',''));
       expeditionSelect.replaceChildren(new Option('Seleccionar expedición',''));
-      const [bookingsResult,expeditionsResult,prospectsResult]=await Promise.all([
+      const [bookingsResult,expeditionsResult,prospectsResult,paymentsResult]=await Promise.all([
         supabase.from('bookings').select('id,expedition_id,prospect_id,travelers,unit_price_mxn,status,is_test').limit(500),
         supabase.from('expeditions').select('id,name').limit(500),
-        supabase.from('prospects').select('id,alias').limit(500)
+        supabase.from('prospects').select('id,alias').limit(500),
+        supabase.from('payments').select('id,booking_id,amount_mxn,payment_method,paid_at').limit(2000)
       ]);
       if(expeditionsResult.error){
         expeditionSelect.add(new Option('Error al cargar expediciones',''));
@@ -2317,6 +2321,10 @@
         scheduleEl('scMessage').textContent='No se pudieron consultar las reservas: '+bookingsResult.error.message;
         return;
       }
+      scheduleBookings=new Map((bookingsResult.data||[]).map(b=>[b.id,b]));
+      schedulePayments=paymentsResult.error?[]:(paymentsResult.data||[]);
+      scheduleDataReady=!paymentsResult.error;
+      if(paymentsResult.error)scheduleEl('scMessage').textContent='No se pudieron consultar los pagos. Por seguridad se bloquea la programación: '+paymentsResult.error.message;
       const expeditionNames=new Map((expeditionsResult.data||[]).map(e=>[e.id,e.name||'Expedición']));
       const prospectNames=new Map((prospectsResult.data||[]).map(p=>[p.id,p.alias||'Sin nombre']));
       const active=(bookingsResult.data||[]).filter(b=>!['cancelled','canceled','cancelada'].includes(String(b.status||'').toLowerCase()));
@@ -2330,10 +2338,29 @@
       });
       if(prospectsResult.error){scheduleEl('scMessage').textContent='Advertencia: no se pudieron cargar nombres de prospectos: '+prospectsResult.error.message;}
       if(!active.length)bookingSelect.add(new Option('No hay reservas activas',''));
+      updateScheduleBalance();
     }
+    function scheduleBalance(id,excludeId=null){
+      const b=scheduleBookings.get(id);if(!b||!scheduleDataReady)return null;
+      const total=Math.round(Number(b.travelers)*Number(b.unit_price_mxn)*100)/100;
+      const paid=Math.round(schedulePayments.filter(p=>p.booking_id===id).reduce((n,p)=>n+Number(p.amount_mxn||0),0)*100)/100;
+      const pending=Math.round(scheduleCache.booking.filter(s=>s.booking_id===id&&s.id!==excludeId&&!schedulePaid(s)).reduce((n,s)=>n+scheduleAmount(s),0)*100)/100;
+      return {total,paid,pending,due:Math.max(0,Math.round((total-paid)*100)/100),available:Math.max(0,Math.round((total-paid-pending)*100)/100)};
+    }
+    function updateScheduleBalance(){
+      const id=scheduleEl('scBooking').value,box=scheduleEl('scBalance'),amount=scheduleEl('scAmount'),submit=scheduleEl('scheduleBookingForm').querySelector('[type=submit]');
+      const v=scheduleBalance(id);
+      if(!v){box.textContent=id?'No se pueden verificar los saldos. Revisa el acceso a pagos y reservas.':'Selecciona una reserva para consultar sus saldos.';amount.removeAttribute('max');submit.disabled=true;return;}
+      box.textContent='Valor reserva: '+scheduleMoney(v.total)+' · Pagado: '+scheduleMoney(v.paid)+' · Saldo pendiente: '+scheduleMoney(v.due)+' · Cobros pendientes ya programados: '+scheduleMoney(v.pending)+' · Disponible para programar: '+scheduleMoney(v.available);
+      amount.max=String(v.available);submit.disabled=v.available<=0;
+      if(v.available<=0)box.textContent+=' · No hay saldo disponible para nuevos cobros.';
+    }
+    scheduleEl('scBooking').addEventListener('change',updateScheduleBalance);
+    scheduleEl('scConcept').addEventListener('change',()=>{const d=scheduleEl('scDescription');if(!d.value.trim()||['Anticipo','Segundo pago','Pago parcial','Liquidación','Otro'].includes(d.value))d.value=scheduleEl('scConcept').value;});
     async function scheduleSave(kind,record,messageId,form){
       const msg=scheduleEl(messageId);msg.textContent='Guardando...';
       if(currentRole!=='admin'){msg.textContent='Solo administración puede guardar.';return false;}
+      if(kind==='booking'){const v=scheduleBalance(record.booking_id);if(!v||!Number.isFinite(record.amount_mxn)||record.amount_mxn<=0||record.amount_mxn>v.available+0.001){msg.textContent='El importe supera el saldo disponible o no se pudo verificar. Actualiza e inténtalo nuevamente.';return false;}}
       const table=kind==='booking'?'booking_payment_schedule':'provider_payment_schedule';
       const {error}=await supabase.from(table).insert(record);
       if(error){msg.textContent='No se pudo guardar: '+error.message;return false;}
@@ -2341,18 +2368,32 @@
     }
     scheduleEl('scheduleBookingForm').addEventListener('submit',async e=>{
       e.preventDefault();const f=e.currentTarget;
-      await scheduleSave('booking',{booking_id:scheduleEl('scBooking').value,due_on:scheduleEl('scDue').value,amount_mxn:Number(scheduleEl('scAmount').value),description:scheduleEl('scDescription').value.trim(),status:'pending'},'scMessage',f);
+      await scheduleSave('booking',{booking_id:scheduleEl('scBooking').value,due_on:scheduleEl('scDue').value,amount_mxn:Number(scheduleEl('scAmount').value),description:(scheduleEl('scConcept').value==='Otro'?'Otro: ':'')+scheduleEl('scDescription').value.trim(),status:'pending'},'scMessage',f);
     });
     scheduleEl('scheduleProviderForm').addEventListener('submit',async e=>{
       e.preventDefault();const f=e.currentTarget;
       await scheduleSave('provider',{expedition_id:scheduleEl('spExpedition').value,supplier_name:scheduleEl('spSupplier').value.trim(),concept:scheduleEl('spConcept').value.trim(),due_on:scheduleEl('spDue').value,amount_mxn:Number(scheduleEl('spAmount').value),status:'pending'},'spMessage',f);
     });
     async function scheduleMarkPaid(kind,row){
-      if(currentRole!=='admin'||!confirm('¿Confirmas que este pago ya se realizó? Esta acción NO registra un movimiento en Finanzas.'))return;
-      const table=kind==='booking'?'booking_payment_schedule':'provider_payment_schedule';
-      const patch=kind==='provider'?{status:'paid',paid_on:scheduleToday()}:{status:'paid'};
-      const {error}=await supabase.from(table).update(patch).eq('id',row.id);
-      if(error)alert('No se pudo actualizar: '+error.message);else await loadSchedules();
+      if(currentRole!=='admin')return;
+      if(kind==='provider'){
+        if(!confirm('¿Confirmas el pago al proveedor? Esta acción no registra el gasto en Finanzas.'))return;
+        const {error}=await supabase.from('provider_payment_schedule').update({status:'paid',paid_on:scheduleToday()}).eq('id',row.id);
+        if(error)alert('No se pudo actualizar: '+error.message);else await loadSchedules();return;
+      }
+      // Nunca declarar un cobro pagado sin una fila real y única en Finanzas.
+      const {data:payments,error:payError}=await supabase.from('payments').select('id,booking_id,amount_mxn,payment_method,paid_at').eq('booking_id',row.booking_id);
+      if(payError){alert('No se pudieron verificar los pagos en Finanzas: '+payError.message);return;}
+      const {data:linked,error:linkError}=await supabase.from('booking_payment_schedule').select('payment_id').not('payment_id','is',null);
+      if(linkError){alert('No se pudieron comprobar los pagos vinculados: '+linkError.message);return;}
+      const used=new Set((linked||[]).map(x=>x.payment_id));
+      const candidates=(payments||[]).filter(p=>Math.abs(Number(p.amount_mxn)-scheduleAmount(row))<0.005&&!used.has(p.id));
+      if(!candidates.length){alert('No hay un pago disponible por '+scheduleMoney(scheduleAmount(row))+' asociado a esta reserva. Primero registra el dinero recibido en «Pagos y gastos» y luego vuelve aquí para vincularlo. No se ha marcado como pagado.');return;}
+      let chosen=candidates[0];
+      if(candidates.length>1){const menu=candidates.map((p,i)=>(i+1)+'. '+(p.paid_at?new Date(p.paid_at).toLocaleDateString('es-MX'):'Sin fecha')+' · '+(p.payment_method||'Sin método')+' · '+p.id.slice(0,8)).join('\n');const choice=prompt('Hay varios pagos del mismo importe. Escribe el número del pago correcto:\n'+menu);if(choice===null)return;const n=Number(choice);if(!Number.isInteger(n)||n<1||n>candidates.length){alert('Selección inválida.');return;}chosen=candidates[n-1];}
+      if(!confirm('¿Vincular el cobro programado de '+scheduleMoney(scheduleAmount(row))+' con este pago YA registrado en Finanzas? No se creará un pago nuevo.'))return;
+      const {error}=await supabase.from('booking_payment_schedule').update({status:'paid',payment_id:chosen.id}).eq('id',row.id).eq('status','pending').is('payment_id',null);
+      if(error)alert('No se pudo vincular: '+error.message);else await loadSchedules();
     }
     async function scheduleEdit(kind,row){
       if(currentRole!=='admin')return;
@@ -2361,6 +2402,7 @@
       const amount=prompt('Nuevo monto MXN',String(row.amount_mxn));if(amount===null)return;
       if(!Number.isFinite(Number(amount))||Number(amount)<=0){alert('Monto inválido.');return;}
       const table=kind==='booking'?'booking_payment_schedule':'provider_payment_schedule';
+      if(kind==='booking'){const v=scheduleBalance(row.booking_id,row.id);if(!v||Number(amount)>v.available+0.001){alert('El monto supera el saldo disponible para esta reserva: '+(v?scheduleMoney(v.available):'No verificable'));return;}}
       const {error}=await supabase.from(table).update({due_on:due,amount_mxn:Number(amount)}).eq('id',row.id);
       if(error)alert('No se pudo actualizar: '+error.message);else await loadSchedules();
     }
