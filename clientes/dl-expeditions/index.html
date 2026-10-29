@@ -933,12 +933,12 @@
     function syncBookingProspect(){
       const expId=document.querySelector('#bExpedition').value;
       const proSel=document.querySelector('#bProspect');
-      for(const option of proSel.options){
-        if(!option.value)continue;
-        const p=bookingProspects.get(option.value);
-        option.hidden=false;
-        option.disabled=false;
+      const previous=proSel.value;
+      proSel.replaceChildren(new Option('Sin prospecto asociado',''));
+      for(const p of bookingProspects.values()){
+        if(p.expedition_id===expId)proSel.add(new Option(p.alias,p.id));
       }
+      if(bookingProspects.get(previous)?.expedition_id===expId)proSel.value=previous;
       syncBookingChannelFromProspect();
     }
     function syncBookingChannelFromProspect(){
@@ -1090,8 +1090,8 @@
       for(const e of expRes.data||[])expSel.add(new Option(e.name,e.id));
       if(bookingExpeditions.has(previousExp))expSel.value=previousExp;
       proSel.replaceChildren(new Option('Sin prospecto asociado',''));
-      for(const p of proRes.data||[])proSel.add(new Option(p.alias,p.id));
-      if(bookingProspects.has(previousProspect))proSel.value=previousProspect;
+      for(const p of proRes.data||[])if(p.expedition_id===expSel.value)proSel.add(new Option(p.alias,p.id));
+      if(bookingProspects.get(previousProspect)?.expedition_id===expSel.value)proSel.value=previousProspect;
       agencySel.replaceChildren(new Option('Seleccionar agencia',''));
       for(const a of agencyRes.data||[])agencySel.add(new Option(a.name||a.agency_name||a.nombre||a.id,a.id));
       bookingRows.replaceChildren();
