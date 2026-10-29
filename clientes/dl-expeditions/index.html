@@ -2222,27 +2222,31 @@
     // Calendarios: operaciones protegidas por RLS; sin avisos externos.
     let scheduleCache={booking:[],provider:[]};
     let scheduleBookingDetails=new Map();
-    let scheduleBookings=new Map(),schedulePayments=[],scheduleDataReady=false;
+    let scheduleBookings=new Map(),schedulePayments=[],scheduleDataReady=false,scheduleAllocations=[],scheduleAllocationsReady=false;
     const scheduleEl=id=>document.getElementById(id);
     const schedulePick=(obj,keys)=>keys.map(k=>obj?.[k]).find(v=>v!==undefined&&v!==null&&v!=='');
     const scheduleAmount=x=>Number(schedulePick(x,['amount_mxn','amount','scheduled_amount_mxn','amount_due_mxn','total_mxn'])||0);
     const scheduleDate=x=>String(schedulePick(x,['due_on','due_date','payment_due_on','scheduled_for','scheduled_date','payment_date'])||'');
     const scheduleStatus=x=>String(schedulePick(x,['status','payment_status'])||'pending').toLowerCase();
     const schedulePaid=x=>['paid','completed','pagado','settled'].includes(scheduleStatus(x));
+    const scheduleApplied=x=>Math.round(scheduleAllocations.filter(a=>a.schedule_id===x.id).reduce((n,a)=>n+Number(a.amount_mxn||0),0)*100)/100;
+    const scheduleRemaining=x=>Math.max(0,Math.round((scheduleAmount(x)-scheduleApplied(x))*100)/100);
+    const scheduleSettled=x=>scheduleAllocationsReady&&scheduleRemaining(x)<0.005;
+    const scheduleDisplayPaid=x=>schedulePaid(x)||scheduleSettled(x);
     const scheduleToday=()=>new Date().toLocaleDateString('en-CA');
     const scheduleMoney=n=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(n);
     function scheduleShow(){
       const filter=scheduleEl('scheduleFilter').value,today=scheduleToday();
       const all=[...scheduleCache.booking,...scheduleCache.provider];
-      const pending=all.filter(x=>!schedulePaid(x));
+      const pending=all.filter(x=>!scheduleDisplayPaid(x));
       const overdue=pending.filter(x=>scheduleDate(x)&&scheduleDate(x).slice(0,10)<today);
-      const totals=[['Programados',all.length],['Pendientes',pending.length],['Vencidos',overdue.length],['Monto pendiente',scheduleMoney(pending.reduce((a,x)=>a+scheduleAmount(x),0))]];
+      const totals=[['Programados',all.length],['Pendientes',pending.length],['Vencidos',overdue.length],['Monto pendiente',scheduleMoney(pending.reduce((a,x)=>a+(scheduleAllocationsReady&&scheduleCache.booking.includes(x)?scheduleRemaining(x):scheduleAmount(x)),0))]];
       const totalsBox=scheduleEl('scheduleTotals');totalsBox.replaceChildren();
       totals.forEach(([label,value])=>{const card=document.createElement('div');card.className='dash-stat';const small=document.createElement('small');small.textContent=label;const strong=document.createElement('strong');strong.textContent=value;card.append(small,strong);totalsBox.append(card)});
       for(const [kind,target] of [['booking','scheduleBookingList'],['provider','scheduleProviderList']]){
         const host=scheduleEl(target);host.replaceChildren();
         let rows=scheduleCache[kind].filter(x=>{
-          const due=scheduleDate(x).slice(0,10),paid=schedulePaid(x);
+          const due=scheduleDate(x).slice(0,10),paid=scheduleDisplayPaid(x);
           if(filter==='paid')return paid;
           if(filter==='overdue')return !paid&&due&&due<today;
           if(filter==='next'){const limit=new Date();limit.setDate(limit.getDate()+30);return !paid&&due>=today&&due<=limit.toLocaleDateString('en-CA');}
@@ -2257,14 +2261,14 @@
             const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
             const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';edit.style.cssText='width:auto;margin:12px 0 0;padding:9px 13px';
             edit.addEventListener('click',()=>scheduleEdit(kind,x));actions.append(edit);
-            if(!schedulePaid(x)){
+            if(!scheduleDisplayPaid(x)){
               const paid=document.createElement('button');paid.type='button';paid.textContent='Vincular pago del mismo importe';paid.style.cssText='width:auto;margin:12px 0 0;padding:9px 13px;background:#17252c;color:white';
               paid.addEventListener('click',()=>scheduleMarkPaid(kind,x));actions.append(paid);
             }
             card.append(actions);
           }
           const detail=kind==='booking'?scheduleBookingDetails.get(x.booking_id):null;
-          const fields=[...(kind==='booking'? [['Expedición',detail?.expedition||'No identificada'],['Reserva',detail?.code||String(x.booking_id||'').slice(0,8)||'Sin referencia'],['Viajeros',detail?.travelers??'No disponible'],['Nota',x.description||'Sin nota'],['Tipo',detail?.is_test?'PRUEBA':'Registro']]:[['Concepto',x.concept||'No indicado']]),['Vencimiento',scheduleDate(x).slice(0,10)||'Sin fecha'],['Monto',scheduleMoney(scheduleAmount(x))],['Estado',schedulePaid(x)?'Pagado':scheduleDate(x).slice(0,10)<scheduleToday()?'Vencido':'Pendiente']];
+          const fields=[...(kind==='booking'? [['Expedición',detail?.expedition||'No identificada'],['Reserva',detail?.code||String(x.booking_id||'').slice(0,8)||'Sin referencia'],['Viajeros',detail?.travelers??'No disponible'],['Nota',x.description||'Sin nota'],['Tipo',detail?.is_test?'PRUEBA':'Registro']]:[['Concepto',x.concept||'No indicado']]),['Vencimiento',scheduleDate(x).slice(0,10)||'Sin fecha'],['Monto programado',scheduleMoney(scheduleAmount(x))],...(kind==='booking'&&scheduleAllocationsReady?[['Pagos vinculados',scheduleMoney(scheduleApplied(x))],['Pendiente de este cobro',scheduleMoney(scheduleRemaining(x))]]:[]),['Estado',scheduleDisplayPaid(x)?'Pagado':scheduleDate(x).slice(0,10)<scheduleToday()?'Vencido':'Pendiente']];
           if(kind==='booking'){
             const bal=scheduleBalance(x.booking_id);
             if(bal){
@@ -2287,6 +2291,10 @@
           scheduleEl(statusId).textContent=`${scheduleCache[kind].length} registros accesibles.`;
         }catch(err){scheduleCache[kind]=[];scheduleEl(statusId).textContent='No se pudo consultar '+table+': '+err.message;}
       }
+      const allocationResult=await supabase.from('booking_payment_allocations').select('id,schedule_id,payment_id,amount_mxn').limit(3000);
+      scheduleAllocationsReady=!allocationResult.error;
+      scheduleAllocations=allocationResult.error?[]:(allocationResult.data||[]);
+      if(allocationResult.error)scheduleEl('scheduleBookingStatus').textContent+=' · No se pudo consultar la conciliación: '+allocationResult.error.message;
       await scheduleLoadBookingDetails();
       if(currentRole==='admin')await scheduleLoadOptions();
       scheduleShow();
@@ -2356,7 +2364,7 @@
       const b=scheduleBookings.get(id);if(!b||!scheduleDataReady)return null;
       const total=Math.round(Number(b.travelers)*Number(b.unit_price_mxn)*100)/100;
       const paid=Math.round(schedulePayments.filter(p=>p.booking_id===id).reduce((n,p)=>n+Number(p.amount_mxn||0),0)*100)/100;
-      const pending=Math.round(scheduleCache.booking.filter(s=>s.booking_id===id&&s.id!==excludeId&&!schedulePaid(s)).reduce((n,s)=>n+scheduleAmount(s),0)*100)/100;
+      const pending=Math.round(scheduleCache.booking.filter(s=>s.booking_id===id&&s.id!==excludeId&&!scheduleDisplayPaid(s)).reduce((n,s)=>n+(scheduleAllocationsReady?scheduleRemaining(s):scheduleAmount(s)),0)*100)/100;
       return {total,paid,pending,due:Math.max(0,Math.round((total-paid)*100)/100),available:Math.max(0,Math.round((total-paid-pending)*100)/100)};
     }
     function updateScheduleBalance(){
@@ -2371,7 +2379,7 @@
     async function scheduleSave(kind,record,messageId,form){
       const msg=scheduleEl(messageId);msg.textContent='Guardando...';
       if(currentRole!=='admin'){msg.textContent='Solo administración puede guardar.';return false;}
-      if(kind==='booking'){const v=scheduleBalance(record.booking_id);if(!v||!Number.isFinite(record.amount_mxn)||record.amount_mxn<=0||record.amount_mxn>v.available+0.001){msg.textContent='El importe supera el saldo disponible o no se pudo verificar. Actualiza e inténtalo nuevamente.';return false;}}
+      if(kind==='booking'){if(!scheduleAllocationsReady){msg.textContent='No se pudo verificar la conciliación de pagos; intenta actualizar.';return false;}const v=scheduleBalance(record.booking_id);if(!v||!Number.isFinite(record.amount_mxn)||record.amount_mxn<=0||record.amount_mxn>v.available+0.001){msg.textContent='El importe supera el saldo disponible o no se pudo verificar. Actualiza e inténtalo nuevamente.';return false;}}
       const table=kind==='booking'?'booking_payment_schedule':'provider_payment_schedule';
       const {error}=await supabase.from(table).insert(record);
       if(error){msg.textContent='No se pudo guardar: '+error.message;return false;}
@@ -2413,7 +2421,7 @@
       const amount=prompt('Nuevo monto MXN',String(row.amount_mxn));if(amount===null)return;
       if(!Number.isFinite(Number(amount))||Number(amount)<=0){alert('Monto inválido.');return;}
       const table=kind==='booking'?'booking_payment_schedule':'provider_payment_schedule';
-      if(kind==='booking'){const v=scheduleBalance(row.booking_id,row.id);if(!v||Number(amount)>v.available+0.001){alert('El monto supera el saldo disponible para esta reserva: '+(v?scheduleMoney(v.available):'No verificable'));return;}}
+      if(kind==='booking'){if(scheduleAllocationsReady&&scheduleApplied(row)>0){alert('Este cobro ya tiene pagos vinculados. No se permite modificar su importe desde aquí.');return;}const v=scheduleBalance(row.booking_id,row.id);if(!v||Number(amount)>v.available+0.001){alert('El monto supera el saldo disponible para esta reserva: '+(v?scheduleMoney(v.available):'No verificable'));return;}}
       const {error}=await supabase.from(table).update({due_on:due,amount_mxn:Number(amount)}).eq('id',row.id);
       if(error)alert('No se pudo actualizar: '+error.message);else await loadSchedules();
     }
