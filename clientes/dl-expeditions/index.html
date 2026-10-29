@@ -385,7 +385,7 @@
             <label id="bProspectWrap" hidden>Prospecto asociado<select id="bProspect"><option value="">Seleccionar prospecto</option></select></label>
             <label id="bCustomerWrap">Nombre del cliente *<input id="bCustomerName" type="text" maxlength="160" placeholder="Nombre y apellido" required autocomplete="name"></label>
             <label>Canal de venta *<select id="bChannel" required><option value="direct">Venta directa</option><option value="agency">Agencia</option></select></label>
-            <label id="bAgencyWrap" hidden>Agencia *<select id="bAgency"><option value="">Seleccionar agencia</option></select></label>
+            <label id="bAgencyWrap" hidden>Agencia *<select id="bAgency"><option value="">Seleccionar agencia</option></select><small style="display:block;margin-top:6px;color:#69777d">En reservas directas puedes elegir una agencia. Si la reserva viene de un prospecto, se utiliza la agencia registrada en su ficha.</small></label>
             <label>Cantidad de viajeros *<input id="bTravelers" type="number" min="1" max="10000" step="1" value="1" required></label>
             <label>Precio por viajero (MXN) · definido en Expediciones<input id="bPrice" type="number" min="0" step="0.01" value="" readonly required style="background:#f4f5f6;color:#334155;cursor:not-allowed"></label>
             <label>Estado *<select id="bStatus" required><option value="pending">Pendiente</option><option value="deposit">Con anticipo</option><option value="confirmed">Confirmada</option><option value="cancelled">Cancelada</option></select></label>
@@ -930,7 +930,7 @@
       const agency=document.querySelector('#bChannel').value==='agency';
       document.querySelector('#bAgencyWrap').hidden=!agency;
       document.querySelector('#bAgency').required=agency;
-      document.querySelector('#bAgency').disabled=agency; // Solo lectura: viene del prospecto
+      document.querySelector('#bAgency').disabled=!agency || (document.querySelector('#bOrigin').value==='prospect' && !!bookingProspects.get(document.querySelector('#bProspect').value)); // Directa: seleccionable; prospecto: heredada
       if(!agency)document.querySelector('#bAgency').value='';
     }
     function syncBookingOrigin(){
@@ -1176,14 +1176,14 @@
       const prospectId=directBooking?'':document.querySelector('#bProspect').value;
       const channel=document.querySelector('#bChannel').value;
       const linkedProspect=bookingProspects.get(prospectId);
-      const agencyId=linkedProspect&&isAgencyChannel(linkedProspect.channel)?linkedProspect.agency_id:null;
+      const agencyId=channel==='agency'?(directBooking?document.querySelector('#bAgency').value:(linkedProspect?.agency_id||null)):null;
       const travelers=Number(document.querySelector('#bTravelers').value);
       const expPrice=bookingExpeditions.get(expId)?.public_price_mxn;
       const price=Number(expPrice);
       if(!bookingExpeditions.has(expId)||!Number.isInteger(travelers)||travelers<1||expPrice==null||!Number.isFinite(price)||price<=0){bookingStatus.textContent='La expedición debe tener un precio público mayor a cero. Configúralo en Expediciones.';return;}
       if(directBooking&&(!customerName||customerName.length<2)){bookingStatus.textContent='Escribe el nombre del cliente para crear una reserva directa.';return;}
       if(!directBooking&&!prospectId){bookingStatus.textContent='Selecciona un prospecto o cambia a reserva directa.';return;}
-      if(channel==='agency'&&(!prospectId||!bookingAgencies.has(agencyId))){bookingStatus.textContent='Esta reserva requiere un prospecto con agencia de origen registrada. Corrige el prospecto antes de reservar.';return;}
+      if(channel==='agency'&&!bookingAgencies.has(agencyId)){bookingStatus.textContent=directBooking?'Selecciona una agencia registrada para esta reserva.':'Este prospecto no tiene una agencia válida. Corrígelo en Prospectos antes de reservar.';return;}
       if(prospectId&&!bookingProspects.has(prospectId)){bookingStatus.textContent='Selecciona un prospecto válido.';return;}
       if(prospectId){
         const expected=isAgencyChannel(bookingProspects.get(prospectId).channel)?'agency':'direct';
