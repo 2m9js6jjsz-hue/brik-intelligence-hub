@@ -945,15 +945,18 @@
       else {document.querySelector('#bCustomerName').value='';syncBookingChannelFromProspect();}
     }
     document.querySelector('#bOrigin').addEventListener('change',syncBookingOrigin);
+    function hasActiveProspectBooking(expId, prospectId){
+      return [...bookingRecords.values()].some(b=>b.expedition_id===expId && b.prospect_id===prospectId && b.status!=='cancelled' && b.id!==editingBookingId);
+    }
     function syncBookingProspect(){
       const expId=document.querySelector('#bExpedition').value;
       const proSel=document.querySelector('#bProspect');
       const previous=proSel.value;
       proSel.replaceChildren(new Option('Sin prospecto asociado',''));
       for(const p of bookingProspects.values()){
-        if(p.expedition_id===expId)proSel.add(new Option(p.alias,p.id));
+        if(p.expedition_id===expId && !hasActiveProspectBooking(expId,p.id))proSel.add(new Option(p.alias,p.id));
       }
-      if(bookingProspects.get(previous)?.expedition_id===expId)proSel.value=previous;
+      if(bookingProspects.get(previous)?.expedition_id===expId && !hasActiveProspectBooking(expId,previous))proSel.value=previous;
       syncBookingChannelFromProspect();
     }
     function warnExistingBooking(){
@@ -1117,8 +1120,8 @@
       for(const e of expRes.data||[])expSel.add(new Option(e.name,e.id));
       if(bookingExpeditions.has(previousExp))expSel.value=previousExp;
       proSel.replaceChildren(new Option('Sin prospecto asociado',''));
-      for(const p of proRes.data||[])if(p.expedition_id===expSel.value)proSel.add(new Option(p.alias,p.id));
-      if(bookingProspects.get(previousProspect)?.expedition_id===expSel.value)proSel.value=previousProspect;
+      for(const p of proRes.data||[])if(p.expedition_id===expSel.value && !hasActiveProspectBooking(expSel.value,p.id))proSel.add(new Option(p.alias,p.id));
+      if(bookingProspects.get(previousProspect)?.expedition_id===expSel.value && !hasActiveProspectBooking(expSel.value,previousProspect))proSel.value=previousProspect;
       agencySel.replaceChildren(new Option('Seleccionar agencia',''));
       for(const a of agencyRes.data||[])agencySel.add(new Option(a.name||a.agency_name||a.nombre||a.id,a.id));
       bookingRows.replaceChildren();
@@ -1185,6 +1188,7 @@
       if(!directBooking&&!prospectId){bookingStatus.textContent='Selecciona un prospecto o cambia a reserva directa.';return;}
       if(channel==='agency'&&!bookingAgencies.has(agencyId)){bookingStatus.textContent=directBooking?'Selecciona una agencia registrada para esta reserva.':'Este prospecto no tiene una agencia válida. Corrígelo en Prospectos antes de reservar.';return;}
       if(prospectId&&!bookingProspects.has(prospectId)){bookingStatus.textContent='Selecciona un prospecto válido.';return;}
+      if(prospectId && !editingBookingId && hasActiveProspectBooking(expId,prospectId)){bookingStatus.textContent='Este prospecto ya tiene una reserva activa en la expedición. Abre la reserva existente.';return;}
       if(prospectId){
         const expected=isAgencyChannel(bookingProspects.get(prospectId).channel)?'agency':'direct';
         if(channel!==expected){bookingStatus.textContent='El canal de venta no coincide con el origen del prospecto. Corrígelo antes de guardar.';return;}
