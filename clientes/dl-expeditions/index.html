@@ -2261,6 +2261,14 @@
           }
           const detail=kind==='booking'?scheduleBookingDetails.get(x.booking_id):null;
           const fields=[...(kind==='booking'? [['Expedición',detail?.expedition||'No identificada'],['Reserva',detail?.code||String(x.booking_id||'').slice(0,8)||'Sin referencia'],['Viajeros',detail?.travelers??'No disponible'],['Concepto',x.description||'No indicado'],['Tipo',detail?.is_test?'PRUEBA':'Registro']]:[['Concepto',x.concept||'No indicado']]),['Vencimiento',scheduleDate(x).slice(0,10)||'Sin fecha'],['Monto',scheduleMoney(scheduleAmount(x))],['Estado',schedulePaid(x)?'Pagado':scheduleDate(x).slice(0,10)<scheduleToday()?'Vencido':'Pendiente']];
+          if(kind==='booking'){
+            const bal=scheduleBalance(x.booking_id);
+            if(bal){
+              fields.splice(4,0,['Valor de la reserva',scheduleMoney(bal.total)],['Pagos registrados',scheduleMoney(bal.paid)],['Saldo total por cobrar',scheduleMoney(bal.due)],['Otros cobros pendientes programados',scheduleMoney(Math.max(0,bal.pending-(!schedulePaid(x)?scheduleAmount(x):0))]);
+            }else{
+              fields.splice(4,0,['Resumen financiero','No disponible: verifica permisos de pagos y reservas']);
+            }
+          }
           fields.forEach(([label,value])=>{const row=document.createElement('div');row.className='dash-row';const k=document.createElement('span');k.textContent=label;const v=document.createElement('b');v.textContent=value;row.append(k,v);card.append(row)});host.append(card);
         });
       }
