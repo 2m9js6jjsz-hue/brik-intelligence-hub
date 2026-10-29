@@ -411,15 +411,15 @@
             <div class="dash-stat"><small>Saldo por cobrar</small><strong id="fOutstanding">—</strong><span>MXN · Reservas no canceladas, menos pagos</span></div>
           </div>
           <div class="finance-panels">
-            <div class="dash-panel"><h2>Registrar pago recibido</h2><p>El número se asigna automáticamente por reserva (Pago #1, Pago #2…). También puedes registrar un <strong>pago sin cobro programado</strong>. Los pagos creados desde Reservas ya aparecen aquí; no los dupliques.</p>
+            <div class="dash-panel"><h2>Registrar pago recibido</h2><p>El número se asigna automáticamente por reserva (Pago #1, Pago #2…). También puedes registrar un <strong>pago sin cobro programado</strong>. Si hay cobros programados pendientes, el sistema aplica automáticamente el dinero recibido, primero al cobro seleccionado y después por fecha. No se duplica el ingreso.</p>
               <form id="paymentForm" class="finance-form" hidden>
                 <label>Reserva *<select id="fBooking" required><option value="">Seleccionar reserva</option></select></label>
                 <div id="fBalancePreview" class="finance-balance-preview" role="status">Selecciona una reserva para consultar su saldo pendiente.</div><div id="fPaymentNumberPreview" class="finance-balance-preview">Próximo número de pago: selecciona una reserva.</div>
-                <label>Fecha del pago *<input id="fPaymentDate" type="date" required></label>
+                <input id="fScheduleId" type="hidden" value=""><label>Fecha del pago *<input id="fPaymentDate" type="date" required></label>
                 <label>Importe recibido (MXN) *<input id="fPaymentAmount" type="number" min="0.01" step="0.01" required></label>
                 <label>Próxima fecha de pago (opcional)<input id="fNextDueDate" type="date"><small style="display:block;margin-top:6px;color:#69777d">Si queda saldo después de este pago, actualiza el próximo vencimiento.</small></label>
                  <label>Método *<select id="fPaymentMethod" required><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="cash">Efectivo</option><option value="other">Otro</option></select></label>
-                <p class="hint">Las referencias de pago estarán disponibles cuando se habilite ese campo en Supabase.</p>
+                <p class="hint">El pago se guarda una sola vez en Finanzas. La aplicación al calendario es automática.</p>
                 <button id="savePayment" type="submit">Guardar pago</button>
               </form><p id="paymentStatus" class="finance-status" role="status"></p>
             </div>
@@ -1243,7 +1243,7 @@
       const nums=financePayments.filter(p=>p.booking_id===selected).map(p=>Number(p.payment_number)||0);
       numberBox.textContent=selected?'Próximo pago: Pago #'+(Math.max(0,...nums)+1)+' · Número definitivo asignado por Supabase al guardar.':'Próximo número de pago: selecciona una reserva.';
     }
-    fEl('fBooking').addEventListener('change',updateFinanceBalance);
+    fEl('fBooking').addEventListener('change',()=>{fEl('fScheduleId').value='';updateFinanceBalance();});
     function financeEmpty(tbodyId,text){const t=fEl(tbodyId);t.replaceChildren();const r=document.createElement('tr'),c=document.createElement('td');c.colSpan=tbodyId==='paymentRows'?6:5;c.textContent=text;r.appendChild(c);t.appendChild(r);}
     function financeToday(){return new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,10);}
     // El filtro es local: no escribe ni modifica reservas, pagos o expediciones.
@@ -1465,6 +1465,9 @@
       renderHomeFinance(br.data||[],pr.data||[],xr.data||[]);
       updateExecutive(br.data||[],pr.data||[],xr.data||[]);
     }
+    let pendingPaymentRequestId=null;
+    fEl('paymentForm').addEventListener('input',()=>{pendingPaymentRequestId=null;});
+    fEl('paymentForm').addEventListener('change',()=>{pendingPaymentRequestId=null;});
     fEl('paymentForm').addEventListener('submit',async e=>{
       e.preventDefault();if(currentRole!=='admin'||!e.currentTarget.reportValidity())return;
       const booking_id=fEl('fBooking').value,amount_mxn=Number(fEl('fPaymentAmount').value),paid_on=fEl('fPaymentDate').value,payment_method=fEl('fPaymentMethod').value;
@@ -1473,16 +1476,16 @@
       if(!Number.isFinite(total)||!Number.isFinite(paid)||amount_mxn>Math.round((total-paid)*100)/100){fEl('paymentStatus').textContent='El pago supera el saldo pendiente ('+mxn(Math.max(0,total-paid))+'). Revisa el importe.';return;}
       const btn=fEl('savePayment');btn.disabled=true;fEl('paymentStatus').textContent='Guardando pago...';
       try{
-        const nextDue=fEl('fNextDueDate').value;
-        const {error}=await supabase.from('payments').insert({booking_id,amount_mxn,paid_at:new Date(paid_on+'T12:00:00').toISOString(),payment_method});if(error)throw error;
-        let warning='';
-        if(nextDue){
-          const remaining=Math.round((total-paid-amount_mxn)*100)/100;
-          const {error:dueError}=await supabase.from('bookings').update({next_payment_due_on:remaining>0?nextDue:null}).eq('id',booking_id);
-          if(dueError)warning=' El pago se guardó, pero no se pudo actualizar el vencimiento: '+dueError.message;
-        }
-        fEl('paymentForm').reset();await loadFinances();await loadBookings();
-        fEl('paymentStatus').textContent='Pago guardado en Supabase.'+warning;
+        const scheduleId=fEl('fScheduleId').value||null;
+        const requestId=pendingPaymentRequestId||(pendingPaymentRequestId=crypto.randomUUID());
+        const {data,error}=await supabase.rpc('brik_register_booking_payment',{
+          p_booking_id:booking_id,p_amount_mxn:amount_mxn,p_payment_method:payment_method,
+          p_paid_on:paid_on,p_request_id:requestId,p_schedule_id:scheduleId
+        });
+        if(error)throw error;
+        pendingPaymentRequestId=null;fEl('paymentForm').reset();fEl('fScheduleId').value='';
+        await loadFinances();await loadBookings();await loadSchedules();
+        fEl('paymentStatus').textContent='Pago #'+(data?.payment_number||'')+' registrado una sola vez. Aplicado a cobros programados: '+mxn(data?.applied_to_schedules||0)+'. Sin cobro programado: '+mxn(data?.unallocated||0)+'.';
       }
       catch(err){fEl('paymentStatus').textContent='No se pudo guardar el pago: '+err.message;}finally{btn.disabled=false;}
     });
@@ -2262,8 +2265,8 @@
             const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';edit.style.cssText='width:auto;margin:12px 0 0;padding:9px 13px';
             edit.addEventListener('click',()=>scheduleEdit(kind,x));actions.append(edit);
             if(!scheduleDisplayPaid(x)){
-              const paid=document.createElement('button');paid.type='button';paid.textContent='Vincular pago recibido';paid.style.cssText='width:auto;margin:12px 0 0;padding:9px 13px;background:#17252c;color:white';
-              paid.addEventListener('click',()=>scheduleMarkPaid(kind,x));actions.append(paid);
+              const paid=document.createElement('button');paid.type='button';paid.textContent='Registrar pago';paid.style.cssText='width:auto;margin:12px 0 0;padding:9px 13px;background:#17252c;color:white';
+              paid.addEventListener('click',()=>kind==='booking'?scheduleRegisterPayment(x):scheduleMarkPaid(kind,x));actions.append(paid);
             }
             card.append(actions);
           }
@@ -2393,6 +2396,26 @@
       e.preventDefault();const f=e.currentTarget;
       await scheduleSave('provider',{expedition_id:scheduleEl('spExpedition').value,supplier_name:scheduleEl('spSupplier').value.trim(),concept:scheduleEl('spConcept').value.trim(),due_on:scheduleEl('spDue').value,amount_mxn:Number(scheduleEl('spAmount').value),status:'pending'},'spMessage',f);
     });
+    async function scheduleRegisterPayment(row){
+      if(currentRole!=='admin')return;
+      if(!scheduleAllocationsReady){alert('No se pudo comprobar el estado del cobro. Actualiza e intenta de nuevo.');return;}
+      const balance=scheduleBalance(row.booking_id);
+      if(!balance||balance.due<=0){alert('Esta reserva no tiene saldo por cobrar. Revisa los pagos existentes.');return;}
+      const amountDue=scheduleRemaining(row);
+      if(amountDue<=0){alert('Este cobro ya está cubierto.');return;}
+      // Usamos el mismo formulario de Finanzas, nunca un segundo registro de pago.
+      const nav=document.querySelector('#sideNav [data-page="finanzas"]');
+      if(!nav){alert('No se pudo abrir el registro de pagos.');return;}
+      nav.click();
+      await loadFinances();
+      fEl('fBooking').value=row.booking_id;
+      fEl('fPaymentAmount').value=String(Math.min(amountDue,balance.due));
+      fEl('fPaymentDate').value=financeToday();
+      fEl('fScheduleId').value=row.id;
+      updateFinanceBalance();
+      fEl('paymentStatus').textContent='Registrar pago para cobro programado del '+scheduleDate(row).slice(0,10)+'. El sistema actualizará Finanzas y el calendario en una sola operación.';
+      fEl('paymentForm').scrollIntoView({behavior:'smooth',block:'start'});
+    }
     async function scheduleMarkPaid(kind,row){
       if(currentRole!=='admin')return;
       if(kind==='provider'){
