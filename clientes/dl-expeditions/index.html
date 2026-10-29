@@ -2262,13 +2262,13 @@
             const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';edit.style.cssText='width:auto;margin:12px 0 0;padding:9px 13px';
             edit.addEventListener('click',()=>scheduleEdit(kind,x));actions.append(edit);
             if(!scheduleDisplayPaid(x)){
-              const paid=document.createElement('button');paid.type='button';paid.textContent='Vincular pago del mismo importe';paid.style.cssText='width:auto;margin:12px 0 0;padding:9px 13px;background:#17252c;color:white';
+              const paid=document.createElement('button');paid.type='button';paid.textContent='Vincular pago recibido';paid.style.cssText='width:auto;margin:12px 0 0;padding:9px 13px;background:#17252c;color:white';
               paid.addEventListener('click',()=>scheduleMarkPaid(kind,x));actions.append(paid);
             }
             card.append(actions);
           }
           const detail=kind==='booking'?scheduleBookingDetails.get(x.booking_id):null;
-          const fields=[...(kind==='booking'? [['Expedición',detail?.expedition||'No identificada'],['Reserva',detail?.code||String(x.booking_id||'').slice(0,8)||'Sin referencia'],['Viajeros',detail?.travelers??'No disponible'],['Nota',x.description||'Sin nota'],['Tipo',detail?.is_test?'PRUEBA':'Registro']]:[['Concepto',x.concept||'No indicado']]),['Vencimiento',scheduleDate(x).slice(0,10)||'Sin fecha'],['Monto programado',scheduleMoney(scheduleAmount(x))],...(kind==='booking'&&scheduleAllocationsReady?[['Pagos vinculados',scheduleMoney(scheduleApplied(x))],['Pendiente de este cobro',scheduleMoney(scheduleRemaining(x))]]:[]),['Estado',scheduleDisplayPaid(x)?'Pagado':scheduleDate(x).slice(0,10)<scheduleToday()?'Vencido':'Pendiente']];
+          const fields=[...(kind==='booking'? [['Expedición',detail?.expedition||'No identificada'],['Reserva',detail?.code||String(x.booking_id||'').slice(0,8)||'Sin referencia'],['Viajeros',detail?.travelers??'No disponible'],['Nota',x.description||'Sin nota'],['Tipo',detail?.is_test?'PRUEBA':'Registro']]:[['Concepto',x.concept||'No indicado']]),['Vencimiento',scheduleDate(x).slice(0,10)||'Sin fecha'],['Monto programado',scheduleMoney(scheduleAmount(x))],...(kind==='booking'&&scheduleAllocationsReady?[['Pagos vinculados',scheduleMoney(scheduleApplied(x))],['Pendiente de este cobro',scheduleMoney(scheduleRemaining(x))]]:[]),['Estado',scheduleDisplayPaid(x)?'Pagado':kind==='booking'&&scheduleAllocationsReady&&scheduleApplied(x)>0?'Parcialmente pagado':scheduleStatus(x)==='cancelled'?'Cancelado':scheduleDate(x).slice(0,10)<scheduleToday()?'Vencido':'Pendiente']];
           if(kind==='booking'){
             const bal=scheduleBalance(x.booking_id);
             if(bal){
@@ -2400,19 +2400,37 @@
         const {error}=await supabase.from('provider_payment_schedule').update({status:'paid',paid_on:scheduleToday()}).eq('id',row.id);
         if(error)alert('No se pudo actualizar: '+error.message);else await loadSchedules();return;
       }
-      // Nunca declarar un cobro pagado sin una fila real y única en Finanzas.
-      const {data:payments,error:payError}=await supabase.from('payments').select('id,booking_id,amount_mxn,payment_method,paid_at').eq('booking_id',row.booking_id);
-      if(payError){alert('No se pudieron verificar los pagos en Finanzas: '+payError.message);return;}
-      const {data:linked,error:linkError}=await supabase.from('booking_payment_schedule').select('payment_id').not('payment_id','is',null);
-      if(linkError){alert('No se pudieron comprobar los pagos vinculados: '+linkError.message);return;}
-      const used=new Set((linked||[]).map(x=>x.payment_id));
-      const candidates=(payments||[]).filter(p=>Math.abs(Number(p.amount_mxn)-scheduleAmount(row))<0.005&&!used.has(p.id));
-      if(!candidates.length){alert('No hay un pago disponible por '+scheduleMoney(scheduleAmount(row))+' asociado a esta reserva. Primero registra el dinero recibido en «Pagos y gastos» y luego vuelve aquí para vincularlo. No se ha marcado como pagado.');return;}
-      let chosen=candidates[0];
-      if(candidates.length>1){const menu=candidates.map((p,i)=>(i+1)+'. '+(p.paid_at?new Date(p.paid_at).toLocaleDateString('es-MX'):'Sin fecha')+' · '+(p.payment_method||'Sin método')+' · '+p.id.slice(0,8)).join('\n');const choice=prompt('Hay varios pagos del mismo importe. Escribe el número del pago correcto:\n'+menu);if(choice===null)return;const n=Number(choice);if(!Number.isInteger(n)||n<1||n>candidates.length){alert('Selección inválida.');return;}chosen=candidates[n-1];}
-      if(!confirm('¿Vincular el cobro programado de '+scheduleMoney(scheduleAmount(row))+' con este pago YA registrado en Finanzas? No se creará un pago nuevo.'))return;
-      const {error}=await supabase.from('booking_payment_schedule').update({status:'paid',payment_id:chosen.id}).eq('id',row.id).eq('status','pending').is('payment_id',null);
-      if(error)alert('No se pudo vincular: '+error.message);else await loadSchedules();
+      // Conciliación: un pago se crea exclusivamente en Finanzas; aquí solo se asigna.
+      if(!scheduleAllocationsReady){alert('No se pudieron consultar las asignaciones. Actualiza la página.');return;}
+      const {data:payments,error:payError}=await supabase.from('payments')
+        .select('id,booking_id,amount_mxn,payment_method,paid_at,payment_number')
+        .eq('booking_id',row.booking_id).order('paid_at',{ascending:true});
+      if(payError){alert('No se pudieron verificar los pagos: '+payError.message);return;}
+      const candidates=(payments||[]).map(p=>{
+        const allocated=scheduleAllocations.filter(a=>a.payment_id===p.id)
+          .reduce((n,a)=>n+Number(a.amount_mxn||0),0);
+        return {...p,available:Math.round((Number(p.amount_mxn)-allocated)*100)/100};
+      }).filter(p=>p.available>0.005);
+      if(!candidates.length){alert('No hay pagos recibidos sin asignar para esta reserva. Registra el dinero primero en «Pagos y gastos».');return;}
+      const menu=candidates.map((p,i)=>(i+1)+'. Pago #'+(p.payment_number||'?')+
+        ' · '+scheduleMoney(p.available)+' disponibles · '+(p.payment_method||'Sin método')).join('\n');
+      const choice=prompt('Selecciona el número del pago a vincular:\n'+menu);
+      if(choice===null)return;
+      const index=Number(choice)-1;
+      if(!Number.isInteger(index)||index<0||index>=candidates.length){alert('Selección inválida.');return;}
+      const chosen=candidates[index];
+      const max=Math.min(scheduleRemaining(row),chosen.available);
+      const entered=prompt('¿Cuánto deseas aplicar de este pago? Máximo '+scheduleMoney(max),String(max));
+      if(entered===null)return;
+      const amount=Number(entered);
+      if(!Number.isFinite(amount)||amount<=0||Math.round(amount*100)!==amount*100||amount>max+0.001){alert('Importe inválido o superior al disponible.');return;}
+      if(!confirm('Vincular '+scheduleMoney(amount)+' del Pago #'+(chosen.payment_number||'?')+
+        ' al cobro de '+scheduleMoney(scheduleAmount(row))+'? No se creará ningún ingreso nuevo.'))return;
+      const {error}=await supabase.rpc('brik_allocate_booking_payment',{
+        p_schedule_id:row.id,p_payment_id:chosen.id,p_amount_mxn:amount
+      });
+      if(error)alert('No se pudo conciliar: '+error.message+'\nVerifica que hayas ejecutado el SQL de la versión 17.');
+      else await loadSchedules();
     }
     async function scheduleEdit(kind,row){
       if(currentRole!=='admin')return;
