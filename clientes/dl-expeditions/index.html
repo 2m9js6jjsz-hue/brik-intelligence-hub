@@ -2264,7 +2264,7 @@
           if(kind==='booking'){
             const bal=scheduleBalance(x.booking_id);
             if(bal){
-              fields.splice(4,0,['Valor de la reserva',scheduleMoney(bal.total)],['Pagos registrados',scheduleMoney(bal.paid)],['Saldo total por cobrar',scheduleMoney(bal.due)],['Otros cobros pendientes programados',scheduleMoney(Math.max(0,bal.pending-(!schedulePaid(x)?scheduleAmount(x):0))]);
+              fields.splice(4,0,['Valor de la reserva',scheduleMoney(bal.total)],['Pagos registrados',scheduleMoney(bal.paid)],['Saldo total por cobrar',scheduleMoney(bal.due)],['Otros cobros pendientes programados',scheduleMoney(Math.max(0,bal.pending-(!schedulePaid(x)?scheduleAmount(x):0)))]);
             }else{
               fields.splice(4,0,['Resumen financiero','No disponible: verifica permisos de pagos y reservas']);
             }
