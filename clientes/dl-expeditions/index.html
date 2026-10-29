@@ -381,7 +381,9 @@
           <p>Registra y consulta reservas reales de DL Expeditions. Los importes se expresan en pesos mexicanos (MXN). Si seleccionas «Con anticipo», podrás registrar el importe recibido y su forma de pago en la misma operación.</p>
           <form id="bookingForm" class="booking-form" hidden>
             <label>Expedición *<select id="bExpedition" required><option value="">Seleccionar expedición</option></select></label>
-            <label>Prospecto asociado (opcional)<select id="bProspect"><option value="">Sin prospecto asociado</option></select></label>
+            <label>Origen de la reserva<select id="bOrigin"><option value="direct">Reserva directa (sin prospecto)</option><option value="prospect">Desde un prospecto existente</option></select></label>
+            <label id="bProspectWrap" hidden>Prospecto asociado<select id="bProspect"><option value="">Seleccionar prospecto</option></select></label>
+            <label id="bCustomerWrap">Nombre del cliente *<input id="bCustomerName" type="text" maxlength="160" placeholder="Nombre y apellido" required autocomplete="name"></label>
             <label>Canal de venta *<select id="bChannel" required><option value="direct">Venta directa</option><option value="agency">Agencia</option></select></label>
             <label id="bAgencyWrap" hidden>Agencia *<select id="bAgency"><option value="">Seleccionar agencia</option></select></label>
             <label>Cantidad de viajeros *<input id="bTravelers" type="number" min="1" max="10000" step="1" value="1" required></label>
@@ -874,6 +876,7 @@
       resetBookingEditor();
       document.querySelector('#bExpedition').value=p.expedition_id;
       syncBookingPrice();syncBookingProspect();
+      document.querySelector('#bOrigin').value='prospect';syncBookingOrigin();
       document.querySelector('#bProspect').value=p.id;
       syncBookingChannelFromProspect();
       bookingForm.scrollIntoView({behavior:'smooth',block:'start'});
@@ -930,6 +933,18 @@
       document.querySelector('#bAgency').disabled=agency; // Solo lectura: viene del prospecto
       if(!agency)document.querySelector('#bAgency').value='';
     }
+    function syncBookingOrigin(){
+      const fromProspect=document.querySelector('#bOrigin').value==='prospect';
+      const prospectWrap=document.querySelector('#bProspectWrap');
+      const customerWrap=document.querySelector('#bCustomerWrap');
+      prospectWrap.hidden=!fromProspect;
+      customerWrap.hidden=fromProspect;
+      document.querySelector('#bProspect').required=fromProspect;
+      document.querySelector('#bCustomerName').required=!fromProspect;
+      if(!fromProspect){document.querySelector('#bProspect').value='';preparedQuote=null;document.querySelector('#preparedQuoteNotice').hidden=true;syncBookingChannelFromProspect();}
+      else {document.querySelector('#bCustomerName').value='';syncBookingChannelFromProspect();}
+    }
+    document.querySelector('#bOrigin').addEventListener('change',syncBookingOrigin);
     function syncBookingProspect(){
       const expId=document.querySelector('#bExpedition').value;
       const proSel=document.querySelector('#bProspect');
@@ -940,6 +955,15 @@
       }
       if(bookingProspects.get(previous)?.expedition_id===expId)proSel.value=previous;
       syncBookingChannelFromProspect();
+    }
+    function warnExistingBooking(){
+      const expId=document.querySelector('#bExpedition').value;
+      const proId=document.querySelector('#bProspect').value;
+      if(!expId||!proId)return;
+      const existing=[...bookingRecords.values()].filter(b=>b.expedition_id===expId&&b.prospect_id===proId&&b.status!=='cancelled'&&b.id!==editingBookingId);
+      if(existing.length){
+        bookingStatus.textContent='Cliente con reserva existente en esta expedición ('+existing.map(b=>'#'+b.id.slice(0,8)).join(', ')+'). Revisa la reserva antes de crear otra.';
+      }
     }
     function syncBookingChannelFromProspect(){
       const p=bookingProspects.get(document.querySelector('#bProspect').value);
@@ -974,7 +998,7 @@
       document.querySelector('#preparedQuoteNotice').hidden=true;
       document.querySelector('#saveBooking').textContent='Guardar reserva';
       document.querySelector('#cancelBookingEdit').hidden=true;
-      syncBookingProspect();syncBookingPrice();syncDepositFields();
+      syncBookingProspect();syncBookingOrigin();syncBookingPrice();syncDepositFields();
       document.querySelector('#bDepositAmount').value='';document.querySelector('#bDueDate').value='';
     }
     async function cancelBookingSafely(id){
@@ -984,7 +1008,7 @@
       const {data:payments,error:paymentError}=await supabase.from('payments').select('id,amount_mxn').eq('booking_id',id);
       if(paymentError){bookingStatus.textContent='No se pudo verificar los pagos; no se anuló la reserva: '+paymentError.message;return;}
       if(payments?.length){bookingStatus.textContent='Esta reserva tiene '+payments.length+' pago(s) registrado(s). No se anuló. Revisa primero los anticipos y la posible devolución en Finanzas.';return;}
-      const who=bookingProspects.get(b.prospect_id)?.alias||'este cliente';
+      const who=bookingProspects.get(b.prospect_id)?.alias||b.customer_name||'este cliente';
       if(!window.confirm('¿Anular la reserva de '+who+'? Se conservará en el historial y dejará de contar como reserva activa.'))return;
       const {error}=await supabase.from('bookings').update({status:'cancelled'}).eq('id',id);
       if(error){bookingStatus.textContent='No se pudo anular la reserva: '+error.message;return;}
@@ -996,6 +1020,9 @@
       editingBookingId=id;preparedQuote=null;
       document.querySelector('#bExpedition').value=b.expedition_id;
       syncBookingProspect();
+      document.querySelector('#bOrigin').value=b.prospect_id?'prospect':'direct';
+      document.querySelector('#bCustomerName').value=b.customer_name||'';
+      syncBookingOrigin();
       document.querySelector('#bProspect').value=b.prospect_id||'';
       syncBookingChannelFromProspect();
       document.querySelector('#bChannel').value=b.channel;
@@ -1013,13 +1040,13 @@
       bookingForm.scrollIntoView({behavior:'smooth',block:'start'});
     }
     document.querySelector('#cancelBookingEdit').addEventListener('click',()=>{resetBookingEditor();bookingStatus.textContent='Edición cancelada.';});
-    document.querySelector('#bProspect').addEventListener('change',syncBookingChannelFromProspect);
+    document.querySelector('#bProspect').addEventListener('change',()=>{syncBookingChannelFromProspect();warnExistingBooking();});
     document.querySelector('#bChannel').addEventListener('change',syncBookingAgency);
     document.querySelector('#bTravelers').addEventListener('input',updateBookingTotal);
     document.querySelector('#bStatus').addEventListener('change',syncDepositFields);
     document.querySelector('#bExpedition').addEventListener('change',()=>{
       const e=bookingExpeditions.get(document.querySelector('#bExpedition').value);
-      syncBookingPrice();syncBookingProspect();
+      syncBookingPrice();syncBookingProspect();warnExistingBooking();
     });
     function collectionState(b,paid){
       if(b.status==='cancelled')return {label:'Cancelada',kind:'cancelled'};
@@ -1062,7 +1089,7 @@
       outstanding.sort((a,b)=>(priority[a.state.kind]??9)-(priority[b.state.kind]??9)||(a.b.next_payment_due_on||'').localeCompare(b.b.next_payment_due_on||''));
       for(const {b,balance,state} of outstanding.slice(0,30)){
         const tr=document.createElement('tr');
-        for(const val of [bookingProspects.get(b.prospect_id)?.alias||'Sin prospecto',bookingExpeditions.get(b.expedition_id)?.name||'Expedición',mxn(balance),b.next_payment_due_on||'Sin definir',state.label])putCell(tr,val);
+        for(const val of [bookingProspects.get(b.prospect_id)?.alias||b.customer_name||'Cliente sin identificar',bookingExpeditions.get(b.expedition_id)?.name||'Expedición',mxn(balance),b.next_payment_due_on||'Sin definir',state.label])putCell(tr,val);
         body.appendChild(tr);
       }
       table.appendChild(body);list.appendChild(table);
@@ -1076,7 +1103,7 @@
         supabase.from('expeditions').select('id,name,public_price_mxn').order('name'),
         supabase.from('prospects').select('id,alias,expedition_id,channel,agency_id').order('created_at',{ascending:false}).limit(500),
         supabase.from('agencies').select('*').limit(500),
-        supabase.from('bookings').select('id,expedition_id,prospect_id,channel,agency_id,travelers,unit_price_mxn,status,next_payment_due_on,created_at').order('created_at',{ascending:false}).limit(500),
+        supabase.from('bookings').select('id,expedition_id,prospect_id,customer_name,channel,agency_id,travelers,unit_price_mxn,status,next_payment_due_on,created_at').order('created_at',{ascending:false}).limit(500),
         supabase.from('payments').select('booking_id,amount_mxn').limit(5000)
       ]);
       const error=expRes.error||proRes.error||agencyRes.error||bookingRes.error||bookingPaymentsRes.error;
@@ -1105,7 +1132,7 @@
       for(const b of records){
         const tr=document.createElement('tr');
         putCell(tr,bookingExpeditions.get(b.expedition_id)?.name||'Expedición no disponible');
-        putCell(tr,bookingProspects.get(b.prospect_id)?.alias||'—');
+        putCell(tr,bookingProspects.get(b.prospect_id)?.alias||b.customer_name||'—');
         putCell(tr,b.channel==='agency'?'Agencia: '+(bookingAgencies.get(b.agency_id)?.name||bookingAgencies.get(b.agency_id)?.agency_name||'Registrada'):'Directa');
         putCell(tr,b.travelers);putCell(tr,mxn(b.unit_price_mxn));putCell(tr,mxn(Number(b.travelers)*Number(b.unit_price_mxn)));
         putCell(tr,mxn(paidByBooking.get(b.id)||0));putCell(tr,b.status==='cancelled'?'Revisar cancelación':mxn(Math.max(0,Number(b.travelers)*Number(b.unit_price_mxn)-(paidByBooking.get(b.id)||0))));
@@ -1115,7 +1142,7 @@
         if(currentRole==='admin'){const btn=document.createElement('button');btn.type='button';btn.textContent='Editar';btn.style.cssText='width:auto;margin:0;padding:9px 12px';btn.addEventListener('click',()=>editBooking(b.id));action.appendChild(btn);if(b.status!=='cancelled'){const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Anular';cancel.className='outline-btn';cancel.style.cssText='width:auto;margin:6px 0 0 6px;padding:9px 12px';cancel.addEventListener('click',()=>cancelBookingSafely(b.id));action.appendChild(cancel);}}
         tr.appendChild(action);bookingRows.appendChild(tr);
         bookingMobileList.appendChild(mobileRecordCard(bookingExpeditions.get(b.expedition_id)?.name||'Expedición no disponible',[
-          ['Prospecto',bookingProspects.get(b.prospect_id)?.alias||'Sin prospecto'],
+          ['Prospecto',bookingProspects.get(b.prospect_id)?.alias||b.customer_name||'Cliente sin identificar'],
           ['Estado',bookingStatuses[b.status]||b.status],
           ['Canal',b.channel==='agency'?'Agencia: '+(bookingAgencies.get(b.agency_id)?.name||bookingAgencies.get(b.agency_id)?.agency_name||'Registrada'):'Directa'],
           ['Viajeros',b.travelers],
@@ -1137,14 +1164,16 @@
       document.querySelector('#homeBookings').textContent=String(records.filter(x=>x.status!=='cancelled').length)+(records.length===500?'+':'');
       document.querySelector('#homeBookingsNote').textContent=records.length===500?'Activas entre 500 registros':'No canceladas · Incluye pendientes y con anticipo';
       if((bookingPaymentsRes.data||[]).length<5000)bookingStatus.textContent=currentRole==='admin'?'Crea reservas desde una cotización aceptada. Los abonos se calculan desde Pagos.':'Acceso de consulta: no puedes registrar reservas.';
-      syncBookingProspect();syncBookingPrice();syncDepositFields();
+      syncBookingProspect();syncBookingOrigin();syncBookingPrice();syncDepositFields();
     }
     bookingForm.addEventListener('submit',async event=>{
       event.preventDefault();
       if(currentRole!=='admin'){bookingStatus.textContent='No tienes permiso para registrar reservas.';return;}
       if(!bookingForm.reportValidity())return;
       const expId=document.querySelector('#bExpedition').value;
-      const prospectId=document.querySelector('#bProspect').value;
+      const directBooking=document.querySelector('#bOrigin').value==='direct';
+      const customerName=directBooking?document.querySelector('#bCustomerName').value.trim().replace(/\s+/g,' '):'';
+      const prospectId=directBooking?'':document.querySelector('#bProspect').value;
       const channel=document.querySelector('#bChannel').value;
       const linkedProspect=bookingProspects.get(prospectId);
       const agencyId=linkedProspect&&isAgencyChannel(linkedProspect.channel)?linkedProspect.agency_id:null;
@@ -1152,14 +1181,28 @@
       const expPrice=bookingExpeditions.get(expId)?.public_price_mxn;
       const price=Number(expPrice);
       if(!bookingExpeditions.has(expId)||!Number.isInteger(travelers)||travelers<1||expPrice==null||!Number.isFinite(price)||price<=0){bookingStatus.textContent='La expedición debe tener un precio público mayor a cero. Configúralo en Expediciones.';return;}
+      if(directBooking&&(!customerName||customerName.length<2)){bookingStatus.textContent='Escribe el nombre del cliente para crear una reserva directa.';return;}
+      if(!directBooking&&!prospectId){bookingStatus.textContent='Selecciona un prospecto o cambia a reserva directa.';return;}
       if(channel==='agency'&&(!prospectId||!bookingAgencies.has(agencyId))){bookingStatus.textContent='Esta reserva requiere un prospecto con agencia de origen registrada. Corrige el prospecto antes de reservar.';return;}
       if(prospectId&&!bookingProspects.has(prospectId)){bookingStatus.textContent='Selecciona un prospecto válido.';return;}
       if(prospectId){
         const expected=isAgencyChannel(bookingProspects.get(prospectId).channel)?'agency':'direct';
         if(channel!==expected){bookingStatus.textContent='El canal de venta no coincide con el origen del prospecto. Corrígelo antes de guardar.';return;}
       }
-      if(!editingBookingId&&!preparedQuote){bookingStatus.textContent='Para crear una reserva, selecciona una cotización desde el historial del Cotizador. No se guardó ninguna reserva.';return;}
-      if(preparedQuote&&!editingBookingId){
+      if(!editingBookingId&&prospectId){
+        const {data:duplicates,error:duplicateError}=await supabase.from('bookings').select('id,status').eq('expedition_id',expId).eq('prospect_id',prospectId).neq('status','cancelled').limit(5);
+        if(duplicateError){bookingStatus.textContent='No se pudo verificar si ya existe una reserva: '+duplicateError.message;return;}
+        if(duplicates?.length){bookingStatus.textContent='Ya existe una reserva activa para este prospecto en esta expedición (#'+duplicates[0].id.slice(0,8)+'). No se creó otra. Revisa la reserva existente.';return;}
+      }
+      if(!editingBookingId&&!preparedQuote&&!directBooking){bookingStatus.textContent='Para reservar desde un prospecto, selecciona una cotización del historial. Si el cliente compra directamente, usa Reserva directa.';return;}
+      if(!editingBookingId&&directBooking){
+        const {data:existingDirect,error:directError}=await supabase.from('bookings').select('id,customer_name,status').eq('expedition_id',expId).is('prospect_id',null).neq('status','cancelled').limit(500);
+        if(directError){bookingStatus.textContent='No se pudo verificar reservas existentes: '+directError.message;return;}
+        const normalize=v=>(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toLocaleLowerCase('es');
+        const matches=(existingDirect||[]).filter(b=>normalize(b.customer_name)===normalize(customerName));
+        if(matches.length){bookingStatus.textContent='Ya existe una reserva directa de '+customerName+' para esta expedición (#'+matches[0].id.slice(0,8)+'). Revísala antes de crear otra.';return;}
+      }
+      if(preparedQuote&&!editingBookingId&&!directBooking){
         if(expId!==preparedQuote.expedition_id || (prospectId||null)!==(preparedQuote.prospect_id||null) ||
            travelers!==Number(preparedQuote.travelers) || price!==Number(preparedQuote.unit_price_mxn) ||
            channel!==preparedQuote.channel || (channel==='agency'&&agencyId!==preparedQuote.agency_id)){
@@ -1176,12 +1219,12 @@
         bookingStatus.textContent='Para registrar el anticipo, ingresa un monto válido y la fecha del pago.';return;
       }
       if(wantsDeposit&&depositAmount>travelers*price){bookingStatus.textContent='El anticipo supera el total de la reserva.';return;}
-      const payload={expedition_id:expId,prospect_id:prospectId||null,channel,agency_id:channel==='agency'?agencyId:null,travelers,unit_price_mxn:price,status:document.querySelector('#bStatus').value,next_payment_due_on:document.querySelector('#bDueDate').value||null,is_test:true};
-      if(preparedQuote&&!editingBookingId)payload.quote_id=preparedQuote.id;
+      const payload={expedition_id:expId,prospect_id:prospectId||null,customer_name:directBooking?customerName:null,channel,agency_id:channel==='agency'?agencyId:null,travelers,unit_price_mxn:price,status:document.querySelector('#bStatus').value,next_payment_due_on:document.querySelector('#bDueDate').value||null,is_test:true};
+      if(preparedQuote&&!editingBookingId&&!directBooking)payload.quote_id=preparedQuote.id;
       const button=document.querySelector('#saveBooking');button.disabled=true;
       bookingStatus.textContent='Guardando reserva...';
       try{
-        if(preparedQuote&&!editingBookingId){
+        if(preparedQuote&&!editingBookingId&&!directBooking){
           const {data:existing,error:lookupError}=await supabase.from('bookings').select('id').eq('quote_id',preparedQuote.id).limit(1);
           if(lookupError)throw lookupError;
           if(existing?.length){bookingStatus.textContent='Esta cotización ya tiene una reserva registrada. No se creó otra.';return;}
@@ -1233,7 +1276,7 @@
       const total=Number(b.travelers)*Number(b.unit_price_mxn);
       const paid=financePayments.filter(p=>p.booking_id===id).reduce((sum,p)=>sum+Number(p.amount_mxn||0),0);
       const due=Math.max(0,Math.round((total-paid)*100)/100);
-      const name=financeProspects.get(b.prospect_id)?.alias||'Reserva sin prospecto asociado';
+      const name=financeProspects.get(b.prospect_id)?.alias||b.customer_name||'Reserva sin identificar';
       target.textContent=name+' · Total: '+mxn(total)+' · Abonado: '+mxn(paid)+' · Saldo pendiente: '+mxn(due);
       const amount=fEl('fPaymentAmount');amount.max=String(due);amount.disabled=due<=0;
       fEl('savePayment').disabled=due<=0;
@@ -1404,7 +1447,7 @@
       fEl('paymentStatus').textContent='Cargando pagos...';fEl('expenseStatus').textContent='Cargando gastos...';
       const [er,br,pr,xr,prospectResult,agencyResult]=await Promise.all([
         supabase.from('expeditions').select('id,name,capacity').order('name'),
-        supabase.from('bookings').select('id,expedition_id,prospect_id,channel,agency_id,travelers,unit_price_mxn,status,next_payment_due_on,created_at').order('created_at',{ascending:false}).limit(1000),
+        supabase.from('bookings').select('id,expedition_id,prospect_id,customer_name,channel,agency_id,travelers,unit_price_mxn,status,next_payment_due_on,created_at').order('created_at',{ascending:false}).limit(1000),
         supabase.from('payments').select('id,booking_id,amount_mxn,paid_at,payment_method,payment_number,created_at').order('paid_at',{ascending:false}).limit(1000),
         supabase.from('expenses').select('id,expedition_id,amount_mxn,spent_at,category,description,created_at').order('spent_at',{ascending:false}).limit(1000),
         supabase.from('prospects').select('id,alias,channel,agency_id').limit(1000),
@@ -1419,14 +1462,14 @@
       financeBookings=new Map((br.data||[]).map(x=>[x.id,x]));financePayments=pr.data||[];
       const pb=fEl('fBooking'),pe=fEl('fExpenseExpedition'),oldB=pb.value,oldE=pe.value;
       pb.replaceChildren(new Option('Seleccionar reserva',''));pe.replaceChildren(new Option('Seleccionar expedición',''));
-      for(const b of br.data||[]){if(b.status==='cancelled')continue;const exp=financeExpeditions.get(b.expedition_id)?.name||'Expedición';const client=financeProspects.get(b.prospect_id)?.alias||'Sin prospecto asociado';pb.add(new Option(`${client} · ${exp} · ${b.travelers} viajero(s) · ${mxn(Number(b.travelers)*Number(b.unit_price_mxn))}`,b.id));}
+      for(const b of br.data||[]){if(b.status==='cancelled')continue;const exp=financeExpeditions.get(b.expedition_id)?.name||'Expedición';const client=financeProspects.get(b.prospect_id)?.alias||b.customer_name||'Cliente sin identificar';pb.add(new Option(`${client} · ${exp} · ${b.travelers} viajero(s) · ${mxn(Number(b.travelers)*Number(b.unit_price_mxn))}`,b.id));}
       for(const e of er.data||[])pe.add(new Option(e.name,e.id));
       if(financeBookings.has(oldB))pb.value=oldB;if(financeExpeditions.has(oldE))pe.value=oldE;
       updateFinanceBalance();
       const payRows=fEl('paymentRows'),expRows=fEl('expenseRows');payRows.replaceChildren();expRows.replaceChildren();
       const payCards=fEl('paymentMobileCards'),expenseCards=fEl('expenseMobileCards');payCards.replaceChildren();expenseCards.replaceChildren();
-      for(const p of pr.data||[]){const r=document.createElement('tr'),b=financeBookings.get(p.booking_id);putCell(r,p.paid_at?new Date(p.paid_at).toLocaleDateString('es-MX'):'—');putCell(r,p.payment_number?'Pago #'+p.payment_number:'Sin número');putCell(r,financeProspects.get(b?.prospect_id)?.alias||'Sin prospecto asociado');putCell(r,(financeExpeditions.get(b?.expedition_id)?.name||'Reserva')+' · '+p.booking_id.slice(0,8));putCell(r,financePaymentMethods[p.payment_method]||p.payment_method);putCell(r,mxn(p.amount_mxn));putCell(r,'—');payRows.appendChild(r);
-        financeMobileCard(payCards,financeProspects.get(b?.prospect_id)?.alias||'Sin prospecto asociado',[
+      for(const p of pr.data||[]){const r=document.createElement('tr'),b=financeBookings.get(p.booking_id);putCell(r,p.paid_at?new Date(p.paid_at).toLocaleDateString('es-MX'):'—');putCell(r,p.payment_number?'Pago #'+p.payment_number:'Sin número');putCell(r,financeProspects.get(b?.prospect_id)?.alias||b?.customer_name||'Cliente sin identificar');putCell(r,(financeExpeditions.get(b?.expedition_id)?.name||'Reserva')+' · '+p.booking_id.slice(0,8));putCell(r,financePaymentMethods[p.payment_method]||p.payment_method);putCell(r,mxn(p.amount_mxn));putCell(r,'—');payRows.appendChild(r);
+        financeMobileCard(payCards,financeProspects.get(b?.prospect_id)?.alias||b?.customer_name||'Cliente sin identificar',[
           ['Pago',p.payment_number?'Pago #'+p.payment_number:'Sin número'],['Expedición',financeExpeditions.get(b?.expedition_id)?.name||'Reserva'],['Fecha',p.paid_at?new Date(p.paid_at).toLocaleDateString('es-MX'):'—'],['Importe',mxn(p.amount_mxn)],['Método',financePaymentMethods[p.payment_method]||p.payment_method]
         ]);
       }
@@ -2734,6 +2777,7 @@
       preparedQuote={id:q.id,expedition_id:q.expedition_id,prospect_id:q.prospect_id||null,travelers:q.travelers,unit_price_mxn:q.unit_price_mxn,channel:q.channel==='agency'?'agency':'direct',agency_id:q.channel==='agency'?q.agency_id:null};
       document.querySelector('#bExpedition').value=q.expedition_id;
       const prospectSelect=document.querySelector('#bProspect');
+      document.querySelector('#bOrigin').value='prospect';syncBookingOrigin();
       prospectSelect.value=q.prospect_id&&bookingProspects.has(q.prospect_id)?q.prospect_id:'';
       document.querySelector('#bTravelers').value=q.travelers;
       syncBookingPrice();
