@@ -298,7 +298,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión de demostración</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 22 · Clientes</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -383,7 +383,7 @@
             <label>Expedición *<select id="bExpedition" required><option value="">Seleccionar expedición</option></select></label>
             <label>Origen de la reserva<select id="bOrigin"><option value="direct">Reserva directa (sin prospecto)</option><option value="prospect">Desde un prospecto existente</option></select></label>
             <label id="bProspectWrap" hidden>Prospecto asociado<select id="bProspect"><option value="">Seleccionar prospecto</option></select></label>
-            <label id="bCustomerWrap">Nombre del cliente *<input id="bCustomerName" type="text" maxlength="160" placeholder="Nombre y apellido" required autocomplete="name"></label>
+            <label id="bCustomerWrap">Cliente existente *<select id="bCustomerId"><option value="">Seleccionar cliente registrado</option></select><small style="display:block;margin-top:6px;color:#69777d">Para una persona nueva, créala primero en Clientes. No se generan fichas duplicadas por escribir un nombre.</small><input id="bCustomerName" type="hidden"></label>
             <label>Canal de venta *<select id="bChannel" required><option value="direct">Venta directa</option><option value="agency">Agencia</option></select></label>
             <label id="bAgencyWrap" hidden>Agencia *<select id="bAgency"><option value="">Seleccionar agencia</option></select><small style="display:block;margin-top:6px;color:#69777d">En reservas directas puedes elegir una agencia. Si la reserva viene de un prospecto, se utiliza la agencia registrada en su ficha.</small></label>
             <label>Cantidad de viajeros *<input id="bTravelers" type="number" min="1" max="10000" step="1" value="1" required></label>
@@ -481,11 +481,17 @@
         </section>
         <section class="page" data-section="clientes"><div class="dash-panel">
 <div class="section-head"><h2>Clientes · historial comercial</h2><span class="pill" id="clientCount">Cargando...</span></div>
-<p>Consulta de prospectos y reservas vinculadas. Los registros sin prospecto asociado se muestran aparte; esta vista no identifica individualmente a todos los viajeros de una reserva.</p>
-<label style="display:block;max-width:460px;margin:16px 0">Buscar por referencia del prospecto
-<input id="clientSearch" type="search" placeholder="Escribe un nombre o referencia" autocomplete="off"></label>
+<p>Directorio único de clientes. Cada persona conserva su ID aunque cambie de teléfono o reserve otra expedición. Los pagos siguen vinculados a cada reserva.</p>
+<form id="customerMasterForm" class="master-form" hidden>
+<label>Nombre completo *<input id="cFullName" maxlength="160" required></label>
+<label>Teléfono (opcional)<input id="cPhone" type="tel" maxlength="40" placeholder="Ej. +52 55 1234 5678"></label>
+<label>Correo (opcional)<input id="cEmail" type="email" maxlength="180"></label>
+<button type="submit" id="cSave">Crear ficha de cliente</button>
+</form><p id="customerMasterStatus" class="master-status" role="status"></p>
+<label style="display:block;max-width:460px;margin:16px 0">Buscar cliente por nombre, número, teléfono o correo
+<input id="clientSearch" type="search" placeholder="Buscar cliente" autocomplete="off"></label>
 <p id="clientStatus" class="hint" role="status">Abre esta sección para consultar los datos.</p>
-<div id="clientMobileList" class="client-mobile-list" aria-label="Historial de clientes"></div><div class="table-wrap client-desktop-table"><table class="dash-table"><thead><tr><th>Prospecto / referencia</th><th>Reservas</th><th>Viajeros reservados</th><th>Valor reservado (MXN)</th><th>Pagos asociados (MXN)</th><th>Saldo estimado (MXN)</th><th>Expediciones y estados</th></tr></thead><tbody id="clientRows"><tr><td colspan="7">Sin cargar</td></tr></tbody></table></div>
+<div id="clientMobileList" class="client-mobile-list" aria-label="Historial de clientes"></div><div class="table-wrap client-desktop-table"><table class="dash-table"><thead><tr><th>Cliente / ID</th><th>Reservas</th><th>Viajeros reservados</th><th>Valor reservado (MXN)</th><th>Pagos asociados (MXN)</th><th>Saldo estimado (MXN)</th><th>Expediciones y estados</th></tr></thead><tbody id="clientRows"><tr><td colspan="7">Sin cargar</td></tr></tbody></table></div>
 <p class="hint">El saldo es una estimación operativa sobre reservas no canceladas; no es una conciliación bancaria. Los importes se basan en registros accesibles para tu usuario. No se permite editar desde esta vista.</p>
 </div></section>
         <section class="page" data-section="cotizador">
@@ -917,6 +923,7 @@
     let bookingExpeditions=new Map();
     let bookingProspects=new Map();
     let bookingAgencies=new Map();
+    let customerCatalog=new Map();
     let editingBookingId=null;
     let bookingRecords=new Map();
     let preparedQuote=null; // Cotización elegida desde el historial; no se infiere por precio o prospecto.
@@ -940,9 +947,9 @@
       prospectWrap.hidden=!fromProspect;
       customerWrap.hidden=fromProspect;
       document.querySelector('#bProspect').required=fromProspect;
-      document.querySelector('#bCustomerName').required=!fromProspect;
+      document.querySelector('#bCustomerId').required=!fromProspect;
       if(!fromProspect){document.querySelector('#bProspect').value='';preparedQuote=null;document.querySelector('#preparedQuoteNotice').hidden=true;syncBookingChannelFromProspect();}
-      else {document.querySelector('#bCustomerName').value='';syncBookingChannelFromProspect();}
+      else {syncBookingChannelFromProspect();}
     }
     document.querySelector('#bOrigin').addEventListener('change',syncBookingOrigin);
     function hasActiveProspectBooking(expId, prospectId){
@@ -1002,6 +1009,7 @@
       document.querySelector('#saveBooking').textContent='Guardar reserva';
       document.querySelector('#cancelBookingEdit').hidden=true;
       syncBookingProspect();syncBookingOrigin();syncBookingPrice();syncDepositFields();
+      document.querySelector('#bCustomerId').value='';
       document.querySelector('#bDepositAmount').value='';document.querySelector('#bDueDate').value='';
     }
     async function cancelBookingSafely(id){
@@ -1024,6 +1032,7 @@
       document.querySelector('#bExpedition').value=b.expedition_id;
       syncBookingProspect();
       document.querySelector('#bOrigin').value=b.prospect_id?'prospect':'direct';
+      document.querySelector('#bCustomerId').value=b.customer_id||'';
       document.querySelector('#bCustomerName').value=b.customer_name||'';
       syncBookingOrigin();
       document.querySelector('#bProspect').value=b.prospect_id||'';
@@ -1102,18 +1111,25 @@
     async function loadBookings(){
       bookingForm.hidden=currentRole!=='admin';
       bookingStatus.textContent='Cargando reservas...';
-      const [expRes,proRes,agencyRes,bookingRes,bookingPaymentsRes]=await Promise.all([
+      const [expRes,proRes,agencyRes,bookingRes,bookingPaymentsRes,customerRes]=await Promise.all([
         supabase.from('expeditions').select('id,name,public_price_mxn').order('name'),
         supabase.from('prospects').select('id,alias,expedition_id,channel,agency_id').order('created_at',{ascending:false}).limit(500),
         supabase.from('agencies').select('*').limit(500),
-        supabase.from('bookings').select('id,expedition_id,prospect_id,customer_name,channel,agency_id,travelers,unit_price_mxn,status,next_payment_due_on,created_at').order('created_at',{ascending:false}).limit(500),
-        supabase.from('payments').select('booking_id,amount_mxn').limit(5000)
+        supabase.from('bookings').select('id,expedition_id,prospect_id,customer_id,customer_name,channel,agency_id,travelers,unit_price_mxn,status,next_payment_due_on,created_at').order('created_at',{ascending:false}).limit(500),
+        supabase.from('payments').select('booking_id,amount_mxn').limit(5000),
+        supabase.from('customers').select('id,customer_number,full_name,phone,email').order('full_name').limit(1000)
       ]);
-      const error=expRes.error||proRes.error||agencyRes.error||bookingRes.error||bookingPaymentsRes.error;
+      const error=expRes.error||proRes.error||agencyRes.error||bookingRes.error||bookingPaymentsRes.error||customerRes.error;
       if(error){bookingError(error);return;}
       bookingExpeditions=new Map((expRes.data||[]).map(x=>[x.id,x]));
       bookingProspects=new Map((proRes.data||[]).map(x=>[x.id,x]));
       bookingAgencies=new Map((agencyRes.data||[]).map(x=>[x.id,x]));
+      customerCatalog=new Map((customerRes.data||[]).map(x=>[x.id,x]));
+      const customerSelect=document.querySelector('#bCustomerId');
+      const previousCustomer=customerSelect.value;
+      customerSelect.replaceChildren(new Option('Seleccionar cliente registrado',''));
+      for(const c of customerCatalog.values())customerSelect.add(new Option(`${c.full_name} · Cliente #${c.customer_number}`,c.id));
+      if(customerCatalog.has(previousCustomer))customerSelect.value=previousCustomer;
       const expSel=document.querySelector('#bExpedition'),proSel=document.querySelector('#bProspect'),agencySel=document.querySelector('#bAgency');
       const previousExp=expSel.value,previousProspect=proSel.value;
       expSel.replaceChildren(new Option('Seleccionar expedición',''));
@@ -1175,7 +1191,9 @@
       if(!bookingForm.reportValidity())return;
       const expId=document.querySelector('#bExpedition').value;
       const directBooking=document.querySelector('#bOrigin').value==='direct';
-      const customerName=directBooking?document.querySelector('#bCustomerName').value.trim().replace(/\s+/g,' '):'';
+      const selectedCustomerId=directBooking?document.querySelector('#bCustomerId').value:null;
+      const selectedCustomer=customerCatalog.get(selectedCustomerId);
+      const customerName=directBooking?(selectedCustomer?.full_name||''):'';
       const prospectId=directBooking?'':document.querySelector('#bProspect').value;
       const channel=document.querySelector('#bChannel').value;
       const linkedProspect=bookingProspects.get(prospectId);
@@ -1184,7 +1202,7 @@
       const expPrice=bookingExpeditions.get(expId)?.public_price_mxn;
       const price=Number(expPrice);
       if(!bookingExpeditions.has(expId)||!Number.isInteger(travelers)||travelers<1||expPrice==null||!Number.isFinite(price)||price<=0){bookingStatus.textContent='La expedición debe tener un precio público mayor a cero. Configúralo en Expediciones.';return;}
-      if(directBooking&&(!customerName||customerName.length<2)){bookingStatus.textContent='Escribe el nombre del cliente para crear una reserva directa.';return;}
+      if(directBooking&&!selectedCustomer){bookingStatus.textContent='Selecciona una ficha de cliente existente. Si es nuevo, créalo primero en Clientes.';return;}
       if(!directBooking&&!prospectId){bookingStatus.textContent='Selecciona un prospecto o cambia a reserva directa.';return;}
       if(channel==='agency'&&!bookingAgencies.has(agencyId)){bookingStatus.textContent=directBooking?'Selecciona una agencia registrada para esta reserva.':'Este prospecto no tiene una agencia válida. Corrígelo en Prospectos antes de reservar.';return;}
       if(prospectId&&!bookingProspects.has(prospectId)){bookingStatus.textContent='Selecciona un prospecto válido.';return;}
@@ -1200,10 +1218,9 @@
       }
       if(!editingBookingId&&!preparedQuote&&!directBooking){bookingStatus.textContent='Para reservar desde un prospecto, selecciona una cotización del historial. Si el cliente compra directamente, usa Reserva directa.';return;}
       if(!editingBookingId&&directBooking){
-        const {data:existingDirect,error:directError}=await supabase.from('bookings').select('id,customer_name,status').eq('expedition_id',expId).is('prospect_id',null).neq('status','cancelled').limit(500);
+        const {data:existingDirect,error:directError}=await supabase.from('bookings').select('id,customer_id,status').eq('expedition_id',expId).eq('customer_id',selectedCustomerId).neq('status','cancelled').limit(5);
         if(directError){bookingStatus.textContent='No se pudo verificar reservas existentes: '+directError.message;return;}
-        const normalize=v=>(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toLocaleLowerCase('es');
-        const matches=(existingDirect||[]).filter(b=>normalize(b.customer_name)===normalize(customerName));
+        const matches=existingDirect||[];
         if(matches.length){bookingStatus.textContent='Ya existe una reserva directa de '+customerName+' para esta expedición (#'+matches[0].id.slice(0,8)+'). Revísala antes de crear otra.';return;}
       }
       if(preparedQuote&&!editingBookingId&&!directBooking){
@@ -1223,7 +1240,7 @@
         bookingStatus.textContent='Para registrar el anticipo, ingresa un monto válido y la fecha del pago.';return;
       }
       if(wantsDeposit&&depositAmount>travelers*price){bookingStatus.textContent='El anticipo supera el total de la reserva.';return;}
-      const payload={expedition_id:expId,prospect_id:prospectId||null,customer_name:directBooking?customerName:null,channel,agency_id:channel==='agency'?agencyId:null,travelers,unit_price_mxn:price,status:document.querySelector('#bStatus').value,next_payment_due_on:document.querySelector('#bDueDate').value||null,is_test:true};
+      const payload={expedition_id:expId,prospect_id:prospectId||null,customer_id:directBooking?selectedCustomerId:null,customer_name:directBooking?customerName:null,channel,agency_id:channel==='agency'?agencyId:null,travelers,unit_price_mxn:price,status:document.querySelector('#bStatus').value,next_payment_due_on:document.querySelector('#bDueDate').value||null,is_test:true};
       if(preparedQuote&&!editingBookingId&&!directBooking)payload.quote_id=preparedQuote.id;
       const button=document.querySelector('#saveBooking');button.disabled=true;
       bookingStatus.textContent='Guardando reserva...';
@@ -1555,13 +1572,13 @@
       catch(err){fEl('expenseStatus').textContent='No se pudo guardar el gasto: '+err.message;}finally{btn.disabled=false;}
     });
 
-    // Clientes: vista de consulta, sin nuevas tablas ni datos personales adicionales.
+    // Clientes v22: identidad estable. No se crean clientes automáticamente desde reservas.
     let clientViewRows=[];
     function drawClients(){
       const term=document.querySelector('#clientSearch').value.trim().toLocaleLowerCase('es');
       const body=document.querySelector('#clientRows'),mobile=document.querySelector('#clientMobileList');
       body.replaceChildren();mobile.replaceChildren();
-      const filtered=clientViewRows.filter(x=>x.label.toLocaleLowerCase('es').includes(term));
+      const filtered=clientViewRows.filter(x=>x.search.includes(term));
       for(const x of filtered){
         const tr=document.createElement('tr');
         for(const v of [x.label,x.reservations,x.travelers,mxn(x.value),mxn(x.paid),mxn(Math.max(0,x.value-x.paid)),x.detail])putCell(tr,v);
@@ -1579,39 +1596,58 @@
         const detail=document.createElement('div');detail.className='client-mobile-detail';detail.textContent='Expediciones: '+x.detail;
         card.appendChild(detail);mobile.appendChild(card);
       }
-      if(!filtered.length){
-        const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.textContent='Sin resultados para esta búsqueda.';tr.appendChild(td);body.appendChild(tr);
-        const empty=document.createElement('p');empty.className='empty-state';empty.textContent='Sin resultados para esta búsqueda.';mobile.appendChild(empty);
-      }
+      if(!filtered.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.textContent='Sin resultados.';tr.appendChild(td);body.appendChild(tr);}
     }
     document.querySelector('#clientSearch').addEventListener('input',drawClients);
     async function loadClients(){
-      const status=document.querySelector('#clientStatus');status.textContent='Consultando Supabase...';
-      const [pros,books,pays,exps]=await Promise.all([
-        supabase.from('prospects').select('id,alias,channel,stage').limit(1000),
-        supabase.from('bookings').select('id,prospect_id,expedition_id,travelers,unit_price_mxn,status').limit(1000),
-        supabase.from('payments').select('booking_id,amount_mxn').limit(1000),
+      const status=document.querySelector('#clientStatus');status.textContent='Consultando fichas de clientes...';
+      document.querySelector('#customerMasterForm').hidden=currentRole!=='admin';
+      const [customers,books,pays,exps]=await Promise.all([
+        supabase.from('customers').select('id,customer_number,full_name,phone,email').order('full_name').limit(1000),
+        supabase.from('bookings').select('id,customer_id,expedition_id,travelers,unit_price_mxn,status').limit(1000),
+        supabase.from('payments').select('booking_id,amount_mxn').limit(5000),
         supabase.from('expeditions').select('id,name').limit(1000)
       ]);
-      const error=pros.error||books.error||pays.error||exps.error;
+      const error=customers.error||books.error||pays.error||exps.error;
       if(error){status.textContent='No se pudo consultar Clientes: '+error.message;return;}
       const expNames=new Map((exps.data||[]).map(x=>[x.id,x.name]));
       const payments=new Map();
       for(const p of pays.data||[])payments.set(p.booking_id,(payments.get(p.booking_id)||0)+Number(p.amount_mxn||0));
       const grouped=new Map();
-      for(const p of pros.data||[])grouped.set(p.id,{label:p.alias||'Sin referencia',reservations:0,travelers:0,value:0,paid:0,details:[]});
+      for(const c of customers.data||[])grouped.set(c.id,{label:`${c.full_name} · #${c.customer_number}`,search:[c.full_name,c.customer_number,c.phone,c.email].filter(Boolean).join(' ').toLocaleLowerCase('es'),reservations:0,travelers:0,value:0,paid:0,details:[]});
       let unlinked=0;
       for(const b of books.data||[]){
-        if(!b.prospect_id||!grouped.has(b.prospect_id)){unlinked++;continue;}
-        const x=grouped.get(b.prospect_id);
+        if(!b.customer_id||!grouped.has(b.customer_id)){unlinked++;continue;}
+        const x=grouped.get(b.customer_id);
         if(b.status!=='cancelled'){x.reservations++;x.travelers+=Number(b.travelers||0);x.value+=Number(b.travelers||0)*Number(b.unit_price_mxn||0);x.paid+=payments.get(b.id)||0;}
         x.details.push((expNames.get(b.expedition_id)||'Expedición')+' ('+(b.status||'sin estado')+')');
       }
-      clientViewRows=Array.from(grouped.values()).map(x=>({...x,detail:x.details.join(' · ')||'Sin reservas'})).sort((a,b)=>a.label.localeCompare(b.label,'es'));
-      document.querySelector('#clientCount').textContent=clientViewRows.length+' prospecto(s)';
-      status.textContent='Consulta actualizada. '+unlinked+' reserva(s) sin prospecto asociado o fuera de la muestra. Máximo 1,000 registros por fuente; si se alcanza ese límite, los totales pueden estar incompletos.';
+      clientViewRows=[...grouped.values()].map(x=>({...x,detail:x.details.join(' · ')||'Sin reservas vinculadas'}));
+      document.querySelector('#clientCount').textContent=clientViewRows.length+' cliente(s)';
+      status.textContent=`${unlinked} reserva(s) históricas aún sin ID de cliente. No se vinculan automáticamente por nombre para evitar unir personas distintas. Consulta limitada a 1,000 clientes y reservas.`;
       drawClients();
     }
+    document.querySelector('#customerMasterForm').addEventListener('submit',async e=>{
+      e.preventDefault();if(currentRole!=='admin')return;
+      const status=document.querySelector('#customerMasterStatus');
+      const name=document.querySelector('#cFullName').value.trim().replace(/\s+/g,' ');
+      const phone=document.querySelector('#cPhone').value.trim();
+      const email=document.querySelector('#cEmail').value.trim().toLowerCase();
+      if(name.length<2){status.textContent='Escribe un nombre válido.';return;}
+      const button=document.querySelector('#cSave');button.disabled=true;
+      try{
+        const {data:matches,error:readError}=await supabase.from('customers').select('id,customer_number,full_name,phone,email').limit(1000);
+        if(readError)throw readError;
+        const norm=v=>(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().replace(/\s+/g,' ').toLowerCase();
+        const possible=(matches||[]).filter(c=>(email&&c.email?.toLowerCase()===email)||(phone&&c.phone?.replace(/\D/g,'')===phone.replace(/\D/g,''))||norm(c.full_name)===norm(name));
+        if(possible.length){status.textContent='Posible ficha existente: '+possible.map(c=>`${c.full_name} (#${c.customer_number})`).join(', ')+'. Revísala antes de crear otra. No se guardó nada.';return;}
+        if((matches||[]).length===1000){status.textContent='El directorio alcanzó el límite de consulta. No se puede descartar duplicidad. No se guardó nada.';return;}
+        const {data,error}=await supabase.from('customers').insert({full_name:name,phone:phone||null,email:email||null}).select('id,customer_number').single();
+        if(error)throw error;
+        status.textContent='Cliente creado con ID permanente #'+data.customer_number+'. Ya puedes seleccionarlo en Reservas.';
+        e.target.reset();await loadClients();await loadBookings();
+      }catch(err){status.textContent='No se creó el cliente: '+err.message;}finally{button.disabled=false;}
+    });
 
     // Reportes: vista agregada de solo lectura, con seguridad definida en Supabase.
     async function loadReports(){
