@@ -311,7 +311,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 25 · Pruebas y reales</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 26 · Dashboard por expedición</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -325,6 +325,17 @@
   <div class="executive-charts" style="margin-top:8px">
     <div><h3 style="font-size:15px;margin:16px 0 8px">Canales de venta</h3><div id="executiveChannels"></div></div>
     <div><h3 style="font-size:15px;margin:16px 0 8px">Desempeño de agencias</h3><div id="executiveAgencies"></div></div>
+  </div>
+  <div style="margin-top:20px;border-top:1px solid #e5e7eb;padding-top:18px">
+    <div class="section-head"><h3 style="margin:0">Comparativo financiero por expedición</h3><span class="pill">MXN · datos registrados</span></div>
+    <p class="hint">Ventas reservadas, cobros, saldos y gastos efectivamente registrados. El flujo neto no representa utilidad ni incluye costos pendientes de pagar.</p>
+    <div id="executiveExpeditionCards" class="record-mobile-list" aria-live="polite"></div>
+    <div class="table-wrap record-desktop-table">
+      <table class="dash-table">
+        <thead><tr><th>Expedición</th><th>Viajeros</th><th>Ocupación</th><th>Reservado</th><th>Cobrado</th><th>Por cobrar</th><th>Gastos registrados</th><th>Flujo neto</th></tr></thead>
+        <tbody id="executiveExpeditionRows"><tr><td colspan="8">Consultando expediciones...</td></tr></tbody>
+      </table>
+    </div>
   </div>
   <p id="executiveNote" class="executive-note" role="status">Esperando datos de Supabase.</p>
 </div>
@@ -1418,6 +1429,44 @@
           `${v.count} reserva(s) · ${v.travelers} viajeros · ${mxn(v.value)}`);
       }
       if(!agencyTotals.size)agenciesBox.textContent='No hay reservas activas de agencias para este filtro.';
+      // Comparativo por expedición: solo lectura, sin alterar los registros.
+      const comparisonRows=fEl('executiveExpeditionRows');
+      const comparisonCards=fEl('executiveExpeditionCards');
+      comparisonRows.replaceChildren();comparisonCards.replaceChildren();
+      const visibleExpeditions=expeditions.filter(e=>!selected||e.id===selected);
+      for(const e of visibleExpeditions){
+        const eb=active.filter(b=>b.expedition_id===e.id);
+        const eIds=new Set(eb.map(b=>b.id));
+        const eTravelers=eb.reduce((n,b)=>n+Number(b.travelers||0),0);
+        const eReserved=eb.reduce((n,b)=>n+Number(b.travelers||0)*Number(b.unit_price_mxn||0),0);
+        const eCollected=payments.filter(p=>eIds.has(p.booking_id)).reduce((n,p)=>n+Number(p.amount_mxn||0),0);
+        const eSpent=expenses.filter(x=>x.expedition_id===e.id).reduce((n,x)=>n+Number(x.amount_mxn||0),0);
+        const ePending=Math.max(0,eReserved-eCollected);
+        const capacity=Number(e.capacity||0);
+        const occupancy=capacity>0?(100*eTravelers/capacity).toLocaleString('es-MX',{maximumFractionDigits:1})+' %':'Sin cupo';
+        const fields=[
+          e.name||'Expedición',String(eTravelers),occupancy,mxn(eReserved),
+          mxn(eCollected),mxn(ePending),mxn(eSpent),mxn(eCollected-eSpent)
+        ];
+        const tr=document.createElement('tr');
+        for(const field of fields)putCell(tr,field);
+        comparisonRows.appendChild(tr);
+        const card=document.createElement('div');
+        card.className='finance-mobile-card';
+        const heading=document.createElement('h3');heading.textContent=fields[0];card.appendChild(heading);
+        const dl=document.createElement('dl');
+        const labels=['Viajeros','Ocupación','Valor reservado','Cobrado','Por cobrar','Gastos registrados','Flujo neto (no utilidad)'];
+        for(let i=0;i<labels.length;i++){
+          const group=document.createElement('div'),dt=document.createElement('dt'),dd=document.createElement('dd');
+          dt.textContent=labels[i];dd.textContent=fields[i+1];group.append(dt,dd);dl.appendChild(group);
+        }
+        card.appendChild(dl);comparisonCards.appendChild(card);
+      }
+      if(!visibleExpeditions.length){
+        const tr=document.createElement('tr'),td=document.createElement('td');
+        td.colSpan=8;td.textContent='No hay expediciones registradas.';tr.appendChild(td);comparisonRows.appendChild(tr);
+        comparisonCards.textContent='No hay expediciones registradas.';
+      }
       fEl('executiveNote').textContent=(partial?'ATENCIÓN: alguna consulta alcanzó 1,000 registros; las cifras podrían ser parciales. ':'')+(conflicts?`${conflicts} reserva(s) tienen un canal distinto al del prospecto; se clasifican por el origen del prospecto. Revisa los registros antes de producción. `:'')+(unidentified?`${unidentified} reserva(s) de agencia sin nombre identificable. `:'')+'ATENCIÓN: el panel ejecutivo aún mezcla reservas de prueba y reales; los gastos no tienen clasificación verificada. No usar como reporte real. Los cobros corresponden a reservas activas. Los pagos de reservas canceladas quedan fuera de esta vista; revisa Finanzas para conciliarlos. El flujo neto no es utilidad. Ocupación = viajeros reservados / capacidad.';
     }
     fEl('executiveExpedition').addEventListener('change',drawExecutive);
