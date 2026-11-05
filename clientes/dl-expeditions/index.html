@@ -247,6 +247,19 @@
 .commission-item strong{display:block;font-size:13px;overflow-wrap:anywhere}
 .commission-summary{margin-top:14px;padding:12px;background:white;border-radius:10px;border:1px solid #ead9cc;line-height:1.7;font-size:13px}
 @media(max-width:650px){.channel-desktop-wrap{display:none}.channel-mobile-list{display:grid;gap:12px;margin-top:15px}}
+
+.client-history{margin-top:12px;border:1px solid #ead6c7;border-radius:12px;background:#fffaf6;min-width:0}
+.client-history summary{cursor:pointer;padding:12px 14px;font-weight:700;color:#8a4b29}
+.client-history-body{padding:0 12px 12px}
+.client-history-booking{padding:12px 0;border-top:1px solid #ead6c7}
+.client-history-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}
+.client-history-grid div{min-width:0;overflow-wrap:anywhere}
+.client-history-grid small{display:block;color:#68737a;margin-bottom:3px}
+.client-history-grid strong{display:block;font-size:14px}
+.client-history-payment-title{font-weight:700;margin:12px 0 6px}
+.client-history-payments{padding-left:18px;margin:0;overflow-wrap:anywhere}
+.client-history-payments li{margin-bottom:5px}
+.client-desktop-table .client-history{min-width:220px}
 </style>
 </head>
 <body>
@@ -298,7 +311,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 22 · Clientes</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 23 · Historial de clientes</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -492,6 +505,7 @@
 <input id="clientSearch" type="search" placeholder="Buscar cliente" autocomplete="off"></label>
 <p id="clientStatus" class="hint" role="status">Abre esta sección para consultar los datos.</p>
 <div id="clientMobileList" class="client-mobile-list" aria-label="Historial de clientes"></div><div class="table-wrap client-desktop-table"><table class="dash-table"><thead><tr><th>Cliente / ID</th><th>Reservas</th><th>Viajeros reservados</th><th>Valor reservado (MXN)</th><th>Pagos asociados (MXN)</th><th>Saldo estimado (MXN)</th><th>Expediciones y estados</th></tr></thead><tbody id="clientRows"><tr><td colspan="7">Sin cargar</td></tr></tbody></table></div>
+<p class="hint">Abre «Ver historial» en cada ficha para consultar reservas, pagos y saldos por expedición. Las reservas canceladas aparecen separadas y no se incluyen en el valor reservado activo.</p>
 <p class="hint">El saldo es una estimación operativa sobre reservas no canceladas; no es una conciliación bancaria. Los importes se basan en registros accesibles para tu usuario. No se permite editar desde esta vista.</p>
 </div></section>
         <section class="page" data-section="cotizador">
@@ -1572,8 +1586,32 @@
       catch(err){fEl('expenseStatus').textContent='No se pudo guardar el gasto: '+err.message;}finally{btn.disabled=false;}
     });
 
-    // Clientes v22: identidad estable. No se crean clientes automáticamente desde reservas.
+    // Clientes v23: historial individual, consulta de solo lectura; identidad estable por UUID.
     let clientViewRows=[];
+    const clientDate=v=>{if(!v)return 'Sin fecha';const d=new Date(v);return Number.isNaN(d.getTime())?'Sin fecha':d.toLocaleDateString('es-MX');};
+    const clientStatusLabel=v=>({cancelled:'Cancelada',deposit:'Con anticipo',pending:'Pendiente',confirmed:'Confirmada',paid:'Pagada'}[v]||v||'Sin estado');
+    function clientHistoryElement(x){
+      const details=document.createElement('details');details.className='client-history';
+      const summary=document.createElement('summary');summary.textContent=`Ver historial · ${x.bookings.length} reserva(s)`;details.appendChild(summary);
+      const area=document.createElement('div');area.className='client-history-body';
+      const contact=document.createElement('p');contact.className='hint';contact.textContent='Teléfono: '+(x.phone||'Sin registrar')+' · Correo: '+(x.email||'Sin registrar');area.appendChild(contact);
+      if(!x.bookings.length){const empty=document.createElement('p');empty.textContent='Este cliente todavía no tiene reservas vinculadas.';area.appendChild(empty);}
+      for(const b of x.bookings){
+        const cancelled=b.status==='cancelled';
+        const section=document.createElement('section');section.className='client-history-booking';
+        const heading=document.createElement('strong');heading.textContent=b.expedition+' · '+clientStatusLabel(b.status);section.appendChild(heading);
+        const grid=document.createElement('div');grid.className='client-history-grid';
+        const entries=[['Registro',clientDate(b.created_at)],['Viajeros',b.travelers],['Precio por viajero',mxn(b.unit_price_mxn)],['Total de reserva',mxn(b.total)],['Pagos registrados',mxn(b.paid)],['Saldo calculado',cancelled?'No aplica (cancelada)':mxn(Math.max(0,b.total-b.paid))]];
+        for(const [key,value] of entries){const item=document.createElement('div');const k=document.createElement('small');k.textContent=key;const v=document.createElement('strong');v.textContent=String(value);item.append(k,v);grid.appendChild(item);}
+        section.appendChild(grid);
+        const payTitle=document.createElement('p');payTitle.className='client-history-payment-title';payTitle.textContent='Movimientos de pago';section.appendChild(payTitle);
+        if(!b.payments.length){const no=document.createElement('p');no.className='hint';no.textContent='No hay pagos registrados en esta reserva.';section.appendChild(no);}
+        else {const list=document.createElement('ul');list.className='client-history-payments';for(const pay of b.payments){const li=document.createElement('li');li.textContent=clientDate(pay.paid_at)+' · '+mxn(pay.amount_mxn)+' · '+(financePaymentMethods[pay.payment_method]||pay.payment_method||'Método sin registrar')+(pay.payment_number?' · Pago #'+pay.payment_number:'');list.appendChild(li);}section.appendChild(list);}
+        if(cancelled&&b.paid>0){const notice=document.createElement('p');notice.className='hint';notice.textContent='Reserva cancelada con pagos registrados: revisar reembolso o aplicación del saldo; no se asume devolución automática.';section.appendChild(notice);}
+        area.appendChild(section);
+      }
+      details.appendChild(area);return details;
+    }
     function drawClients(){
       const term=document.querySelector('#clientSearch').value.trim().toLocaleLowerCase('es');
       const body=document.querySelector('#clientRows'),mobile=document.querySelector('#clientMobileList');
@@ -1581,8 +1619,8 @@
       const filtered=clientViewRows.filter(x=>x.search.includes(term));
       for(const x of filtered){
         const tr=document.createElement('tr');
-        for(const v of [x.label,x.reservations,x.travelers,mxn(x.value),mxn(x.paid),mxn(Math.max(0,x.value-x.paid)),x.detail])putCell(tr,v);
-        body.appendChild(tr);
+        for(const v of [x.label,x.reservations,x.travelers,mxn(x.value),mxn(x.paid),mxn(Math.max(0,x.value-x.paid))])putCell(tr,v);
+        const td=document.createElement('td');td.appendChild(clientHistoryElement(x));tr.appendChild(td);body.appendChild(tr);
         const card=document.createElement('article');card.className='client-mobile-card';
         const heading=document.createElement('h3');heading.textContent=x.label;card.appendChild(heading);
         const fields=document.createElement('div');fields.className='client-mobile-fields';
@@ -1592,39 +1630,40 @@
           const strong=document.createElement('strong');strong.textContent=String(value);
           field.append(small,strong);fields.appendChild(field);
         }
-        card.appendChild(fields);
-        const detail=document.createElement('div');detail.className='client-mobile-detail';detail.textContent='Expediciones: '+x.detail;
-        card.appendChild(detail);mobile.appendChild(card);
+        card.appendChild(fields);card.appendChild(clientHistoryElement(x));mobile.appendChild(card);
       }
       if(!filtered.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.textContent='Sin resultados.';tr.appendChild(td);body.appendChild(tr);}
     }
     document.querySelector('#clientSearch').addEventListener('input',drawClients);
     async function loadClients(){
-      const status=document.querySelector('#clientStatus');status.textContent='Consultando fichas de clientes...';
+      const status=document.querySelector('#clientStatus');status.textContent='Consultando fichas e historial de clientes...';
       document.querySelector('#customerMasterForm').hidden=currentRole!=='admin';
       const [customers,books,pays,exps]=await Promise.all([
         supabase.from('customers').select('id,customer_number,full_name,phone,email').order('customer_number', { ascending: true }).limit(1000),
-        supabase.from('bookings').select('id,customer_id,expedition_id,travelers,unit_price_mxn,status').limit(1000),
-        supabase.from('payments').select('booking_id,amount_mxn').limit(5000),
+        supabase.from('bookings').select('id,customer_id,expedition_id,travelers,unit_price_mxn,status,created_at').limit(1000),
+        supabase.from('payments').select('id,booking_id,amount_mxn,paid_at,payment_method,payment_number').limit(5000),
         supabase.from('expeditions').select('id,name').limit(1000)
       ]);
       const error=customers.error||books.error||pays.error||exps.error;
       if(error){status.textContent='No se pudo consultar Clientes: '+error.message;return;}
       const expNames=new Map((exps.data||[]).map(x=>[x.id,x.name]));
       const payments=new Map();
-      for(const p of pays.data||[])payments.set(p.booking_id,(payments.get(p.booking_id)||0)+Number(p.amount_mxn||0));
+      for(const p of pays.data||[]){if(!payments.has(p.booking_id))payments.set(p.booking_id,[]);payments.get(p.booking_id).push(p);}
       const grouped=new Map();
-      for(const c of customers.data||[])grouped.set(c.id,{customerNumber:Number(c.customer_number),label:`#${c.customer_number} · ${c.full_name}`,search:[c.full_name,c.customer_number,c.phone,c.email].filter(Boolean).join(' ').toLocaleLowerCase('es'),reservations:0,travelers:0,value:0,paid:0,details:[]});
+      for(const c of customers.data||[])grouped.set(c.id,{customerNumber:Number(c.customer_number),label:`#${c.customer_number} · ${c.full_name}`,phone:c.phone,email:c.email,search:[c.full_name,c.customer_number,c.phone,c.email].filter(Boolean).join(' ').toLocaleLowerCase('es'),reservations:0,travelers:0,value:0,paid:0,bookings:[]});
       let unlinked=0;
       for(const b of books.data||[]){
         if(!b.customer_id||!grouped.has(b.customer_id)){unlinked++;continue;}
-        const x=grouped.get(b.customer_id);
-        if(b.status!=='cancelled'){x.reservations++;x.travelers+=Number(b.travelers||0);x.value+=Number(b.travelers||0)*Number(b.unit_price_mxn||0);x.paid+=payments.get(b.id)||0;}
-        x.details.push((expNames.get(b.expedition_id)||'Expedición')+' ('+(b.status||'sin estado')+')');
+        const x=grouped.get(b.customer_id),bp=payments.get(b.id)||[];
+        const total=Number(b.travelers||0)*Number(b.unit_price_mxn||0);
+        const paid=bp.reduce((sum,p)=>sum+Number(p.amount_mxn||0),0);
+        x.bookings.push({...b,expedition:expNames.get(b.expedition_id)||'Expedición',total,paid,payments:bp.sort((a,b)=>new Date(a.paid_at||0)-new Date(b.paid_at||0))});
+        if(b.status!=='cancelled'){x.reservations++;x.travelers+=Number(b.travelers||0);x.value+=total;x.paid+=paid;}
       }
-      clientViewRows=[...grouped.values()].map(x=>({...x,detail:x.details.join(' · ')||'Sin reservas vinculadas'})).sort((a,b)=>a.customerNumber-b.customerNumber);
+      clientViewRows=[...grouped.values()].sort((a,b)=>a.customerNumber-b.customerNumber);
+      for(const x of clientViewRows)x.bookings.sort((a,b)=>new Date(b.created_at||0)-new Date(a.created_at||0));
       document.querySelector('#clientCount').textContent=clientViewRows.length+' cliente(s)';
-      status.textContent=`${unlinked} reserva(s) históricas aún sin ID de cliente. No se vinculan automáticamente por nombre para evitar unir personas distintas. Consulta limitada a 1,000 clientes y reservas.`;
+      status.textContent=`${unlinked} reserva(s) históricas aún sin ID de cliente. No se vinculan automáticamente por nombre para evitar unir personas distintas. Consultas limitadas a 1,000 clientes y reservas y 5,000 pagos.`;
       drawClients();
     }
     document.querySelector('#customerMasterForm').addEventListener('submit',async e=>{
