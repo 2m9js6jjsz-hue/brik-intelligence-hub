@@ -311,7 +311,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 24 · Cuentas por cobrar</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 25 · Pruebas y reales</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -332,9 +332,9 @@
   <div class="dash-stat"><small>Prospectos</small><strong id="homeProspects">—</strong><span id="homeProspectsNote">Consultando Supabase</span></div>
   <div class="dash-stat"><small>Reservas activas</small><strong id="homeBookings">—</strong><span id="homeBookingsNote">Consultando Supabase</span></div>
   <div class="dash-stat"><small>Ingresos cobrados</small><strong id="homeReceived">—</strong><span>MXN · Pagos registrados</span></div>
-  <div class="dash-stat"><small>Gastos registrados</small><strong id="homeSpent">—</strong><span>MXN · Gastos registrados</span></div>
-  <div class="dash-stat"><small>Flujo neto registrado</small><strong id="homeNet">—</strong><span>MXN · Cobros menos gastos; no es utilidad</span></div>
-  <div class="dash-stat"><small>Saldo por cobrar</small><strong id="homeOutstanding">—</strong><span>MXN · Reservas activas menos pagos</span></div>
+  <div class="dash-stat"><small>Gastos registrados · sin clasificación</small><strong id="homeSpent">—</strong><span>MXN · Gastos registrados</span></div>
+  <div class="dash-stat"><small>Flujo neto · mixto, no validado</small><strong id="homeNet">—</strong><span>MXN · Cobros menos gastos; no es utilidad</span></div>
+  <div class="dash-stat"><small>Saldo por cobrar · pruebas + reales</small><strong id="homeOutstanding">—</strong><span>MXN · Reservas activas menos pagos</span></div>
 </div>
 <div class="dash-panel" style="margin-top:17px"><div class="section-head"><h2>Seguimiento de cobros</h2><span class="pill">Reservas activas · MXN</span></div><div id="homeCollectionSummary" class="dash-grid" style="grid-template-columns:repeat(auto-fit,minmax(140px,1fr));margin-bottom:16px"></div><div id="homeCollectionList" class="table-wrap"><p class="hint">Consultando vencimientos...</p></div></div>
  <div class="dash-panels">
@@ -420,15 +420,15 @@
         </div></section>
         <section class="page" data-section="finanzas">
           <div class="dash-grid">
-            <div class="dash-stat"><small>Pagos recibidos</small><strong id="fReceived">—</strong><span>MXN · Cobros registrados</span></div>
-            <div class="dash-stat"><small>Gastos registrados</small><strong id="fSpent">—</strong><span>MXN · Egresos registrados</span></div>
-            <div class="dash-stat"><small>Flujo neto registrado</small><strong id="fNet">—</strong><span>MXN · Cobros menos gastos; no es utilidad</span></div>
-            <div class="dash-stat"><small>Saldo por cobrar</small><strong id="fOutstanding">—</strong><span>MXN · Reservas no canceladas, menos pagos</span></div>
+            <div class="dash-stat"><small>Pagos recibidos · pruebas + reales</small><strong id="fReceived">—</strong><span>MXN · Cobros registrados</span></div>
+            <div class="dash-stat"><small>Gastos registrados · sin clasificación</small><strong id="fSpent">—</strong><span>MXN · Egresos registrados</span></div>
+            <div class="dash-stat"><small>Flujo neto · mixto, no validado</small><strong id="fNet">—</strong><span>MXN · Cobros menos gastos; no es utilidad</span></div>
+            <div class="dash-stat"><small>Saldo por cobrar · pruebas + reales</small><strong id="fOutstanding">—</strong><span>MXN · Reservas no canceladas, menos pagos</span></div>
           </div>
           <div class="dash-panel" style="margin:18px 0">
-            <div class="section-head"><h2>Cuentas por cobrar · por reserva</h2><span class="pill">Versión 24</span></div>
+            <div class="section-head"><h2>Cuentas por cobrar · por reserva</h2><span class="pill">Versión 25</span></div>
             <p class="hint">Diferencia entre el valor de las reservas activas y los pagos registrados. Las reservas canceladas no se incluyen. Las fechas corresponden al próximo pago indicado en la reserva; si no hay fecha, se muestra «Sin definir». No equivale a conciliación bancaria.</p>
-            <div class="executive-toolbar"><label>Mostrar<select id="receivableFilter"><option value="all">Todas las pendientes</option><option value="overdue">Con fecha vencida</option><option value="next">Próximos 30 días</option><option value="undated">Sin fecha definida</option></select></label><button type="button" id="receivableRefresh" style="width:auto;margin:0;padding:12px 16px">Actualizar</button></div>
+            <div class="finance-balance-preview" role="note" style="margin:12px 0">Los datos de prueba se mantienen en Supabase, pero se consultan por separado. Los gastos aún no están clasificados como prueba o real; no utilices el flujo neto ni la rentabilidad como cifras reales.</div><div class="executive-toolbar"><label>Datos<select id="receivableEnvironment"><option value="real">Operaciones reales</option><option value="test">Operaciones de prueba</option></select></label><label>Mostrar<select id="receivableFilter"><option value="all">Todas las pendientes</option><option value="overdue">Con fecha vencida</option><option value="next">Próximos 30 días</option><option value="undated">Sin fecha definida</option></select></label><button type="button" id="receivableRefresh" style="width:auto;margin:0;padding:12px 16px">Actualizar</button></div>
             <div id="receivableSummary" class="finance-balance-preview" role="status">Consulta Finanzas para ver las cuentas por cobrar.</div>
             <div id="receivableCards" class="record-mobile-list" style="display:grid;gap:12px;margin-top:14px"></div>
           </div>
@@ -1136,7 +1136,7 @@
         supabase.from('expeditions').select('id,name,public_price_mxn').order('name'),
         supabase.from('prospects').select('id,alias,expedition_id,channel,agency_id').order('created_at',{ascending:false}).limit(500),
         supabase.from('agencies').select('*').limit(500),
-        supabase.from('bookings').select('id,expedition_id,prospect_id,customer_id,customer_name,channel,agency_id,travelers,unit_price_mxn,status,next_payment_due_on,created_at').order('created_at',{ascending:false}).limit(500),
+        supabase.from('bookings').select('id,expedition_id,prospect_id,customer_id,customer_name,channel,agency_id,travelers,unit_price_mxn,status,next_payment_due_on,is_test,created_at').order('created_at',{ascending:false}).limit(500),
         supabase.from('payments').select('booking_id,amount_mxn').limit(5000),
         supabase.from('customers').select('id,customer_number,full_name,phone,email').order('customer_number', { ascending: true }).limit(1000)
       ]);
@@ -1418,7 +1418,7 @@
           `${v.count} reserva(s) · ${v.travelers} viajeros · ${mxn(v.value)}`);
       }
       if(!agencyTotals.size)agenciesBox.textContent='No hay reservas activas de agencias para este filtro.';
-      fEl('executiveNote').textContent=(partial?'ATENCIÓN: alguna consulta alcanzó 1,000 registros; las cifras podrían ser parciales. ':'')+(conflicts?`${conflicts} reserva(s) tienen un canal distinto al del prospecto; se clasifican por el origen del prospecto. Revisa los registros antes de producción. `:'')+(unidentified?`${unidentified} reserva(s) de agencia sin nombre identificable. `:'')+'Los cobros corresponden a reservas activas. Los pagos de reservas canceladas quedan fuera de esta vista; revisa Finanzas para conciliarlos. El flujo neto no es utilidad. Ocupación = viajeros reservados / capacidad.';
+      fEl('executiveNote').textContent=(partial?'ATENCIÓN: alguna consulta alcanzó 1,000 registros; las cifras podrían ser parciales. ':'')+(conflicts?`${conflicts} reserva(s) tienen un canal distinto al del prospecto; se clasifican por el origen del prospecto. Revisa los registros antes de producción. `:'')+(unidentified?`${unidentified} reserva(s) de agencia sin nombre identificable. `:'')+'ATENCIÓN: el panel ejecutivo aún mezcla reservas de prueba y reales; los gastos no tienen clasificación verificada. No usar como reporte real. Los cobros corresponden a reservas activas. Los pagos de reservas canceladas quedan fuera de esta vista; revisa Finanzas para conciliarlos. El flujo neto no es utilidad. Ocupación = viajeros reservados / capacidad.';
     }
     fEl('executiveExpedition').addEventListener('change',drawExecutive);
     function updateExecutive(bookings,payments,expenses){
@@ -1456,7 +1456,7 @@
       const commercial=fEl('homeCommercial');commercial.replaceChildren();
       const rows=[['Reservas activas',active.length],['Viajeros en reservas activas',active.reduce((a,b)=>a+Number(b.travelers),0)],['Reservas con anticipo',bookings.filter(b=>b.status==='deposit').length],['Reservas canceladas',bookings.filter(b=>b.status==='cancelled').length],['Pagos registrados',payments.length],['Gastos registrados',expenses.length]];
       for(const [label,value] of rows){const row=document.createElement('div');row.className='dash-row';const left=document.createElement('span'),right=document.createElement('b');left.textContent=label;right.textContent=String(value);row.append(left,right);commercial.appendChild(row);}
-      fEl('homeDataNote').textContent='Datos de Supabase · '+year+'. El flujo neto es cobros menos gastos registrados, no utilidad contable. Las cifras dependen de los permisos y de los límites de consulta.';
+      fEl('homeDataNote').textContent='ATENCIÓN: indicadores combinan pruebas y reales; los gastos no están clasificados. Datos de Supabase · '+year+'. El flujo neto es cobros menos gastos registrados, no utilidad contable. Las cifras dependen de los permisos y de los límites de consulta.';
     }
     let editingExpenseId=null;
     let financeExpenses=new Map();
@@ -1490,22 +1490,24 @@
       if(!host||!summary)return;
       host.replaceChildren();
       const mode=document.getElementById('receivableFilter').value;
+      const env=document.getElementById('receivableEnvironment').value;
       const now=new Date();now.setHours(0,0,0,0);
       const today=now.toISOString().slice(0,10);
       const next=new Date(now);next.setDate(next.getDate()+30);const nextDay=next.toISOString().slice(0,10);
-      const rows=receivableSnapshot.filter(x=>mode==='all'||(mode==='overdue'&&x.due&&x.due<today)||(mode==='next'&&x.due&&x.due>=today&&x.due<=nextDay)||(mode==='undated'&&!x.due));
+      const rows=receivableSnapshot.filter(x=>(env==='test'?x.is_test===true:x.is_test===false)&&(mode==='all'||(mode==='overdue'&&x.due&&x.due<today)||(mode==='next'&&x.due&&x.due>=today&&x.due<=nextDay)||(mode==='undated'&&!x.due)));
       const money=rows.reduce((a,x)=>a+x.balance,0);
-      summary.textContent=rows.length+' reserva(s) con saldo pendiente · '+mxn(money)+' por cobrar'+(receivableSnapshot.length!==rows.length?' · filtro aplicado':'');
+      summary.textContent=(env==='test'?'PRUEBAS · ':'REALES · ')+rows.length+' reserva(s) con saldo pendiente · '+mxn(money)+' por cobrar'+(receivableSnapshot.length!==rows.length?' · filtro aplicado':'');
       if(!rows.length){const p=document.createElement('p');p.className='hint';p.textContent='No hay cuentas por cobrar para este filtro.';host.append(p);return;}
       for(const x of rows){
         const card=document.createElement('div');card.className='dash-panel';card.style.margin='0';
         const title=document.createElement('h3');title.textContent=x.client+' · '+x.expedition;card.append(title);
-        const data=[['Reserva',x.id.slice(0,8)],['Viajeros',String(x.travelers)],['Valor reservado',mxn(x.total)],['Cobrado',mxn(x.paid)],['Saldo por cobrar',mxn(x.balance)],['Próximo pago',x.due||'Sin definir'],['Situación',!x.due?'Sin fecha':x.due<today?'Fecha vencida':x.due<=nextDay?'Próximos 30 días':'Programado']];
+        const data=[['Tipo',x.is_test?'PRUEBA':'REAL'],['Reserva',x.id.slice(0,8)],['Viajeros',String(x.travelers)],['Valor reservado',mxn(x.total)],['Cobrado',mxn(x.paid)],['Saldo por cobrar',mxn(x.balance)],['Próximo pago',x.due||'Sin definir'],['Situación',!x.due?'Sin fecha':x.due<today?'Fecha vencida':x.due<=nextDay?'Próximos 30 días':'Programado']];
         for(const [k,v] of data){const r=document.createElement('div');r.className='dash-row';const a=document.createElement('span');a.textContent=k;const b=document.createElement('b');b.textContent=v;r.append(a,b);card.append(r);}
         host.append(card);
       }
     }
     document.getElementById('receivableFilter').addEventListener('change',renderReceivables);
+    document.getElementById('receivableEnvironment').addEventListener('change',renderReceivables);
     document.getElementById('receivableRefresh').addEventListener('click',()=>loadFinances());
     function updateReceivables(bookings,payments){
       const paid=new Map();for(const p of payments){paid.set(p.booking_id,(paid.get(p.booking_id)||0)+Number(p.amount_mxn||0));}
@@ -1513,7 +1515,7 @@
       for(const b of bookings){if(b.status==='cancelled')continue;
         const total=Number(b.travelers||0)*Number(b.unit_price_mxn||0),received=paid.get(b.id)||0,balance=Math.max(0,total-received);
         if(balance<=0.005)continue;
-        receivableSnapshot.push({id:b.id,client:financeProspects.get(b.prospect_id)?.alias||b.customer_name||'Cliente sin identificar',expedition:financeExpeditions.get(b.expedition_id)?.name||'Expedición sin identificar',travelers:b.travelers,total,paid:received,balance,due:b.next_payment_due_on||''});
+        receivableSnapshot.push({id:b.id,client:financeProspects.get(b.prospect_id)?.alias||b.customer_name||'Cliente sin identificar',expedition:financeExpeditions.get(b.expedition_id)?.name||'Expedición sin identificar',travelers:b.travelers,total,paid:received,balance,due:b.next_payment_due_on||'',is_test:b.is_test===true});
       }
       receivableSnapshot.sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||a.client.localeCompare(b.client,'es'));
       renderReceivables();
@@ -1523,7 +1525,7 @@
       fEl('paymentStatus').textContent='Cargando pagos...';fEl('expenseStatus').textContent='Cargando gastos...';
       const [er,br,pr,xr,prospectResult,agencyResult]=await Promise.all([
         supabase.from('expeditions').select('id,name,capacity').order('name'),
-        supabase.from('bookings').select('id,expedition_id,prospect_id,customer_name,channel,agency_id,travelers,unit_price_mxn,status,next_payment_due_on,created_at').order('created_at',{ascending:false}).limit(1000),
+        supabase.from('bookings').select('id,expedition_id,prospect_id,customer_name,channel,agency_id,travelers,unit_price_mxn,status,next_payment_due_on,is_test,created_at').order('created_at',{ascending:false}).limit(1000),
         supabase.from('payments').select('id,booking_id,amount_mxn,paid_at,payment_method,payment_number,created_at').order('paid_at',{ascending:false}).limit(1000),
         supabase.from('expenses').select('id,expedition_id,amount_mxn,spent_at,category,description,created_at').order('spent_at',{ascending:false}).limit(1000),
         supabase.from('prospects').select('id,alias,channel,agency_id').limit(1000),
