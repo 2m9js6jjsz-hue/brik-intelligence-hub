@@ -311,7 +311,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 23 · Historial de clientes</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 24 · Cuentas por cobrar</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -424,6 +424,13 @@
             <div class="dash-stat"><small>Gastos registrados</small><strong id="fSpent">—</strong><span>MXN · Egresos registrados</span></div>
             <div class="dash-stat"><small>Flujo neto registrado</small><strong id="fNet">—</strong><span>MXN · Cobros menos gastos; no es utilidad</span></div>
             <div class="dash-stat"><small>Saldo por cobrar</small><strong id="fOutstanding">—</strong><span>MXN · Reservas no canceladas, menos pagos</span></div>
+          </div>
+          <div class="dash-panel" style="margin:18px 0">
+            <div class="section-head"><h2>Cuentas por cobrar · por reserva</h2><span class="pill">Versión 24</span></div>
+            <p class="hint">Diferencia entre el valor de las reservas activas y los pagos registrados. Las reservas canceladas no se incluyen. Las fechas corresponden al próximo pago indicado en la reserva; si no hay fecha, se muestra «Sin definir». No equivale a conciliación bancaria.</p>
+            <div class="executive-toolbar"><label>Mostrar<select id="receivableFilter"><option value="all">Todas las pendientes</option><option value="overdue">Con fecha vencida</option><option value="next">Próximos 30 días</option><option value="undated">Sin fecha definida</option></select></label><button type="button" id="receivableRefresh" style="width:auto;margin:0;padding:12px 16px">Actualizar</button></div>
+            <div id="receivableSummary" class="finance-balance-preview" role="status">Consulta Finanzas para ver las cuentas por cobrar.</div>
+            <div id="receivableCards" class="record-mobile-list" style="display:grid;gap:12px;margin-top:14px"></div>
           </div>
           <div class="finance-panels">
             <div class="dash-panel"><h2>Registrar pago recibido</h2><p>El número se asigna automáticamente por reserva (Pago #1, Pago #2…). También puedes registrar un <strong>pago sin cobro programado</strong>. Si hay cobros programados pendientes, el sistema aplica automáticamente el dinero recibido, primero al cobro seleccionado y después por fecha. No se duplica el ingreso.</p>
@@ -1477,6 +1484,40 @@
     fEl('cancelExpenseEdit').addEventListener('click',()=>{
       resetExpenseEditor();fEl('expenseStatus').textContent='Edición cancelada.';
     });
+    let receivableSnapshot=[];
+    function renderReceivables(){
+      const host=document.getElementById('receivableCards'),summary=document.getElementById('receivableSummary');
+      if(!host||!summary)return;
+      host.replaceChildren();
+      const mode=document.getElementById('receivableFilter').value;
+      const now=new Date();now.setHours(0,0,0,0);
+      const today=now.toISOString().slice(0,10);
+      const next=new Date(now);next.setDate(next.getDate()+30);const nextDay=next.toISOString().slice(0,10);
+      const rows=receivableSnapshot.filter(x=>mode==='all'||(mode==='overdue'&&x.due&&x.due<today)||(mode==='next'&&x.due&&x.due>=today&&x.due<=nextDay)||(mode==='undated'&&!x.due));
+      const money=rows.reduce((a,x)=>a+x.balance,0);
+      summary.textContent=rows.length+' reserva(s) con saldo pendiente · '+mxn(money)+' por cobrar'+(receivableSnapshot.length!==rows.length?' · filtro aplicado':'');
+      if(!rows.length){const p=document.createElement('p');p.className='hint';p.textContent='No hay cuentas por cobrar para este filtro.';host.append(p);return;}
+      for(const x of rows){
+        const card=document.createElement('div');card.className='dash-panel';card.style.margin='0';
+        const title=document.createElement('h3');title.textContent=x.client+' · '+x.expedition;card.append(title);
+        const data=[['Reserva',x.id.slice(0,8)],['Viajeros',String(x.travelers)],['Valor reservado',mxn(x.total)],['Cobrado',mxn(x.paid)],['Saldo por cobrar',mxn(x.balance)],['Próximo pago',x.due||'Sin definir'],['Situación',!x.due?'Sin fecha':x.due<today?'Fecha vencida':x.due<=nextDay?'Próximos 30 días':'Programado']];
+        for(const [k,v] of data){const r=document.createElement('div');r.className='dash-row';const a=document.createElement('span');a.textContent=k;const b=document.createElement('b');b.textContent=v;r.append(a,b);card.append(r);}
+        host.append(card);
+      }
+    }
+    document.getElementById('receivableFilter').addEventListener('change',renderReceivables);
+    document.getElementById('receivableRefresh').addEventListener('click',()=>loadFinances());
+    function updateReceivables(bookings,payments){
+      const paid=new Map();for(const p of payments){paid.set(p.booking_id,(paid.get(p.booking_id)||0)+Number(p.amount_mxn||0));}
+      receivableSnapshot=[];
+      for(const b of bookings){if(b.status==='cancelled')continue;
+        const total=Number(b.travelers||0)*Number(b.unit_price_mxn||0),received=paid.get(b.id)||0,balance=Math.max(0,total-received);
+        if(balance<=0.005)continue;
+        receivableSnapshot.push({id:b.id,client:financeProspects.get(b.prospect_id)?.alias||b.customer_name||'Cliente sin identificar',expedition:financeExpeditions.get(b.expedition_id)?.name||'Expedición sin identificar',travelers:b.travelers,total,paid:received,balance,due:b.next_payment_due_on||''});
+      }
+      receivableSnapshot.sort((a,b)=>(a.due||'9999').localeCompare(b.due||'9999')||a.client.localeCompare(b.client,'es'));
+      renderReceivables();
+    }
     async function loadFinances(){
       fEl('paymentForm').hidden=currentRole!=='admin';fEl('expenseForm').hidden=currentRole!=='admin';
       fEl('paymentStatus').textContent='Cargando pagos...';fEl('expenseStatus').textContent='Cargando gastos...';
@@ -1495,6 +1536,7 @@
       financeProspects=new Map((prospectResult.data||[]).map(x=>[x.id,x]));
       executiveAgencyNames=new Map((agencyResult.data||[]).map(x=>[x.id,x.name]));
       financeBookings=new Map((br.data||[]).map(x=>[x.id,x]));financePayments=pr.data||[];
+      updateReceivables(br.data||[],pr.data||[]);
       const pb=fEl('fBooking'),pe=fEl('fExpenseExpedition'),oldB=pb.value,oldE=pe.value;
       pb.replaceChildren(new Option('Seleccionar reserva',''));pe.replaceChildren(new Option('Seleccionar expedición',''));
       for(const b of br.data||[]){if(b.status==='cancelled')continue;const exp=financeExpeditions.get(b.expedition_id)?.name||'Expedición';const client=financeProspects.get(b.prospect_id)?.alias||b.customer_name||'Cliente sin identificar';pb.add(new Option(`${client} · ${exp} · ${b.travelers} viajero(s) · ${mxn(Number(b.travelers)*Number(b.unit_price_mxn))}`,b.id));}
