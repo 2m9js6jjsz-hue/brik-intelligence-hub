@@ -1117,7 +1117,7 @@
         supabase.from('agencies').select('*').limit(500),
         supabase.from('bookings').select('id,expedition_id,prospect_id,customer_id,customer_name,channel,agency_id,travelers,unit_price_mxn,status,next_payment_due_on,created_at').order('created_at',{ascending:false}).limit(500),
         supabase.from('payments').select('booking_id,amount_mxn').limit(5000),
-        supabase.from('customers').select('id,customer_number,full_name,phone,email').order('full_name').limit(1000)
+        supabase.from('customers').select('id,customer_number,full_name,phone,email').order('customer_number', { ascending: true }).limit(1000)
       ]);
       const error=expRes.error||proRes.error||agencyRes.error||bookingRes.error||bookingPaymentsRes.error||customerRes.error;
       if(error){bookingError(error);return;}
@@ -1603,7 +1603,7 @@
       const status=document.querySelector('#clientStatus');status.textContent='Consultando fichas de clientes...';
       document.querySelector('#customerMasterForm').hidden=currentRole!=='admin';
       const [customers,books,pays,exps]=await Promise.all([
-        supabase.from('customers').select('id,customer_number,full_name,phone,email').order('full_name').limit(1000),
+        supabase.from('customers').select('id,customer_number,full_name,phone,email').order('customer_number', { ascending: true }).limit(1000),
         supabase.from('bookings').select('id,customer_id,expedition_id,travelers,unit_price_mxn,status').limit(1000),
         supabase.from('payments').select('booking_id,amount_mxn').limit(5000),
         supabase.from('expeditions').select('id,name').limit(1000)
@@ -1614,7 +1614,7 @@
       const payments=new Map();
       for(const p of pays.data||[])payments.set(p.booking_id,(payments.get(p.booking_id)||0)+Number(p.amount_mxn||0));
       const grouped=new Map();
-      for(const c of customers.data||[])grouped.set(c.id,{label:`${c.full_name} · #${c.customer_number}`,search:[c.full_name,c.customer_number,c.phone,c.email].filter(Boolean).join(' ').toLocaleLowerCase('es'),reservations:0,travelers:0,value:0,paid:0,details:[]});
+      for(const c of customers.data||[])grouped.set(c.id,{customerNumber:Number(c.customer_number),label:`#${c.customer_number} · ${c.full_name}`,search:[c.full_name,c.customer_number,c.phone,c.email].filter(Boolean).join(' ').toLocaleLowerCase('es'),reservations:0,travelers:0,value:0,paid:0,details:[]});
       let unlinked=0;
       for(const b of books.data||[]){
         if(!b.customer_id||!grouped.has(b.customer_id)){unlinked++;continue;}
@@ -1622,7 +1622,7 @@
         if(b.status!=='cancelled'){x.reservations++;x.travelers+=Number(b.travelers||0);x.value+=Number(b.travelers||0)*Number(b.unit_price_mxn||0);x.paid+=payments.get(b.id)||0;}
         x.details.push((expNames.get(b.expedition_id)||'Expedición')+' ('+(b.status||'sin estado')+')');
       }
-      clientViewRows=[...grouped.values()].map(x=>({...x,detail:x.details.join(' · ')||'Sin reservas vinculadas'}));
+      clientViewRows=[...grouped.values()].map(x=>({...x,detail:x.details.join(' · ')||'Sin reservas vinculadas'})).sort((a,b)=>a.customerNumber-b.customerNumber);
       document.querySelector('#clientCount').textContent=clientViewRows.length+' cliente(s)';
       status.textContent=`${unlinked} reserva(s) históricas aún sin ID de cliente. No se vinculan automáticamente por nombre para evitar unir personas distintas. Consulta limitada a 1,000 clientes y reservas.`;
       drawClients();
