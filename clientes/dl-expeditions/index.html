@@ -321,7 +321,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 35 · Calendario conectado</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 36 · Control de integridad</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -598,6 +598,15 @@
           </article>
         </section>
         <section class="page" data-section="reportes">
+          <div class="dash-panel" style="margin-bottom:18px">
+            <div class="section-head"><h2>Calidad y conexión de datos</h2><span class="pill">Auditoría de solo lectura</span></div>
+            <p class="hint">Comprueba relaciones entre reservas, clientes y abonos. No modifica registros ni reemplaza la conciliación bancaria. Los gastos todavía no están separados entre prueba y operación real.</p>
+            <div class="executive-toolbar"><label>Entorno de reservas<select id="auditEnvironment"><option value="real">Operaciones reales</option><option value="test">Operaciones de prueba</option><option value="all">Ambos entornos (diagnóstico)</option></select></label><button id="auditRefresh" type="button" style="width:auto;margin:0;padding:12px 16px">Verificar conexiones</button></div>
+            <p id="auditStatus" class="hint" role="status">Abre esta sección para revisar las conexiones.</p>
+            <div id="auditTotals" class="dash-grid" style="grid-template-columns:repeat(auto-fit,minmax(155px,1fr))"></div>
+            <div id="auditIssues" style="display:grid;gap:10px;margin-top:16px" aria-live="polite"></div>
+            <p class="hint">Se revisan identificadores y movimientos, no coincidencias de nombres. Los abonos se cuentan una sola vez por su ID. Si alguna consulta está incompleta o no autorizada, el resultado no se declara validado.</p>
+          </div>
           <div class="dash-panel">
             <div class="section-head"><h2>Resultados por expedición</h2><span class="pill">MXN · Datos de Supabase</span></div>
             <p>Resumen comercial y financiero por expedición. El flujo neto es cobros menos gastos registrados; no equivale a utilidad contable.</p>
@@ -1906,6 +1915,60 @@
       }catch(err){status.textContent='No se creó el cliente: '+err.message;}finally{button.disabled=false;}
     });
 
+    // v36: auditoría de lectura; no altera reservas, pagos, clientes ni calendarios.
+    async function loadDataAudit(){
+      const status=document.getElementById('auditStatus'),totals=document.getElementById('auditTotals'),issues=document.getElementById('auditIssues');
+      if(!status)return;
+      status.textContent='Comprobando relaciones en Supabase...';totals.replaceChildren();issues.replaceChildren();
+      const environment=document.getElementById('auditEnvironment').value;
+      const addMetric=(name,value)=>{const box=document.createElement('div');box.className='dash-stat';const label=document.createElement('small');label.textContent=name;const number=document.createElement('strong');number.textContent=String(value);box.append(label,number);totals.appendChild(box);};
+      const addIssue=(name,detail,critical=false)=>{const box=document.createElement('div');box.className='finance-balance-preview';box.style.background=critical?'#fff2e9':'#f7f8f7';const title=document.createElement('strong');title.textContent=name;const p=document.createElement('p');p.className='hint';p.style.margin='5px 0 0';p.textContent=detail;box.append(title,p);issues.appendChild(box);};
+      try{
+        const [br,pr,cr]=await Promise.all([
+          supabase.from('bookings').select('id,customer_id,prospect_id,expedition_id,status,travelers,unit_price_mxn,is_test').limit(1000),
+          supabase.from('payments').select('id,booking_id,amount_mxn,payment_number').limit(5000),
+          supabase.from('customers').select('id').limit(1000)
+        ]);
+        for(const result of [br,pr,cr])if(result.error)throw result.error;
+        const allBookings=br.data||[],allPayments=pr.data||[],customers=cr.data||[];
+        if(allBookings.length>=1000||allPayments.length>=5000||customers.length>=1000){
+          status.textContent='Auditoría incompleta: una consulta alcanzó su límite. No se validan los totales.';
+          addIssue('Consulta parcial','Hay que paginar los registros antes de concluir que no existen duplicados o inconsistencias.',true);return;
+        }
+        const bookings=allBookings.filter(b=>environment==='all'||(environment==='test'?b.is_test===true:b.is_test===false));
+        const ids=new Set(bookings.map(b=>String(b.id)));
+        const customerIds=new Set(customers.map(c=>String(c.id)));
+        const payments=allPayments.filter(p=>ids.has(String(p.booking_id)));
+        const byBooking=new Map();for(const p of payments){const id=String(p.booking_id);if(!byBooking.has(id))byBooking.set(id,[]);byBooking.get(id).push(p);}
+        let unlinked=0,missingCustomer=0,overpaid=0,invalidAmounts=0,duplicateNumbers=0;
+        for(const b of bookings){
+          if(b.status!=='cancelled'&&!b.customer_id)unlinked++;
+          if(b.customer_id&&!customerIds.has(String(b.customer_id)))missingCustomer++;
+          const ps=byBooking.get(String(b.id))||[];
+          const total=Number(b.travelers||0)*Number(b.unit_price_mxn||0);
+          const paid=ps.reduce((n,p)=>n+Number(p.amount_mxn||0),0);
+          if(b.status!=='cancelled'&&paid>total+0.01)overpaid++;
+          const numbers=new Set();for(const p of ps){const num=p.payment_number;if(num!=null){if(numbers.has(String(num)))duplicateNumbers++;numbers.add(String(num));}}
+        }
+        for(const p of payments)if(!Number.isFinite(Number(p.amount_mxn))||Number(p.amount_mxn)<=0)invalidAmounts++;
+        const orphanPayments=environment==='all'?allPayments.filter(p=>!new Set(allBookings.map(b=>String(b.id))).has(String(p.booking_id))).length:0;
+        addMetric('Reservas revisadas',bookings.length);addMetric('Abonos vinculados',payments.length);addMetric('Sin ficha de cliente',unlinked);addMetric('Reservas sobrepagadas',overpaid);
+        const checks=[
+          ['Reservas sin cliente vinculado',unlinked,'Las reservas activas deben relacionarse con una ficha de Clientes mediante customer_id.'],
+          ['Referencias a clientes no visibles',missingCustomer,'El cliente asociado no aparece entre los registros accesibles; revisa ID y permisos RLS.'],
+          ['Reservas con cobros mayores al total',overpaid,'Revisa anticipos duplicados, ajustes de precio o devoluciones.'],
+          ['Números de abono repetidos',duplicateNumbers,'Se repite payment_number dentro de una misma reserva.'],
+          ['Movimientos con importe no válido',invalidAmounts,'Hay pagos con importe cero, negativo o inválido.']
+        ];
+        if(environment==='all')checks.push(['Pagos sin reserva visible',orphanPayments,'Un pago no encuentra su reserva en la consulta; puede deberse a permisos RLS.']);
+        for(const [title,count,description] of checks)if(count)addIssue(title+' · '+count,description,true);
+        if(!checks.some(c=>c[1]))addIssue('Sin alertas en las verificaciones aplicadas','No se detectaron las inconsistencias revisadas en los registros visibles. Esto no garantiza una conciliación completa.');
+        status.textContent='Revisión finalizada · '+(environment==='real'?'operaciones reales':environment==='test'?'operaciones de prueba':'ambos entornos')+'. Los datos se leen directamente de Supabase.';
+      }catch(err){status.textContent='No fue posible completar la auditoría: '+(err?.message||'Error desconocido');addIssue('Verificación pendiente','Revisa los permisos de lectura (SELECT/RLS) y vuelve a intentar.',true);}
+    }
+    document.getElementById('auditRefresh')?.addEventListener('click',()=>{if(currentRole)loadDataAudit();});
+    document.getElementById('auditEnvironment')?.addEventListener('change',()=>{if(currentRole)loadDataAudit();});
+
     // Reportes: vista agregada de solo lectura, con seguridad definida en Supabase.
     async function loadReports(){
       const status=document.getElementById('reportStatus');
@@ -2638,7 +2701,7 @@
       if(page==='calendarios'&&currentRole)loadSchedules();
       if(page==='clientes'&&currentRole)loadClients();
       if(page==='cotizador'&&currentRole)loadQuotes();
-      if(page==='reportes'&&currentRole){loadReports();loadCommercial();loadChannels();loadProfitability();loadEconomicProjection();loadOccupancyProfit();loadAlerts();}
+      if(page==='reportes'&&currentRole){loadDataAudit();loadReports();loadCommercial();loadChannels();loadProfitability();loadEconomicProjection();loadOccupancyProfit();loadAlerts();}
       closeMenu();window.scrollTo({top:0,behavior:'instant'});
     }));
 
