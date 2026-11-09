@@ -260,6 +260,16 @@
 .client-history-payments{padding-left:18px;margin:0;overflow-wrap:anywhere}
 .client-history-payments li{margin-bottom:5px}
 .client-desktop-table .client-history{min-width:220px}
+
+    /* Escenarios claros en móvil y escritorio: cada cifra tiene su etiqueta visible. */
+    .occupancy-scenario{border:1px solid #e5ded7;border-radius:16px;padding:16px 18px;margin:12px 0;background:#fff}
+    .occupancy-scenario h5{font-size:17px;color:#20323b;margin:0 0 5px}
+    .occupancy-scenario-sub{font-size:13px;color:#69777c;margin:0 0 8px!important}
+    .occupancy-scenario .dash-row{align-items:flex-start;flex-wrap:wrap;font-size:14px;line-height:1.5}
+    .occupancy-scenario .dash-row span{flex:1 1 180px;min-width:0}
+    .occupancy-scenario .dash-row b{flex:0 0 auto;text-align:right;overflow-wrap:anywhere}
+    .occupancy-simple-note{padding:12px 14px;background:#fff5ec;border:1px solid #edc9ad;border-radius:12px;color:#8a4b25!important;font-size:14px!important;font-weight:700;margin:8px 0 16px!important}
+    @media(max-width:650px){.occupancy-scenario{padding:14px}.occupancy-scenario .dash-row{display:block}.occupancy-scenario .dash-row span,.occupancy-scenario .dash-row b{display:block;text-align:left}.occupancy-scenario .dash-row b{margin-top:4px;font-size:17px}}
 </style>
 </head>
 <body>
@@ -311,7 +321,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 27 · Ocupación y escenarios</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 28 · Ocupación y escenarios</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -2165,30 +2175,37 @@
           line(card,'Viajeros reservados',travelers);
           line(card,'Ocupación',capacity>0?(100*travelers/capacity).toLocaleString('es-MX',{maximumFractionDigits:1})+' %':'Capacidad no definida');
           line(card,'Lugares disponibles',capacity>0?Math.max(0,capacity-travelers):'No disponible');
-          line(card,'Mínimo operativo',minimum||'No definido');
-          line(card,'Valor de reservas activas',money(bookedSales));
-          line(card,'Costo fijo base por viaje',money(fixed));
-          line(card,'Costo proveedor base por viajero',money(provider));
-          line(card,'Costos adicionales confirmados',money(addFixed)+' fijos + '+money(addVariable)+' por viajero');
-          line(card,'Conceptos incluidos (no se duplican)',items.filter(c=>c.provider_coverage==='included').length);
-          line(card,'Conceptos pendientes de confirmar',pending.length);
-          if(pending.length){const p=document.createElement('p');p.className='finance-balance-preview';p.textContent='Costos por confirmar: '+pending.map(c=>c.description||c.category||'Sin descripción').join(', ')+'. Los escenarios NO representan rentabilidad validada.';card.appendChild(p);}
-          const h4=document.createElement('h4');h4.textContent='Escenarios de ocupación';h4.style.margin='20px 0 10px';card.appendChild(h4);
-          const table=document.createElement('div');table.className='table-wrap';const t=document.createElement('table');t.className='dash-table';
-          const head=document.createElement('thead');head.innerHTML='<tr><th>Escenario</th><th>Ingresos</th><th>Costos base + adicionales</th><th>Resultado provisional</th></tr>';t.appendChild(head);
-          const body=document.createElement('tbody');
-          const scenarios=[{label:'Mínimo',n:minimum},{label:'12 viajeros',n:12},{label:'Máximo',n:capacity}];
-          const used=new Set();
-          for(const sc of scenarios){if(!Number.isInteger(sc.n)||sc.n<1||sc.n>capacity||sc.n<minimum||used.has(sc.n))continue;used.add(sc.n);
+          line(card,'Mínimo de viajeros para realizar el viaje',minimum||'No definido');
+          line(card,'Valor de las reservas (no significa cobrado)',money(bookedSales));
+          line(card,'Costos fijos conocidos por viaje',money(fixed));
+          line(card,'Costo base del proveedor por viajero',money(provider));
+          line(card,'Otros costos confirmados',money(addFixed)+' por viaje + '+money(addVariable)+' por viajero');
+          line(card,'Costos ya incluidos (no se suman otra vez)',items.filter(c=>c.provider_coverage==='included').length);
+          line(card,'Costos pendientes de confirmar',pending.length);
+          if(pending.length){const p=document.createElement('p');p.className='finance-balance-preview';p.textContent='Costos por confirmar: '+pending.map(c=>c.description||c.category||'Sin descripción').join(', ')+'. No están sumados todavía. La ganancia real aún no se puede confirmar.';card.appendChild(p);}
+          const needed=Math.max(0,minimum-travelers);
+          const progress=document.createElement('p');progress.className='occupancy-simple-note';
+          progress.textContent=capacity>0?(needed>0?'Faltan '+needed+' viajero(s) para alcanzar el mínimo de '+minimum+'.':('Ya se alcanzó el mínimo de '+minimum+' viajeros.')):'Confirma la capacidad de este viaje.';
+          card.appendChild(progress);
+          const h4=document.createElement('h4');h4.textContent='¿Qué pasaría con más viajeros?';h4.style.margin='20px 0 10px';card.appendChild(h4);
+          const intro=document.createElement('p');intro.className='hint';intro.textContent='Compara tres posibilidades. Son cálculos estimados, no dinero cobrado ni ganancia final.';card.appendChild(intro);
+          const scenarios=[{label:'Con el mínimo',n:minimum},{label:'Con 12 viajeros',n:12},{label:'Con el viaje lleno',n:capacity}];
+          const used=new Set();let shown=0;
+          for(const sc of scenarios){if(!Number.isInteger(sc.n)||sc.n<1||sc.n>capacity||sc.n<minimum||used.has(sc.n))continue;used.add(sc.n);shown++;
             const income=sc.n*price,cost=fixedTotal+sc.n*variableTotal;
-            const tr=document.createElement('tr');for(const value of [sc.label+' · '+sc.n,money(income),money(cost),money(income-cost)]){const td=document.createElement('td');td.textContent=value;tr.appendChild(td);}body.appendChild(tr);
+            const panel=document.createElement('div');panel.className='occupancy-scenario';
+            const heading=document.createElement('h5');heading.textContent=sc.label+' · '+sc.n+' viajeros';panel.appendChild(heading);
+            const percentage=document.createElement('p');percentage.className='occupancy-scenario-sub';percentage.textContent='Ocupación: '+(100*sc.n/capacity).toLocaleString('es-MX',{maximumFractionDigits:1})+' %';panel.appendChild(percentage);
+            line(panel,'Ingresos estimados',money(income));
+            line(panel,'Costos estimados conocidos',money(cost));
+            line(panel,'Diferencia estimada (antes de gastos pendientes)',money(income-cost));
+            card.appendChild(panel);
           }
-          if(!body.children.length){const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=4;td.textContent='Revisa mínimo de viajeros y capacidad.';tr.appendChild(td);body.appendChild(tr);}
-          t.appendChild(body);table.appendChild(t);card.appendChild(table);
+          if(!shown){const p=document.createElement('p');p.className='hint';p.textContent='Revisa el mínimo de viajeros y la capacidad para mostrar escenarios.';card.appendChild(p);}
           const contribution=price-variableTotal;
           const point=contribution>0?Math.ceil(fixedTotal/contribution):null;
           const note=document.createElement('p');note.className='hint';
-          note.textContent=pending.length?'Punto de equilibrio: pendiente de validar costos.':(point===null?'Punto de equilibrio: no calculable con el precio y costos actuales.':'Punto de equilibrio técnico (sin comisiones ni impuestos): '+point+' viajeros.'+(capacity>0&&point>capacity?' Supera la capacidad.':''));
+          note.textContent=pending.length?'No podemos confirmar cuántos viajeros cubren todos los costos hasta aclarar los gastos pendientes.':(point===null?'Punto de equilibrio: no calculable con el precio y costos actuales.':'Punto de equilibrio técnico (sin comisiones ni impuestos): '+point+' viajeros.'+(capacity>0&&point>capacity?' Supera la capacidad.':''));
           card.appendChild(note);root.appendChild(card);
         }
         if(!root.children.length){const p=document.createElement('p');p.className='empty-state';p.textContent='No hay expediciones para el filtro seleccionado.';root.appendChild(p);}
