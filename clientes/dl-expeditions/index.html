@@ -321,7 +321,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 31 · Reservas corregidas</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 33 · Abonos vinculados</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -454,7 +454,7 @@
             <div id="receivableCards" class="record-mobile-list" style="display:grid;gap:12px;margin-top:14px"></div>
           </div>
           <div class="finance-panels">
-            <div class="dash-panel"><h2>Registrar pago recibido</h2><p>El número se asigna automáticamente por reserva (Pago #1, Pago #2…). También puedes registrar un <strong>pago sin cobro programado</strong>. Si hay cobros programados pendientes, el sistema aplica automáticamente el dinero recibido, primero al cobro seleccionado y después por fecha. No se duplica el ingreso.</p>
+            <div class="dash-panel"><h2>Registrar pago recibido</h2><p>El número se asigna automáticamente por reserva (Abono #1, Abono #2…). También puedes registrar un <strong>pago sin cobro programado</strong>. Si hay cobros programados pendientes, el sistema aplica automáticamente el dinero recibido, primero al cobro seleccionado y después por fecha. No se duplica el ingreso.</p>
               <form id="paymentForm" class="finance-form" hidden>
                 <label>Reserva *<select id="fBooking" required><option value="">Seleccionar reserva</option></select></label>
                 <div id="fBalancePreview" class="finance-balance-preview" role="status">Selecciona una reserva para consultar su saldo pendiente.</div><div id="fPaymentNumberPreview" class="finance-balance-preview">Próximo número de pago: selecciona una reserva.</div>
@@ -496,7 +496,7 @@
                     <div id="scBalance" class="finance-balance-preview" role="status">Selecciona una reserva para ver su valor, pagos y saldo disponible.</div>
                    <label>Fecha de vencimiento *<input id="scDue" type="date" required></label>
                    <label>Monto (MXN) *<input id="scAmount" type="number" min="0.01" step="0.01" required></label>
-                   <div class="finance-balance-preview">Este es un <strong>cobro programado</strong>, no un pago recibido. Cuando se registre dinero en Pagos y gastos, el sistema asignará Pago #1, Pago #2, etc., por reserva.</div>
+                   <div class="finance-balance-preview">Este es un <strong>cobro programado</strong>, no un pago recibido. Cuando se registre dinero en Pagos y gastos, el sistema asignará Abono #1, Abono #2, etc., por reserva.</div>
                     <label>Nota del cobro (opcional)<input id="scDescription" maxlength="240" placeholder="Ej. Vence antes de la salida"></label>
                    <button type="submit">Guardar cobro programado</button>
                  </form><p id="scMessage" class="finance-status" role="status"></p>
@@ -513,7 +513,7 @@
                </div>
              </div>
 <div id="scheduleTotals" class="dash-grid" style="grid-template-columns:repeat(auto-fit,minmax(145px,1fr));margin-bottom:18px"></div>
-            <h3>Cobros programados a viajeros</h3><p id="scheduleBookingStatus" class="hint" role="status">Pendiente de consulta.</p>
+            <h3>Abonos recibidos de viajeros</h3><p class="hint">Historial de pagos efectivamente registrados en Supabase. Estos abonos no se vuelven a registrar desde el calendario.</p><p id="scheduleReceivedStatus" class="hint" role="status">Pendiente de consulta.</p><div id="scheduleReceivedList" class="record-mobile-list" style="display:grid;gap:12px"></div><h3 style="margin-top:28px">Cobros programados a viajeros</h3><p id="scheduleBookingStatus" class="hint" role="status">Pendiente de consulta.</p>
             <div id="scheduleBookingList" class="record-mobile-list" style="display:grid;gap:12px"></div>
             <h3 style="margin-top:28px">Pagos programados a proveedores</h3><p id="scheduleProviderStatus" class="hint" role="status">Pendiente de consulta.</p>
             <div id="scheduleProviderList" class="record-mobile-list" style="display:grid;gap:12px"></div>
@@ -1397,7 +1397,7 @@
       const numberBox=fEl('fPaymentNumberPreview');
       const selected=fEl('fBooking').value;
       const nums=financePayments.filter(p=>p.booking_id===selected).map(p=>Number(p.payment_number)||0);
-      numberBox.textContent=selected?'Próximo pago: Pago #'+(Math.max(0,...nums)+1)+' · Número definitivo asignado por Supabase al guardar.':'Próximo número de pago: selecciona una reserva.';
+      numberBox.textContent=selected?'Próximo abono: Abono #'+(Math.max(0,...nums)+1)+' · Número definitivo asignado por Supabase al guardar.':'Próximo número de pago: selecciona una reserva.';
     }
     fEl('fBooking').addEventListener('change',()=>{fEl('fScheduleId').value='';updateFinanceBalance();});
     function financeEmpty(tbodyId,text){const t=fEl(tbodyId);t.replaceChildren();const r=document.createElement('tr'),c=document.createElement('td');c.colSpan=tbodyId==='paymentRows'?6:5;c.textContent=text;r.appendChild(c);t.appendChild(r);}
@@ -1656,9 +1656,9 @@
       updateFinanceBalance();
       const payRows=fEl('paymentRows'),expRows=fEl('expenseRows');payRows.replaceChildren();expRows.replaceChildren();
       const payCards=fEl('paymentMobileCards'),expenseCards=fEl('expenseMobileCards');payCards.replaceChildren();expenseCards.replaceChildren();
-      for(const p of pr.data||[]){const r=document.createElement('tr'),b=financeBookings.get(p.booking_id);putCell(r,p.paid_at?new Date(p.paid_at).toLocaleDateString('es-MX'):'—');putCell(r,p.payment_number?'Pago #'+p.payment_number:'Sin número');putCell(r,financeProspects.get(b?.prospect_id)?.alias||b?.customer_name||'Cliente sin identificar');putCell(r,(financeExpeditions.get(b?.expedition_id)?.name||'Reserva')+' · '+p.booking_id.slice(0,8));putCell(r,financePaymentMethods[p.payment_method]||p.payment_method);putCell(r,mxn(p.amount_mxn));putCell(r,'—');payRows.appendChild(r);
+      for(const p of pr.data||[]){const r=document.createElement('tr'),b=financeBookings.get(p.booking_id);putCell(r,p.paid_at?new Date(p.paid_at).toLocaleDateString('es-MX'):'—');putCell(r,p.payment_number?'Abono #'+p.payment_number:'Sin número');putCell(r,financeProspects.get(b?.prospect_id)?.alias||b?.customer_name||'Cliente sin identificar');putCell(r,(financeExpeditions.get(b?.expedition_id)?.name||'Reserva')+' · '+p.booking_id.slice(0,8));putCell(r,financePaymentMethods[p.payment_method]||p.payment_method);putCell(r,mxn(p.amount_mxn));putCell(r,'—');payRows.appendChild(r);
         financeMobileCard(payCards,financeProspects.get(b?.prospect_id)?.alias||b?.customer_name||'Cliente sin identificar',[
-          ['Pago',p.payment_number?'Pago #'+p.payment_number:'Sin número'],['Expedición',financeExpeditions.get(b?.expedition_id)?.name||'Reserva'],['Fecha',p.paid_at?new Date(p.paid_at).toLocaleDateString('es-MX'):'—'],['Importe',mxn(p.amount_mxn)],['Método',financePaymentMethods[p.payment_method]||p.payment_method]
+          ['Pago',p.payment_number?'Abono #'+p.payment_number:'Sin número'],['Expedición',financeExpeditions.get(b?.expedition_id)?.name||'Reserva'],['Fecha',p.paid_at?new Date(p.paid_at).toLocaleDateString('es-MX'):'—'],['Importe',mxn(p.amount_mxn)],['Método',financePaymentMethods[p.payment_method]||p.payment_method]
         ]);
       }
       for(const x of xr.data||[]){const r=document.createElement('tr');putCell(r,x.spent_at||'—');putCell(r,financeExpeditions.get(x.expedition_id)?.name||'Expedición');putCell(r,financeCategories[x.category]||x.category);putCell(r,x.description);putCell(r,mxn(x.amount_mxn));
@@ -1716,7 +1716,7 @@
         if(error)throw error;
         pendingPaymentRequestId=null;fEl('paymentForm').reset();fEl('fScheduleId').value='';
         await loadFinances();await loadBookings();await loadSchedules();
-        fEl('paymentStatus').textContent='Pago #'+(data?.payment_number||'')+' registrado una sola vez. Aplicado a cobros programados: '+mxn(data?.applied_to_schedules||0)+'. Sin cobro programado: '+mxn(data?.unallocated||0)+'.';
+        fEl('paymentStatus').textContent='Abono #'+(data?.payment_number||'')+' registrado una sola vez. Aplicado a cobros programados: '+mxn(data?.applied_to_schedules||0)+'. Sin cobro programado: '+mxn(data?.unallocated||0)+'.';
       }
       catch(err){fEl('paymentStatus').textContent='No se pudo guardar el pago: '+err.message;}finally{btn.disabled=false;}
     });
@@ -1759,7 +1759,7 @@
         section.appendChild(grid);
         const payTitle=document.createElement('p');payTitle.className='client-history-payment-title';payTitle.textContent='Movimientos de pago';section.appendChild(payTitle);
         if(!b.payments.length){const no=document.createElement('p');no.className='hint';no.textContent='No hay pagos registrados en esta reserva.';section.appendChild(no);}
-        else {const list=document.createElement('ul');list.className='client-history-payments';for(const pay of b.payments){const li=document.createElement('li');li.textContent=clientDate(pay.paid_at)+' · '+mxn(pay.amount_mxn)+' · '+(financePaymentMethods[pay.payment_method]||pay.payment_method||'Método sin registrar')+(pay.payment_number?' · Pago #'+pay.payment_number:'');list.appendChild(li);}section.appendChild(list);}
+        else {const list=document.createElement('ul');list.className='client-history-payments';for(const pay of b.payments){const li=document.createElement('li');li.textContent=clientDate(pay.paid_at)+' · '+mxn(pay.amount_mxn)+' · '+(financePaymentMethods[pay.payment_method]||pay.payment_method||'Método sin registrar')+(pay.payment_number?' · Abono #'+pay.payment_number:'');list.appendChild(li);}section.appendChild(list);}
         if(cancelled&&b.paid>0){const notice=document.createElement('p');notice.className='hint';notice.textContent='Reserva cancelada con pagos registrados: revisar reembolso o aplicación del saldo; no se asume devolución automática.';section.appendChild(notice);}
         area.appendChild(section);
       }
@@ -2663,6 +2663,45 @@
         });
       }
     }
+    async function scheduleLoadReceivedPayments(){
+      const host=scheduleEl('scheduleReceivedList'),status=scheduleEl('scheduleReceivedStatus');
+      host.replaceChildren();status.textContent='Consultando abonos recibidos...';
+      const [paymentsResult,bookingsResult,expeditionsResult,prospectsResult,customersResult]=await Promise.all([
+        supabase.from('payments').select('id,booking_id,amount_mxn,paid_at,payment_method,payment_number,created_at').order('paid_at',{ascending:false}).limit(1000),
+        supabase.from('bookings').select('id,expedition_id,prospect_id,customer_id,customer_name,is_test').limit(1000),
+        supabase.from('expeditions').select('id,name').limit(500),
+        supabase.from('prospects').select('id,alias').limit(1000),
+        supabase.from('customers').select('id,full_name').limit(1000)
+      ]);
+      if(paymentsResult.error){status.textContent='No se pudieron consultar los abonos: '+paymentsResult.error.message;return;}
+      if(bookingsResult.error){status.textContent='No se pueden relacionar los abonos con sus reservas: '+bookingsResult.error.message;return;}
+      const payments=paymentsResult.data||[];
+      const bookings=new Map((bookingsResult.data||[]).map(x=>[x.id,x]));
+      const exps=new Map((expeditionsResult.data||[]).map(x=>[x.id,x.name]));
+      const prospects=new Map((prospectsResult.data||[]).map(x=>[x.id,x.alias]));
+      const customers=new Map((customersResult.data||[]).map(x=>[x.id,x.full_name]));
+      const filter=scheduleEl('scheduleFilter').value;
+      // El historial de dinero recibido es independiente de los vencimientos futuros.
+      if(filter==='overdue'||filter==='next'){
+        status.textContent='El filtro actual muestra vencimientos; selecciona «Todos» o «Pagados» para ver los abonos recibidos.';
+        return;
+      }
+      const fragment=document.createDocumentFragment();
+      for(const pay of payments){
+        const booking=bookings.get(pay.booking_id);
+        const person=booking?(customers.get(booking.customer_id)||prospects.get(booking.prospect_id)||booking.customer_name||'Cliente sin identificar'):'Reserva no disponible';
+        const expedition=booking?(exps.get(booking.expedition_id)||'Expedición no identificada'):'Expedición no disponible';
+        const card=document.createElement('article');card.className='record-mobile-card';
+        const title=document.createElement('h3');title.textContent=(pay.payment_number?'Abono #'+pay.payment_number:'Abono sin número')+' · '+person;card.append(title);
+        const fields=[['Expedición',expedition],['Reserva','#'+String(pay.booking_id||'').slice(0,8)],['Fecha',pay.paid_at?String(pay.paid_at).slice(0,10):'Sin fecha'],['Importe recibido',scheduleMoney(Number(pay.amount_mxn)||0)],['Forma de pago',financePaymentMethods[pay.payment_method]||pay.payment_method||'Sin registrar'],['Tipo',booking?.is_test?'PRUEBA':'Registro']];
+        for(const [label,value] of fields){const row=document.createElement('div');row.className='dash-row';const k=document.createElement('span');k.textContent=label;const v=document.createElement('b');v.textContent=value;row.append(k,v);card.append(row)}
+        fragment.append(card);
+      }
+      host.append(fragment);
+      status.textContent=payments.length+' abono(s) recibidos · '+scheduleMoney(payments.reduce((n,p)=>n+(Number(p.amount_mxn)||0),0))+' registrados. Solo lectura: no se duplican pagos.'+(payments.length===1000?' Se alcanzó el límite de consulta; el historial puede estar incompleto.':'');
+      if(!payments.length){const empty=document.createElement('div');empty.className='empty-state';empty.textContent='Todavía no hay abonos recibidos.';host.append(empty)}
+      if(expeditionsResult.error||prospectsResult.error||customersResult.error)status.textContent+=' Algunos nombres no se pudieron consultar.';
+    }
     async function loadSchedules(){
       for(const [kind,table,statusId] of [['booking','booking_payment_schedule','scheduleBookingStatus'],['provider','provider_payment_schedule','scheduleProviderStatus']]){
         scheduleEl(statusId).textContent='Consultando Supabase...';
@@ -2680,6 +2719,7 @@
       await scheduleLoadBookingDetails();
       if(currentRole==='admin')await scheduleLoadOptions();
       scheduleShow();
+      await scheduleLoadReceivedPayments();
     }
     async function scheduleLoadBookingDetails(){
       scheduleBookingDetails=new Map();
@@ -2814,7 +2854,7 @@
         return {...p,available:Math.round((Number(p.amount_mxn)-allocated)*100)/100};
       }).filter(p=>p.available>0.005);
       if(!candidates.length){alert('No hay pagos recibidos sin asignar para esta reserva. Registra el dinero primero en «Pagos y gastos».');return;}
-      const menu=candidates.map((p,i)=>(i+1)+'. Pago #'+(p.payment_number||'?')+
+      const menu=candidates.map((p,i)=>(i+1)+'. Abono #'+(p.payment_number||'?')+
         ' · '+scheduleMoney(p.available)+' disponibles · '+(p.payment_method||'Sin método')).join('\n');
       const choice=prompt('Selecciona el número del pago a vincular:\n'+menu);
       if(choice===null)return;
@@ -2826,7 +2866,7 @@
       if(entered===null)return;
       const amount=Number(entered);
       if(!Number.isFinite(amount)||amount<=0||Math.round(amount*100)!==amount*100||amount>max+0.001){alert('Importe inválido o superior al disponible.');return;}
-      if(!confirm('Vincular '+scheduleMoney(amount)+' del Pago #'+(chosen.payment_number||'?')+
+      if(!confirm('Vincular '+scheduleMoney(amount)+' del Abono #'+(chosen.payment_number||'?')+
         ' al cobro de '+scheduleMoney(scheduleAmount(row))+'? No se creará ningún ingreso nuevo.'))return;
       const {error}=await supabase.rpc('brik_allocate_booking_payment',{
         p_schedule_id:row.id,p_payment_id:chosen.id,p_amount_mxn:amount
@@ -2845,7 +2885,7 @@
       const {error}=await supabase.from(table).update({due_on:due,amount_mxn:Number(amount)}).eq('id',row.id);
       if(error)alert('No se pudo actualizar: '+error.message);else await loadSchedules();
     }
-    scheduleEl('scheduleFilter').addEventListener('change',scheduleShow);
+    scheduleEl('scheduleFilter').addEventListener('change',()=>{scheduleShow();scheduleLoadReceivedPayments();});
     scheduleEl('scheduleRefresh').addEventListener('click',loadSchedules);
 
     // Cotizador conectado a public.quotes; las políticas RLS determinan quién puede consultar y guardar.
