@@ -316,12 +316,12 @@
         <button class="dash-nav" data-page="reservas" type="button">▣ &nbsp; Reservas</button>
         <button class="dash-nav" data-page="clientes" type="button">♧ &nbsp; Clientes</button>
         <button class="dash-nav" data-page="cotizador" type="button">▤ &nbsp; Cotizador</button>
-        <button class="dash-nav" data-page="finanzas" type="button">◈ &nbsp; Pagos</button>
+        <button class="dash-nav" data-page="finanzas" type="button">◈ &nbsp; Pagos y gastos</button>
         <button class="dash-nav" data-page="calendarios" type="button">▦ &nbsp; Calendario de pagos</button>
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 29 · Menú organizado</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 30 · Navegación clara</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -388,7 +388,7 @@
             <label>Precio público por viajero (MXN) *<input id="ePrice" type="number" min="0" step="0.01" value="0" required></label>
             <label>Costo de proveedor por viajero (MXN) *<input id="eProvider" type="number" min="0" step="0.01" placeholder="Ingresa el costo" required></label>
             <label>Costo de coordinación del grupo (MXN) *<input id="eCoordinator" type="number" min="0" step="0.01" placeholder="Ingresa el costo" required></label>
-             <div style="grid-column:1/-1;border-top:1px solid #ddd;padding-top:14px"><strong>Desglose de costos del viaje (opcional)</strong><p class="hint">Agrega los conceptos del viaje. Cada importe se define por viajero o fijo por grupo. Si agregas conceptos, estos sustituyen los costos resumidos de proveedor y coordinación para evitar duplicarlos en el cotizador.</p><div id="eCostLines"></div><button type="button" id="eAddCost" style="background:#fff;color:#17252c;border:1px solid #ef915d">+ Agregar concepto de costo</button><p id="eCostSummary" class="hint">Sin conceptos adicionales.</p></div>
+             <div style="grid-column:1/-1;border-top:1px solid #ddd;padding-top:14px"><strong>Desglose de costos del viaje (opcional)</strong><p class="hint">Agrega los conceptos del viaje. Cada importe se define por viajero o fijo por grupo. Antes de sumarlos, confirma si ya están incluidos en el costo del proveedor. Así evitamos contar el mismo gasto dos veces.</p><div id="eCostLines"></div><button type="button" id="eAddCost" style="background:#fff;color:#17252c;border:1px solid #ef915d">+ Agregar concepto de costo</button><p id="eCostSummary" class="hint">Sin conceptos adicionales.</p></div>
             <button id="eSave" type="submit">Guardar expedición</button><button id="eCancelEdit" type="button" hidden style="background:#fff;color:#17252c;border:1px solid #ef915d">Cancelar edición</button>
           </form>
           <p id="expMasterStatus" class="master-status" role="status"></p>
@@ -425,7 +425,7 @@
             <label>Estado *<select id="bStatus" required><option value="pending">Pendiente</option><option value="deposit">Con anticipo</option><option value="confirmed">Confirmada</option><option value="cancelled">Cancelada</option></select></label>
             <div id="bDepositWrap" hidden style="border:1px solid #ef915d;border-radius:14px;padding:16px;margin:14px 0">
               <h3 style="margin:0 0 8px">Registrar anticipo</h3>
-              <p class="hint">El anticipo se registrará como pago asociado a esta reserva. No lo vuelvas a ingresar en Finanzas.</p>
+              <p class="hint">El anticipo se registrará como pago asociado a esta reserva. No lo vuelvas a ingresar en Pagos y gastos.</p>
               <label>Monto recibido (MXN)<input id="bDepositAmount" type="number" min="0.01" step="0.01" placeholder="Ej. 5000"></label>
               <label>Forma de pago<select id="bDepositMethod"><option value="transfer">Depósito / transferencia bancaria</option><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
               <label>Fecha del pago<input id="bDepositDate" type="date"></label>
@@ -462,7 +462,7 @@
                 <label>Importe recibido (MXN) *<input id="fPaymentAmount" type="number" min="0.01" step="0.01" required></label>
                 <label>Próxima fecha de pago (opcional)<input id="fNextDueDate" type="date"><small style="display:block;margin-top:6px;color:#69777d">Si queda saldo después de este pago, actualiza el próximo vencimiento.</small></label>
                  <label>Método *<select id="fPaymentMethod" required><option value="transfer">Transferencia</option><option value="card">Tarjeta</option><option value="cash">Efectivo</option><option value="other">Otro</option></select></label>
-                <p class="hint">El pago se guarda una sola vez en Finanzas. La aplicación al calendario es automática.</p>
+                <p class="hint">El pago se guarda una sola vez en Pagos y gastos. La aplicación al calendario es automática.</p>
                 <button id="savePayment" type="submit">Guardar pago</button>
               </form><p id="paymentStatus" class="finance-status" role="status"></p>
             </div>
@@ -496,7 +496,7 @@
                     <div id="scBalance" class="finance-balance-preview" role="status">Selecciona una reserva para ver su valor, pagos y saldo disponible.</div>
                    <label>Fecha de vencimiento *<input id="scDue" type="date" required></label>
                    <label>Monto (MXN) *<input id="scAmount" type="number" min="0.01" step="0.01" required></label>
-                   <div class="finance-balance-preview">Este es un <strong>cobro programado</strong>, no un pago recibido. Cuando se registre dinero en Finanzas, el sistema asignará Pago #1, Pago #2, etc., por reserva.</div>
+                   <div class="finance-balance-preview">Este es un <strong>cobro programado</strong>, no un pago recibido. Cuando se registre dinero en Pagos y gastos, el sistema asignará Pago #1, Pago #2, etc., por reserva.</div>
                     <label>Nota del cobro (opcional)<input id="scDescription" maxlength="240" placeholder="Ej. Vence antes de la salida"></label>
                    <button type="submit">Guardar cobro programado</button>
                  </form><p id="scMessage" class="finance-status" role="status"></p>
@@ -2517,7 +2517,7 @@
     menuToggle.addEventListener('click',()=>{const opening=!sideNav.classList.contains('open');sideNav.classList.toggle('open',opening);shade.hidden=!opening;menuToggle.setAttribute('aria-expanded',String(opening));});
     shade.addEventListener('click',closeMenu);
     document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
-    const pageTitles={inicio:['Panel principal','DL Expeditions · Resumen comercial y financiero'],agencias:['Agencias','Directorio de aliados comerciales'],expediciones:['Expediciones','Catálogo y configuración de viajes'],prospectos:['Prospectos','Seguimiento de oportunidades'],reservas:['Reservas','Control de expediciones'],finanzas:['Pagos','Cobros y gastos registrados'],calendarios:['Calendario de pagos','Vencimientos de viajeros y proveedores'],clientes:['Clientes','Historial de viajeros'],cotizador:['Cotizador','Cálculo de precios y márgenes'],reportes:['Reportes y análisis','Inteligencia comercial']};
+    const pageTitles={inicio:['Panel principal','DL Expeditions · Resumen comercial y financiero'],agencias:['Agencias','Directorio de aliados comerciales'],expediciones:['Expediciones','Catálogo y configuración de viajes'],prospectos:['Prospectos','Seguimiento de oportunidades'],reservas:['Reservas','Control de expediciones'],finanzas:['Pagos y gastos','Cobros recibidos y gastos registrados'],calendarios:['Calendario de pagos','Vencimientos de viajeros y proveedores'],clientes:['Clientes','Historial de viajeros'],cotizador:['Cotizador','Cálculo de precios y márgenes'],reportes:['Reportes y análisis','Inteligencia comercial']};
     sideNav.querySelectorAll('[data-page]').forEach(btn=>btn.addEventListener('click',()=>{
       const page=btn.dataset.page;
       sideNav.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b===btn);if(b===btn)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
