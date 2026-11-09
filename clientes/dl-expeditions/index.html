@@ -321,7 +321,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 33 · Abonos vinculados</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 34 · Saldo visible en reservas</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -424,9 +424,10 @@
             <label>Precio por viajero (MXN) · definido en Expediciones<input id="bPrice" type="number" min="0" step="0.01" value="" readonly required style="background:#f4f5f6;color:#334155;cursor:not-allowed"></label>
             <label>Estado *<select id="bStatus" required><option value="pending">Pendiente</option><option value="deposit">Con anticipo</option><option value="confirmed">Confirmada</option><option value="cancelled">Cancelada</option></select></label>
             <div id="bDepositWrap" hidden style="border:1px solid #ef915d;border-radius:14px;padding:16px;margin:14px 0">
-              <h3 style="margin:0 0 8px">Registrar anticipo</h3>
+              <h3 style="margin:0 0 8px">Registrar anticipo o nuevo abono</h3>
+              <div id="bBalancePreview" class="finance-balance-preview" role="status" aria-live="polite" style="margin:12px 0">Selecciona una reserva para consultar su saldo.</div>
               <p class="hint">El anticipo se registrará como pago asociado a esta reserva. No lo vuelvas a ingresar en Pagos y gastos.</p>
-              <label>Monto recibido (MXN)<input id="bDepositAmount" type="number" min="0.01" step="0.01" placeholder="Ej. 5000"></label>
+              <label id="bDepositAmountLabel">Monto recibido (MXN)<input id="bDepositAmount" type="number" min="0.01" step="0.01" placeholder="Ej. 5000"></label>
               <label>Forma de pago<select id="bDepositMethod"><option value="transfer">Depósito / transferencia bancaria</option><option value="cash">Efectivo</option><option value="card">Tarjeta</option><option value="other">Otro</option></select></label>
               <label>Fecha del pago<input id="bDepositDate" type="date"></label>
               <p id="bDepositHint" class="hint"></p>
@@ -978,10 +979,47 @@
     let bookingRecords=new Map();
     let preparedQuote=null; // Cotización elegida desde el historial; no se infiere por precio o prospecto.
     function bookingError(err){bookingStatus.textContent='No se pudo completar la operación: '+(err?.message||'Error desconocido')+'. Verifica los permisos y los datos.';}
+    let bookingPaidAmount=0, bookingPaymentCount=0, bookingBalanceLoading=false, bookingBalanceError='', bookingBalanceRequest=0;
+    function renderBookingBalance(){
+      const panel=document.querySelector('#bBalancePreview');
+      const total=Number(document.querySelector('#bTravelers').value)*Number(document.querySelector('#bPrice').value);
+      const amount=Number(document.querySelector('#bDepositAmount').value)||0;
+      const existing=!!editingBookingId;
+      const outstanding=Math.max(0,Math.round((total-bookingPaidAmount)*100)/100);
+      const after=Math.max(0,Math.round((outstanding-amount)*100)/100);
+      const fmt=(label,value)=>'<div style="display:flex;justify-content:space-between;gap:12px"><span>'+label+'</span><strong>'+mxn(value)+'</strong></div>';
+      if(bookingBalanceLoading){panel.textContent='Consultando abonos existentes en Supabase...';return;}
+      if(bookingBalanceError){panel.textContent='No se pudo verificar el saldo: '+bookingBalanceError+'. No registres un nuevo abono hasta actualizar.';return;}
+      panel.innerHTML=fmt('Total de la reserva',total)+fmt('Abonos registrados ('+bookingPaymentCount+')',bookingPaidAmount)
+        +'<hr style="border:0;border-top:1px solid #efd0b9;margin:10px 0">'
+        +fmt('Saldo pendiente',outstanding)
+        +'<div style="margin-top:10px;font-weight:700">Próximo movimiento: Abono #'+(bookingPaymentCount+1)+'</div>'
+        +(amount>0?'<div style="margin-top:8px">'+fmt('Saldo después del nuevo abono',after)+'</div>':'')
+        +(amount>outstanding?'<div style="color:#b42318;font-weight:700;margin-top:8px">El abono supera el saldo pendiente.</div>':'');
+      document.querySelector('#bDepositAmount').max=outstanding.toFixed(2);
+      document.querySelector('#bDepositAmountLabel').firstChild.textContent=existing?'Nuevo abono (MXN)':'Primer anticipo (MXN)';
+    }
+    async function refreshBookingBalance(){
+      const request=++bookingBalanceRequest;
+      bookingPaidAmount=0;bookingPaymentCount=0;bookingBalanceError='';
+      if(!editingBookingId){bookingBalanceLoading=false;renderBookingBalance();return;}
+      bookingBalanceLoading=true;renderBookingBalance();
+      const id=editingBookingId;
+      try{
+        const {data,error}=await supabase.from('payments').select('amount_mxn').eq('booking_id',id);
+        if(request!==bookingBalanceRequest)return;
+        if(error)throw error;
+        bookingPaidAmount=(data||[]).reduce((sum,p)=>sum+Number(p.amount_mxn||0),0);
+        bookingPaymentCount=(data||[]).length;
+      }catch(err){if(request!==bookingBalanceRequest)return;bookingBalanceError=err.message||'Error de lectura';}
+      if(request!==bookingBalanceRequest)return;
+      bookingBalanceLoading=false;renderBookingBalance();
+    }
     function updateBookingTotal(){
       const n=Number(document.querySelector('#bTravelers').value);
       const price=Number(document.querySelector('#bPrice').value);
       document.querySelector('#bTotal').textContent=Number.isFinite(n*price)&&n>0&&price>=0?mxn(n*price):'Revisa los importes';
+      renderBookingBalance();
     }
     function syncBookingAgency(){
       const agency=document.querySelector('#bChannel').value==='agency';
@@ -1061,7 +1099,7 @@
       document.querySelector('#cancelBookingEdit').hidden=true;
       syncBookingProspect();syncBookingOrigin();syncBookingPrice();syncDepositFields();
       document.querySelector('#bCustomerId').value='';
-      document.querySelector('#bDepositAmount').value='';document.querySelector('#bDueDate').value='';
+      document.querySelector('#bDepositAmount').value='';document.querySelector('#bDueDate').value='';refreshBookingBalance();
     }
     async function cancelBookingSafely(id){
       if(currentRole!=='admin')return;
@@ -1095,7 +1133,7 @@
       document.querySelector('#bDueDate').value=b.next_payment_due_on||'';
       syncBookingPrice();
       document.querySelector('#bStatus').value=b.status;
-      document.querySelector('#bDepositAmount').value='';syncDepositFields();
+      document.querySelector('#bDepositAmount').value='';syncDepositFields();refreshBookingBalance();
       document.querySelector('#saveBooking').textContent='Guardar cambios';
       document.querySelector('#cancelBookingEdit').hidden=false;
       updateBookingTotal();
@@ -1106,6 +1144,7 @@
     document.querySelector('#bProspect').addEventListener('change',()=>{if(preparedQuote){preparedQuote=null;document.querySelector('#preparedQuoteNotice').hidden=true;}syncBookingChannelFromProspect();warnExistingBooking();});
     document.querySelector('#bChannel').addEventListener('change',syncBookingAgency);
     document.querySelector('#bTravelers').addEventListener('input',updateBookingTotal);
+    document.querySelector('#bDepositAmount').addEventListener('input',renderBookingBalance);
     document.querySelector('#bStatus').addEventListener('change',syncDepositFields);
     document.querySelector('#bExpedition').addEventListener('change',()=>{
       if(preparedQuote){preparedQuote=null;document.querySelector('#preparedQuoteNotice').hidden=true;}
@@ -1324,7 +1363,9 @@
       if(wantsDeposit&&(!editingBookingId&&depositAmount<=0||depositRaw!==''&&(!Number.isFinite(depositAmount)||depositAmount<=0)||depositAmount>0&&!depositDate)){
         bookingStatus.textContent='Para registrar el anticipo, ingresa un monto válido y la fecha del pago.';return;
       }
-      if(wantsDeposit&&depositAmount>travelers*price){bookingStatus.textContent='El anticipo supera el total de la reserva.';return;}
+      if(wantsDeposit&&depositAmount>0&&bookingBalanceLoading){bookingStatus.textContent='Espera a que se consulte el saldo de esta reserva.';return;}
+      if(wantsDeposit&&depositAmount>0&&bookingBalanceError){bookingStatus.textContent='No se pudo verificar el saldo. Actualiza la reserva antes de registrar otro abono.';return;}
+      if(wantsDeposit&&depositAmount>Math.round((travelers*price-bookingPaidAmount)*100)/100){bookingStatus.textContent='El abono supera el saldo pendiente de '+mxn(Math.max(0,travelers*price-bookingPaidAmount))+'.';return;}
       const payload={expedition_id:expId,prospect_id:prospectId||null,customer_id:directBooking?selectedCustomerId:null,customer_name:directBooking?customerName:null,channel,agency_id:channel==='agency'?agencyId:null,travelers,unit_price_mxn:price,status:document.querySelector('#bStatus').value,next_payment_due_on:document.querySelector('#bDueDate').value||null,is_test:true};
       if(preparedQuote&&!editingBookingId&&!directBooking)payload.quote_id=preparedQuote.id;
       const button=document.querySelector('#saveBooking');button.disabled=true;
