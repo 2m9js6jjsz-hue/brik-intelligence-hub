@@ -321,7 +321,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 30 · Navegación clara</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 31 · Reservas corregidas</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -415,9 +415,9 @@
           <p>Registra y consulta reservas reales de DL Expeditions. Los importes se expresan en pesos mexicanos (MXN). Si seleccionas «Con anticipo», podrás registrar el importe recibido y su forma de pago en la misma operación.</p>
           <form id="bookingForm" class="booking-form" hidden>
             <label>Expedición *<select id="bExpedition" required><option value="">Seleccionar expedición</option></select></label>
-            <label>Origen de la reserva<select id="bOrigin"><option value="direct">Reserva directa (sin prospecto)</option><option value="prospect">Desde un prospecto existente</option></select></label>
-            <label id="bProspectWrap" hidden>Prospecto asociado<select id="bProspect"><option value="">Seleccionar prospecto</option></select></label>
-            <label id="bCustomerWrap">Cliente existente *<select id="bCustomerId"><option value="">Seleccionar cliente registrado</option></select><small style="display:block;margin-top:6px;color:#69777d">Para una persona nueva, créala primero en Clientes. No se generan fichas duplicadas por escribir un nombre.</small><input id="bCustomerName" type="hidden"></label>
+            <label>¿Cómo se originó la reserva? *<select id="bOrigin"><option value="direct">Cliente registrado (venta directa)</option><option value="prospect">Prospecto registrado</option></select></label>
+            <p id="bOriginHelp" class="hint" style="grid-column:1/-1;margin:0">Si ya registraste a la persona como prospecto, elige «Prospecto registrado». Si llegó directamente a comprar, selecciona un cliente de Clientes.</p><label id="bProspectWrap" hidden>Seleccionar prospecto *<select id="bProspect"><option value="">Seleccionar prospecto</option></select></label>
+            <label id="bCustomerWrap">Seleccionar cliente *<select id="bCustomerId"><option value="">Seleccionar cliente registrado</option></select><small style="display:block;margin-top:6px;color:#69777d">Si aún no está registrado, agrégalo en Clientes antes de crear una reserva directa.</small><input id="bCustomerName" type="hidden"></label>
             <label>Canal de venta *<select id="bChannel" required><option value="direct">Venta directa</option><option value="agency">Agencia</option></select></label>
             <label id="bAgencyWrap" hidden>Agencia *<select id="bAgency"><option value="">Seleccionar agencia</option></select><small style="display:block;margin-top:6px;color:#69777d">En reservas directas puedes elegir una agencia. Si la reserva viene de un prospecto, se utiliza la agencia registrada en su ficha.</small></label>
             <label>Cantidad de viajeros *<input id="bTravelers" type="number" min="1" max="10000" step="1" value="1" required></label>
@@ -996,6 +996,7 @@
       const customerWrap=document.querySelector('#bCustomerWrap');
       prospectWrap.hidden=!fromProspect;
       customerWrap.hidden=fromProspect;
+      document.querySelector('#bOriginHelp').textContent=fromProspect?'Selecciona el prospecto de esta expedición. No necesitas crear otra ficha ni una cotización para guardar la reserva.':'Selecciona un cliente registrado. Si antes fue prospecto, usa «Prospecto registrado» para conservar su origen.';
       document.querySelector('#bProspect').required=fromProspect;
       document.querySelector('#bCustomerId').required=!fromProspect;
       if(!fromProspect){document.querySelector('#bProspect').value='';preparedQuote=null;document.querySelector('#preparedQuoteNotice').hidden=true;syncBookingChannelFromProspect();}
@@ -1102,11 +1103,12 @@
       bookingForm.scrollIntoView({behavior:'smooth',block:'start'});
     }
     document.querySelector('#cancelBookingEdit').addEventListener('click',()=>{resetBookingEditor();bookingStatus.textContent='Edición cancelada.';});
-    document.querySelector('#bProspect').addEventListener('change',()=>{syncBookingChannelFromProspect();warnExistingBooking();});
+    document.querySelector('#bProspect').addEventListener('change',()=>{if(preparedQuote){preparedQuote=null;document.querySelector('#preparedQuoteNotice').hidden=true;}syncBookingChannelFromProspect();warnExistingBooking();});
     document.querySelector('#bChannel').addEventListener('change',syncBookingAgency);
     document.querySelector('#bTravelers').addEventListener('input',updateBookingTotal);
     document.querySelector('#bStatus').addEventListener('change',syncDepositFields);
     document.querySelector('#bExpedition').addEventListener('change',()=>{
+      if(preparedQuote){preparedQuote=null;document.querySelector('#preparedQuoteNotice').hidden=true;}
       const e=bookingExpeditions.get(document.querySelector('#bExpedition').value);
       syncBookingPrice();syncBookingProspect();warnExistingBooking();
     });
@@ -1194,6 +1196,8 @@
       const bookingMobileList=document.querySelector('#bookingMobileList');bookingMobileList.replaceChildren();
       if((bookingPaymentsRes.data||[]).length===5000){bookingStatus.textContent='Aviso: se alcanzó el límite de pagos consultados. Los saldos podrían estar incompletos; revisa Finanzas.';}
       const records=bookingRes.data||[];bookingRecords=new Map(records.map(b=>[b.id,b]));
+      // Reconstruir el selector con las reservas actuales, evitando prospectos ya reservados.
+      syncBookingProspect();
       const paidByBooking=new Map();
       for(const payment of bookingPaymentsRes.data||[]){paidByBooking.set(payment.booking_id,(paidByBooking.get(payment.booking_id)||0)+Number(payment.amount_mxn||0));}
       renderCollections(records,paidByBooking);
@@ -1232,7 +1236,7 @@
       bookingCount.textContent=records.length===500?'500 registros mostrados':`${records.length} reserva${records.length===1?'':'s'}`;
       document.querySelector('#homeBookings').textContent=String(records.filter(x=>x.status!=='cancelled').length)+(records.length===500?'+':'');
       document.querySelector('#homeBookingsNote').textContent=records.length===500?'Activas entre 500 registros':'No canceladas · Incluye pendientes y con anticipo';
-      if((bookingPaymentsRes.data||[]).length<5000)bookingStatus.textContent=currentRole==='admin'?'Crea reservas desde una cotización aceptada. Los abonos se calculan desde Pagos.':'Acceso de consulta: no puedes registrar reservas.';
+      if((bookingPaymentsRes.data||[]).length<5000)bookingStatus.textContent=currentRole==='admin'?'Elige un prospecto o un cliente registrado. La cotización es opcional; los abonos se consultan en Pagos.':'Acceso de consulta: no puedes registrar reservas.';
       syncBookingProspect();syncBookingOrigin();syncBookingPrice();syncDepositFields();
     }
     bookingForm.addEventListener('submit',async event=>{
@@ -1266,7 +1270,7 @@
         if(duplicateError){bookingStatus.textContent='No se pudo verificar si ya existe una reserva: '+duplicateError.message;return;}
         if(duplicates?.length){bookingStatus.textContent='Ya existe una reserva activa para este prospecto en esta expedición (#'+duplicates[0].id.slice(0,8)+'). No se creó otra. Revisa la reserva existente.';return;}
       }
-      if(!editingBookingId&&!preparedQuote&&!directBooking){bookingStatus.textContent='Para reservar desde un prospecto, selecciona una cotización del historial. Si el cliente compra directamente, usa Reserva directa.';return;}
+      // La cotización es opcional para un prospecto. Si se preparó una, se valida y vincula más abajo.
       if(!editingBookingId&&directBooking){
         const {data:existingDirect,error:directError}=await supabase.from('bookings').select('id,customer_id,status').eq('expedition_id',expId).eq('customer_id',selectedCustomerId).neq('status','cancelled').limit(5);
         if(directError){bookingStatus.textContent='No se pudo verificar reservas existentes: '+directError.message;return;}
