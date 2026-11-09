@@ -314,14 +314,14 @@
         <button class="dash-nav" data-page="expediciones" type="button">◉ &nbsp; Expediciones</button>
         <button class="dash-nav" data-page="prospectos" type="button">♙ &nbsp; Prospectos</button>
         <button class="dash-nav" data-page="reservas" type="button">▣ &nbsp; Reservas</button>
-        <button class="dash-nav" data-page="finanzas" type="button">◈ &nbsp; Pagos y gastos</button>
-        <button class="dash-nav" data-page="calendarios" type="button">▦ &nbsp; Calendarios de pagos</button>
         <button class="dash-nav" data-page="clientes" type="button">♧ &nbsp; Clientes</button>
         <button class="dash-nav" data-page="cotizador" type="button">▤ &nbsp; Cotizador</button>
+        <button class="dash-nav" data-page="finanzas" type="button">◈ &nbsp; Pagos</button>
+        <button class="dash-nav" data-page="calendarios" type="button">▦ &nbsp; Calendario de pagos</button>
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 28 · Ocupación y escenarios</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 29 · Menú organizado</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -2194,7 +2194,7 @@
           for(const sc of scenarios){if(!Number.isInteger(sc.n)||sc.n<1||sc.n>capacity||sc.n<minimum||used.has(sc.n))continue;used.add(sc.n);shown++;
             const income=sc.n*price,cost=fixedTotal+sc.n*variableTotal;
             const panel=document.createElement('div');panel.className='occupancy-scenario';
-            const heading=document.createElement('h5');heading.textContent=sc.label+' · '+sc.n+' viajeros';panel.appendChild(heading);
+            const heading=document.createElement('h5');heading.textContent=sc.label==='Con 12 viajeros'?'Con 12 viajeros':sc.label+' · '+sc.n+' viajeros';panel.appendChild(heading);
             const percentage=document.createElement('p');percentage.className='occupancy-scenario-sub';percentage.textContent='Ocupación: '+(100*sc.n/capacity).toLocaleString('es-MX',{maximumFractionDigits:1})+' %';panel.appendChild(percentage);
             line(panel,'Ingresos estimados',money(income));
             line(panel,'Costos estimados conocidos',money(cost));
@@ -2517,7 +2517,7 @@
     menuToggle.addEventListener('click',()=>{const opening=!sideNav.classList.contains('open');sideNav.classList.toggle('open',opening);shade.hidden=!opening;menuToggle.setAttribute('aria-expanded',String(opening));});
     shade.addEventListener('click',closeMenu);
     document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
-    const pageTitles={inicio:['Panel principal','DL Expeditions · Resumen comercial y financiero'],agencias:['Agencias','Directorio de aliados comerciales'],expediciones:['Expediciones','Catálogo y configuración de viajes'],prospectos:['Prospectos','Seguimiento de oportunidades'],reservas:['Reservas','Control de expediciones'],finanzas:['Pagos y gastos','Resumen financiero'],calendarios:['Calendarios de pagos','Vencimientos de viajeros y proveedores'],clientes:['Clientes','Historial de viajeros'],cotizador:['Cotizador','Cálculo de precios y márgenes'],reportes:['Reportes y análisis','Inteligencia comercial']};
+    const pageTitles={inicio:['Panel principal','DL Expeditions · Resumen comercial y financiero'],agencias:['Agencias','Directorio de aliados comerciales'],expediciones:['Expediciones','Catálogo y configuración de viajes'],prospectos:['Prospectos','Seguimiento de oportunidades'],reservas:['Reservas','Control de expediciones'],finanzas:['Pagos','Cobros y gastos registrados'],calendarios:['Calendario de pagos','Vencimientos de viajeros y proveedores'],clientes:['Clientes','Historial de viajeros'],cotizador:['Cotizador','Cálculo de precios y márgenes'],reportes:['Reportes y análisis','Inteligencia comercial']};
     sideNav.querySelectorAll('[data-page]').forEach(btn=>btn.addEventListener('click',()=>{
       const page=btn.dataset.page;
       sideNav.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b===btn);if(b===btn)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
