@@ -1239,6 +1239,37 @@
       if((bookingPaymentsRes.data||[]).length<5000)bookingStatus.textContent=currentRole==='admin'?'Elige un prospecto o un cliente registrado. La cotización es opcional; los abonos se consultan en Pagos.':'Acceso de consulta: no puedes registrar reservas.';
       syncBookingProspect();syncBookingOrigin();syncBookingPrice();syncDepositFields();
     }
+    // Una reserva confirmada convierte al prospecto en cliente, sin crear duplicados por nombre ambiguo.
+    async function ensureBookingCustomer(bookingId, prospectId, existingCustomerId){
+      if(existingCustomerId)return {id:existingCustomerId,warning:''};
+      const {data:booking,error:bookingErr}=await supabase.from('bookings').select('id,customer_id,prospect_id,status').eq('id',bookingId).single();
+      if(bookingErr)throw bookingErr;
+      if(booking.customer_id)return {id:booking.customer_id,warning:''};
+      if(booking.status==='cancelled')return {id:null,warning:''};
+      const {data:prospect,error:prospectErr}=await supabase.from('prospects').select('id,alias').eq('id',prospectId).single();
+      if(prospectErr)throw prospectErr;
+      const name=(prospect.alias||'').trim().replace(/\s+/g,' ');
+      if(!name)throw new Error('El prospecto no tiene nombre. Completa su ficha antes de vincularlo a Clientes.');
+      const {data:customers,error:customerErr}=await supabase.from('customers').select('id,full_name').limit(1000);
+      if(customerErr)throw customerErr;
+      if(customers.length===1000)throw new Error('Hay 1,000 clientes o más; no se puede descartar un duplicado. Revisa Clientes manualmente.');
+      const norm=t=>String(t||'').trim().replace(/\s+/g,' ').toLocaleLowerCase('es');
+      const matches=customers.filter(c=>norm(c.full_name)===norm(name));
+      if(matches.length>1)throw new Error('Existen varias fichas de cliente con el nombre «'+name+'». Vincula esta reserva manualmente para evitar confundir personas.');
+      let customerId=matches[0]?.id;
+      if(!customerId){
+        const {data:created,error:createErr}=await supabase.from('customers').insert({full_name:name}).select('id').single();
+        if(createErr)throw createErr;
+        customerId=created.id;
+      }
+      const {data:updated,error:linkErr}=await supabase.from('bookings').update({customer_id:customerId,customer_name:name}).eq('id',bookingId).is('customer_id',null).select('id');
+      if(linkErr)throw linkErr;
+      if(!updated?.length){
+        const {data:check,error:checkErr}=await supabase.from('bookings').select('customer_id').eq('id',bookingId).single();
+        if(checkErr||!check.customer_id)throw new Error('No se pudo confirmar el vínculo de la reserva con Clientes.');
+      }
+      return {id:customerId,warning:''};
+    }
     bookingForm.addEventListener('submit',async event=>{
       event.preventDefault();
       if(currentRole!=='admin'){bookingStatus.textContent='No tienes permiso para registrar reservas.';return;}
@@ -1319,6 +1350,13 @@
           const {error:paymentError}=await supabase.from('payments').insert({booking_id:savedId,amount_mxn:depositAmount,payment_method:depositMethod,paid_at:new Date(depositDate+'T12:00:00').toISOString()});
           if(paymentError)throw new Error('Reserva guardada, pero el anticipo NO se registró: '+paymentError.message+'. Verifica Pagos antes de reintentar.');
         }
+        // Vincular la ficha de cliente también cuando la reserva viene de Prospectos.
+        // Si falla, la reserva y sus pagos permanecen intactos y se informa el problema.
+        let customerWarning='';
+        if(prospectId&&payload.status!=='cancelled'){
+          try{await ensureBookingCustomer(savedId,prospectId,null);}
+          catch(linkError){customerWarning=' ATENCIÓN: reserva guardada, pero NO vinculada a Clientes: '+linkError.message;}
+        }
         // Convertir únicamente tras guardar una reserva activa; nunca por una cotización.
         let stageWarning='';
         if(prospectId&&payload.status!=='cancelled'){
@@ -1328,7 +1366,7 @@
         resetBookingEditor();
         await loadBookings();
         if(wantsDeposit&&depositAmount>0)await loadFinances();
-        bookingStatus.textContent=(wantsDeposit&&depositAmount>0?'Reserva y anticipo registrados correctamente en Supabase.':wasEditing?'Reserva actualizada correctamente en Supabase.':'Reserva guardada correctamente en Supabase.')+stageWarning;
+        bookingStatus.textContent=(wantsDeposit&&depositAmount>0?'Reserva y anticipo registrados correctamente en Supabase.':wasEditing?'Reserva actualizada correctamente en Supabase.':'Reserva guardada correctamente en Supabase.')+stageWarning+customerWarning;
       }catch(err){if(err?.code==='23505')bookingStatus.textContent='Esta cotización ya tiene una reserva registrada. No se creó otra.';else bookingError(err);}finally{button.disabled=false;}
     });
 
@@ -1750,6 +1788,30 @@
       if(!filtered.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=7;td.textContent='Sin resultados.';tr.appendChild(td);body.appendChild(tr);}
     }
     document.querySelector('#clientSearch').addEventListener('input',drawClients);
+    // Reparación voluntaria de reservas anteriores: solo con confirmación del administrador.
+    const repairBtn=document.createElement('button');
+    repairBtn.type='button';repairBtn.textContent='Vincular reservas anteriores con Clientes';
+    repairBtn.style.margin='12px 0';
+    const clientStatusElement=document.querySelector('#clientStatus');
+    clientStatusElement.insertAdjacentElement('afterend',repairBtn);
+    repairBtn.addEventListener('click',async()=>{
+      if(currentRole!=='admin')return;
+      if(!window.confirm('Se revisarán las reservas anteriores sin cliente y se crearán o vincularán fichas solo cuando el nombre sea inequívoco. No se modificarán pagos. ¿Continuar?'))return;
+      repairBtn.disabled=true;
+      let fixed=0,skipped=0;const notes=[];
+      try{
+        const {data:old,error}=await supabase.from('bookings').select('id,prospect_id,customer_id,status').is('customer_id',null).not('prospect_id','is',null).neq('status','cancelled').limit(1000);
+        if(error)throw error;
+        for(const b of old||[]){
+          try{await ensureBookingCustomer(b.id,b.prospect_id,null);fixed++;}
+          catch(e){skipped++;if(notes.length<3)notes.push(e.message);}
+        }
+        await loadClients();
+        clientStatusElement.textContent='Revisión finalizada: '+fixed+' reserva(s) vinculadas; '+skipped+' requieren revisión manual.'+(notes.length?' Detalles: '+notes.join(' | '):'');
+      }catch(e){clientStatusElement.textContent='No se pudo completar la revisión: '+e.message;}
+      finally{repairBtn.disabled=false;}
+    });
+
     async function loadClients(){
       const status=document.querySelector('#clientStatus');status.textContent='Consultando fichas e historial de clientes...';
       document.querySelector('#customerMasterForm').hidden=currentRole!=='admin';
