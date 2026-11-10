@@ -270,6 +270,23 @@
     .occupancy-scenario .dash-row b{flex:0 0 auto;text-align:right;overflow-wrap:anywhere}
     .occupancy-simple-note{padding:12px 14px;background:#fff5ec;border:1px solid #edc9ad;border-radius:12px;color:#8a4b25!important;font-size:14px!important;font-weight:700;margin:8px 0 16px!important}
     @media(max-width:650px){.occupancy-scenario{padding:14px}.occupancy-scenario .dash-row{display:block}.occupancy-scenario .dash-row span,.occupancy-scenario .dash-row b{display:block;text-align:left}.occupancy-scenario .dash-row b{margin-top:4px;font-size:17px}}
+
+/* V41: lectura de alertas sin cortes en pantallas pequeñas */
+.alert-subheading{font-size:17px;margin:24px 0 8px;color:#17252c}
+.alert-unscheduled-card{margin-bottom:10px;border-color:#efd4c0;background:#fffaf6}
+.alert-detail-row{align-items:flex-start;gap:12px;min-width:0}
+.alert-detail-row span{flex:1 1 44%;min-width:0;overflow-wrap:break-word}
+.alert-detail-row b{flex:1 1 56%;min-width:0;text-align:right;overflow-wrap:break-word;word-break:normal}
+.alert-detail-row .alert-money{white-space:nowrap;font-variant-numeric:tabular-nums;font-size:clamp(13px,3.7vw,16px)}
+@media(max-width:650px){
+ #alertFollowupDetail{padding:15px}
+ #alertFollowupDetail .record-mobile-card{padding:14px}
+ #alertFollowupDetail .record-mobile-card h3{font-size:clamp(16px,4.6vw,20px);overflow-wrap:anywhere}
+ #alertFollowupDetail .alert-detail-row{display:grid;grid-template-columns:minmax(0,1fr);gap:4px;padding:11px 0}
+ #alertFollowupDetail .alert-detail-row span,#alertFollowupDetail .alert-detail-row b{display:block;text-align:left;min-width:0}
+ #alertFollowupDetail .alert-detail-row b{font-size:15px;line-height:1.45}
+ #alertFollowupDetail .alert-detail-row .alert-money{font-size:18px}
+}
 </style>
 </head>
 <body>
@@ -321,7 +338,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 40 · Seguimiento de cobros</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 41 · Alertas precisas</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -676,7 +693,7 @@
           </div>
           <div class="dash-panel" style="margin-top:18px">
             <div class="section-head"><h2>Centro de alertas · seguimiento</h2><span class="pill">Supabase · Solo lectura</span></div>
-            <p>Señales calculadas al abrir Reportes. No envían notificaciones ni modifican registros. Umbral inicial de seguimiento: ocupación inferior al 50 % cuando faltan 60 días o menos para salir. Los saldos son <strong>pendientes, no necesariamente vencidos</strong>.</p>
+            <p>Señales calculadas al abrir Reportes. No envían notificaciones ni modifican registros. Umbral inicial de seguimiento: ocupación inferior al 50 % cuando faltan 60 días o menos para salir. Solo las cuotas programadas se clasifican como vencidas o próximas. Los saldos sin calendario completo aparecen por separado y <strong>no se consideran vencidos automáticamente</strong>.</p>
             <p id="alertStatus" class="hint" role="status">Abre Reportes para evaluar las alertas.</p>
             <div class="dash-grid" id="alertTotals" aria-label="Resumen de alertas"></div>
             <div class="table-wrap" style="margin-top:20px"><table class="dash-table"><thead><tr><th>Expedición</th><th>Salida</th><th>Ocupación</th><th>Saldo por cobrar</th><th>Seguimiento sugerido</th></tr></thead><tbody id="alertRows"><tr><td colspan="5">Sin cargar</td></tr></tbody></table></div>
@@ -2449,25 +2466,37 @@
               items.push({category,due,amount:remaining,person:person(b),expedition:expNames.get(b.expedition_id)||'Sin expedición',note:q.description||'Cuota programada',test:!!b.is_test});
             }
             const scheduledRemaining=qs.filter(q=>String(q.status||'').toLowerCase()!=='cancelled').reduce((n,q)=>n+Math.max(0,Number(q.amount_mxn||0)-(applied.get(q.id)||0)),0);
-            if(balance>scheduledRemaining+0.01)unscheduled.push({person:person(b),expedition:expNames.get(b.expedition_id)||'Sin expedición',amount:balance-scheduledRemaining});
+            if(balance>scheduledRemaining+0.01)unscheduled.push({person:person(b),expedition:expNames.get(b.expedition_id)||'Sin expedición',amount:balance-scheduledRemaining,due:'',test:!!b.is_test});
           }else{
+            // Una fecha anotada en la reserva no es una cuota contractual programada.
+            // Se muestra como referencia de seguimiento, sin contarla como mora.
             const due=String(b.next_payment_due_on||'').slice(0,10);
-            const category=due&&due<todayISO?'Vencido':due&&due<=limitISO?'Próximo':'';
-            if(category){if(category==='Vencido')overdue++;else upcoming++;items.push({category,due,amount:balance,person:person(b),expedition:expNames.get(b.expedition_id)||'Sin expedición',note:'Fecha de reserva · sin cuotas programadas',test:!!b.is_test});}
-            else unscheduled.push({person:person(b),expedition:expNames.get(b.expedition_id)||'Sin expedición',amount:balance});
+            unscheduled.push({person:person(b),expedition:expNames.get(b.expedition_id)||'Sin expedición',amount:balance,due,test:!!b.is_test});
           }
         }
         const detail=document.createElement('div');detail.className='dash-panel';detail.style.marginTop='16px';
         const heading=document.createElement('h3');heading.textContent='Cobros que requieren seguimiento';heading.style.margin='0 0 10px';detail.append(heading);
         items.sort((a,b)=>(a.category==='Vencido'?0:1)-(b.category==='Vencido'?0:1)||a.due.localeCompare(b.due)||a.person.localeCompare(b.person,'es'));
-        if(!items.length){const p=document.createElement('p');p.className='hint';p.textContent='No hay cuotas vencidas ni próximas dentro de 30 días.';detail.append(p);}
+        if(!items.length){const p=document.createElement('p');p.className='hint';p.textContent='No hay cuotas programadas vencidas ni próximas dentro de 30 días.';detail.append(p);}
         for(const x of items){
           const card=document.createElement('article');card.className='record-mobile-card';card.style.marginBottom='10px';
           const h=document.createElement('h3');h.textContent=x.person+(x.test?' · PRUEBA':'');card.append(h);
-          for(const [label,value] of [['Estado',x.category],['Expedición',x.expedition],['Vence',x.due],['Importe pendiente de esta cuota',fmt(x.amount)],['Referencia',x.note]]){
-            const row=document.createElement('div');row.className='dash-row';const a=document.createElement('span');a.textContent=label;const b=document.createElement('b');b.textContent=value;row.append(a,b);card.append(row);
+          for(const [label,value] of [['Estado',x.category],['Expedición',x.expedition],['Vencimiento programado',x.due],['Importe pendiente de esta cuota',fmt(x.amount)],['Referencia',x.note]]){
+            const row=document.createElement('div');row.className='dash-row alert-detail-row';const a=document.createElement('span');a.textContent=label;const b=document.createElement('b');b.textContent=value;if(label.includes('Importe'))b.classList.add('alert-money');row.append(a,b);card.append(row);
           }
           detail.append(card);
+        }
+        if(unscheduled.length){
+          const sub=document.createElement('h3');sub.textContent='Reservas por programar · no son cuotas vencidas';sub.className='alert-subheading';detail.append(sub);
+          const explanation=document.createElement('p');explanation.className='hint';explanation.textContent='Estos saldos requieren completar o revisar el calendario. La fecha anotada en la reserva es solo una referencia y no se utiliza para afirmar mora.';detail.append(explanation);
+          for(const x of unscheduled){
+            const card=document.createElement('article');card.className='record-mobile-card alert-unscheduled-card';
+            const h=document.createElement('h3');h.textContent=x.person+(x.test?' · PRUEBA':'');card.append(h);
+            for(const [label,value] of [['Estado','Calendario incompleto'],['Expedición',x.expedition],['Saldo por programar',fmt(x.amount)],['Fecha de referencia',x.due||'Sin definir'],['Acción sugerida','Confirmar cuotas y fechas con el cliente']]){
+              const row=document.createElement('div');row.className='dash-row alert-detail-row';const a=document.createElement('span');a.textContent=label;const b=document.createElement('b');b.textContent=value;if(label==='Saldo por programar')b.classList.add('alert-money');row.append(a,b);card.append(row);
+            }
+            detail.append(card);
+          }
         }
         const existing=document.getElementById('alertFollowupDetail');if(existing)existing.remove();
         detail.id='alertFollowupDetail';totals.parentElement.insertBefore(detail,totals.nextSibling);
@@ -2477,12 +2506,14 @@
           const occupancy=capacity>0?travelers/capacity:null,days=daysUntil(e.departure_date);
           const balance=active.reduce((n,b)=>n+Math.max(0,Number(b.travelers||0)*Number(b.unit_price_mxn||0)-(paid.get(b.id)||0)),0);
           const expItems=items.filter(x=>x.expedition===(e.name||'Sin nombre'));
+          const unplannedHere=unscheduled.filter(x=>x.expedition===(e.name||'Sin nombre')).length;
           const expiredHere=expItems.filter(x=>x.category==='Vencido').length,soonHere=expItems.filter(x=>x.category==='Próximo').length;
           const unresolved=costs.filter(c=>c.expedition_id===e.id&&!['included','additional'].includes(c.provider_coverage));
           pending+=unresolved.length;
           const notes=[];
           if(expiredHere)notes.push(expiredHere+' cuota(s) vencida(s)');
           if(soonHere)notes.push(soonHere+' cuota(s) próximas');
+          if(unplannedHere)notes.push(unplannedHere+' reserva(s) con calendario por completar');
           if(minimum>0&&travelers<minimum){notes.push('Faltan '+(minimum-travelers)+' viajeros para el mínimo');low++;}
           if(days!==null&&days>=0&&days<=60&&capacity>travelers)notes.push('Salida próxima · '+(capacity-travelers)+' lugares disponibles');
           if(unresolved.length)notes.push(unresolved.length+' costo(s) por confirmar: '+unresolved.map(c=>c.description||c.category||'Sin descripción').join(', '));
@@ -2492,14 +2523,14 @@
           for(const v of [e.name||'Sin nombre',e.departure_date||'Sin definir',occupancy===null?'Sin definir':(occupancy*100).toLocaleString('es-MX',{maximumFractionDigits:1})+' %',fmt(balance),notes.join(' · ')])putCell(tr,v);
           tbody.append(tr);
         }
-        stat('Cuotas vencidas',String(overdue),'Cuotas con importe pendiente y fecha vencida');
-        stat('Próximos 30 días',String(upcoming),'Cuotas pendientes con vencimiento cercano');
+        stat('Cuotas vencidas',String(overdue),'Solo cuotas programadas con saldo y fecha vencida');
+        stat('Próximos 30 días',String(upcoming),'Solo cuotas programadas con vencimiento cercano');
         stat('Debajo del mínimo',String(low),'Expediciones con viajeros insuficientes');
         stat('Costos por confirmar',String(pending),'Conceptos sin cobertura definida');
         if(overpaid)stat('Revisar sobrepagos',String(overpaid),'Reservas con pagos superiores al total');
-        if(unscheduled.length)stat('Saldo sin calendario completo',String(unscheduled.length),'Reservas que requieren revisión de cuotas y fechas');
+        if(unscheduled.length)stat('Calendarios por completar',String(unscheduled.length),'Reservas con saldo no totalmente programado');
         if(!expeditions.length)empty('No hay expediciones visibles.');
-        status.textContent='Alertas actualizadas · '+expeditions.length+' expedición(es). Vencimientos basados en cuotas programadas y pagos asignados; cuando no hay cuotas, se usa la fecha de la reserva. No se envían notificaciones ni se modifican registros. '+(unscheduled.length?'Revisa '+unscheduled.length+' reserva(s) con saldo no totalmente programado.':'');
+        status.textContent='Alertas actualizadas · '+expeditions.length+' expedición(es). Vencimientos basados en cuotas programadas y pagos asignados; las reservas sin cuotas se presentan aparte y no se clasifican como vencidas. No se envían notificaciones ni se modifican registros. '+(unscheduled.length?'Revisa '+unscheduled.length+' reserva(s) con saldo no totalmente programado.':'');
       }catch(err){
         totals.replaceChildren();tbody.replaceChildren();document.getElementById('alertFollowupDetail')?.remove();
         status.textContent='No fue posible calcular alertas: '+(err?.message||'Error desconocido')+'. Verifica permisos de lectura de Supabase.';
