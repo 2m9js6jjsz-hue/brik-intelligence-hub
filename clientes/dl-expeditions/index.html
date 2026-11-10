@@ -2737,11 +2737,18 @@
           if(filter==='overdue')return !paid&&due&&due<today;
           if(filter==='next'){const limit=new Date();limit.setDate(limit.getDate()+30);return !paid&&due>=today&&due<=limit.toLocaleDateString('en-CA');}
           return true;
-        }).sort((a,b)=>scheduleDate(a).localeCompare(scheduleDate(b)));
+        }).sort((a,b)=>kind==='booking' ?
+          String(scheduleBookingDetails.get(a.booking_id)?.person||'').localeCompare(String(scheduleBookingDetails.get(b.booking_id)?.person||''),'es',{sensitivity:'base'}) || String(a.booking_id).localeCompare(String(b.booking_id)) || scheduleDate(a).localeCompare(scheduleDate(b)) : scheduleDate(a).localeCompare(scheduleDate(b)));
+        const installmentNumbers=new Map();
+        if(kind==='booking'){
+          const groups=new Map();
+          scheduleCache.booking.forEach(x=>{if(!groups.has(x.booking_id))groups.set(x.booking_id,[]);groups.get(x.booking_id).push(x)});
+          groups.forEach(group=>group.sort((a,b)=>scheduleDate(a).localeCompare(scheduleDate(b))||String(a.id).localeCompare(String(b.id))).forEach((x,i)=>installmentNumbers.set(x.id,i+1)));
+        }
         if(!rows.length){const empty=document.createElement('div');empty.className='empty-state';empty.textContent='No hay vencimientos para este filtro.';host.append(empty);continue;}
         rows.forEach(x=>{
           const card=document.createElement('article');card.className='record-mobile-card';
-          const h=document.createElement('h3');h.textContent=kind==='booking'?(scheduleBookingDetails.get(x.booking_id)?.person||'Reserva sin prospecto identificado') : String(schedulePick(x,['provider_name','supplier_name','description','expedition_id'])||'Proveedor sin identificar');
+          const h=document.createElement('h3');h.textContent=kind==='booking'?('Cuota #'+(installmentNumbers.get(x.id)||'—')+' · '+(scheduleBookingDetails.get(x.booking_id)?.person||'Reserva sin prospecto identificado')) : String(schedulePick(x,['provider_name','supplier_name','description','expedition_id'])||'Proveedor sin identificar');
           card.append(h);
           if(currentRole==='admin'){
             const actions=document.createElement('div');actions.style.cssText='display:flex;gap:8px;flex-wrap:wrap';
@@ -2791,12 +2798,18 @@
         return;
       }
       const fragment=document.createDocumentFragment();
-      for(const pay of payments){
+      const paymentGroups=new Map();
+      payments.forEach(p=>{if(!paymentGroups.has(p.booking_id))paymentGroups.set(p.booking_id,[]);paymentGroups.get(p.booking_id).push(p)});
+      const paymentNumbers=new Map();
+      paymentGroups.forEach(group=>group.sort((a,b)=>String(a.paid_at||a.created_at||'').localeCompare(String(b.paid_at||b.created_at||''))||String(a.created_at||'').localeCompare(String(b.created_at||''))||String(a.id).localeCompare(String(b.id))).forEach((p,i)=>paymentNumbers.set(p.id,i+1)));
+      const getClientName=p=>{const b=bookings.get(p.booking_id);return b?(customers.get(b.customer_id)||prospects.get(b.prospect_id)||b.customer_name||'Cliente sin identificar'):'Reserva no disponible'};
+      const orderedPayments=[...payments].sort((a,b)=>getClientName(a).localeCompare(getClientName(b),'es',{sensitivity:'base'})||String(a.booking_id).localeCompare(String(b.booking_id))||(paymentNumbers.get(a.id)||0)-(paymentNumbers.get(b.id)||0));
+      for(const pay of orderedPayments){
         const booking=bookings.get(pay.booking_id);
         const person=booking?(customers.get(booking.customer_id)||prospects.get(booking.prospect_id)||booking.customer_name||'Cliente sin identificar'):'Reserva no disponible';
         const expedition=booking?(exps.get(booking.expedition_id)||'Expedición no identificada'):'Expedición no disponible';
         const card=document.createElement('article');card.className='record-mobile-card';
-        const title=document.createElement('h3');title.textContent=(pay.payment_number?'Abono #'+pay.payment_number:'Abono sin número')+' · '+person;card.append(title);
+        const title=document.createElement('h3');title.textContent='Abono #'+paymentNumbers.get(pay.id)+' · '+person;card.append(title);
         const fields=[['Expedición',expedition],['Reserva','#'+String(pay.booking_id||'').slice(0,8)],['Fecha',pay.paid_at?String(pay.paid_at).slice(0,10):'Sin fecha'],['Importe recibido',scheduleMoney(Number(pay.amount_mxn)||0)],['Forma de pago',financePaymentMethods[pay.payment_method]||pay.payment_method||'Sin registrar'],['Tipo',booking?.is_test?'PRUEBA':'Registro']];
         for(const [label,value] of fields){const row=document.createElement('div');row.className='dash-row';const k=document.createElement('span');k.textContent=label;const v=document.createElement('b');v.textContent=value;row.append(k,v);card.append(row)}
         fragment.append(card);
