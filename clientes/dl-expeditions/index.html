@@ -321,7 +321,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 36 · Control de integridad</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 37 · Cuotas conectadas</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -494,7 +494,7 @@
                <div class="dash-panel"><h3>Programar cobro a viajero</h3><p class="hint">Selecciona una reserva existente. Registrar un vencimiento no significa que el dinero ya se recibió.</p>
                  <form id="scheduleBookingForm" class="finance-form" style="grid-template-columns:1fr">
                    <label>Reserva *<select id="scBooking" required><option value="">Seleccionar reserva</option></select></label>
-                    <div id="scBalance" class="finance-balance-preview" role="status">Selecciona una reserva para ver su valor, pagos y saldo disponible.</div>
+                    <div id="scBalance" class="finance-balance-preview" role="status">Selecciona una reserva para ver su valor, pagos y saldo disponible.</div><div id="scInstallmentSummary" class="finance-balance-preview" aria-live="polite" style="background:#fff;border-color:#e4e0da">Selecciona una reserva para ver sus cuotas y abonos vinculados.</div>
                    <label>Fecha de vencimiento *<input id="scDue" type="date" required></label>
                    <label>Monto (MXN) *<input id="scAmount" type="number" min="0.01" step="0.01" required></label>
                    <div class="finance-balance-preview">Este es un <strong>cobro programado</strong>, no un pago recibido. Cuando se registre dinero en Pagos y gastos, el sistema asignará Abono #1, Abono #2, etc., por reserva.</div>
@@ -2892,19 +2892,41 @@
       updateScheduleBalance();
     }
     function scheduleBalance(id,excludeId=null){
-      const b=scheduleBookings.get(id);if(!b||!scheduleDataReady)return null;
-      const total=Math.round(Number(b.travelers)*Number(b.unit_price_mxn)*100)/100;
-      const paid=Math.round(schedulePayments.filter(p=>p.booking_id===id).reduce((n,p)=>n+Number(p.amount_mxn||0),0)*100)/100;
-      const pending=Math.round(scheduleCache.booking.filter(s=>s.booking_id===id&&s.id!==excludeId&&!scheduleDisplayPaid(s)).reduce((n,s)=>n+(scheduleAllocationsReady?scheduleRemaining(s):scheduleAmount(s)),0)*100)/100;
-      return {total,paid,pending,due:Math.max(0,Math.round((total-paid)*100)/100),available:Math.max(0,Math.round((total-paid-pending)*100)/100)};
+      const b=scheduleBookings.get(id);
+      if(!b||!scheduleDataReady||!scheduleAllocationsReady)return null;
+      const cents=n=>Math.round(Number(n||0)*100);
+      const total=cents(Number(b.travelers)*Number(b.unit_price_mxn));
+      const payments=schedulePayments.filter(p=>p.booking_id===id);
+      const paid=payments.reduce((n,p)=>n+cents(p.amount_mxn),0);
+      const schedules=scheduleCache.booking.filter(s=>s.booking_id===id&&s.id!==excludeId);
+      const scheduled=schedules.reduce((n,s)=>n+cents(scheduleAmount(s)),0);
+      const applied=payments.reduce((n,p)=>n+scheduleAllocations.filter(a=>a.payment_id===p.id).reduce((m,a)=>m+cents(a.amount_mxn),0),0);
+      // Una cuota pagada sigue formando parte del plan: no descontar el mismo abono dos veces.
+      // Los pagos sin asignar también reservan parte del valor de la reserva.
+      const unallocated=Math.max(0,paid-applied);
+      const pending=schedules.reduce((n,s)=>n+cents(scheduleRemaining(s)),0);
+      return {total:total/100,paid:paid/100,pending:pending/100,
+        due:Math.max(0,total-paid)/100,
+        available:Math.max(0,total-scheduled-unallocated)/100,
+        scheduled:scheduled/100,unallocated:unallocated/100};
     }
     function updateScheduleBalance(){
       const id=scheduleEl('scBooking').value,box=scheduleEl('scBalance'),amount=scheduleEl('scAmount'),submit=scheduleEl('scheduleBookingForm').querySelector('[type=submit]');
+      const summary=scheduleEl('scInstallmentSummary');summary.replaceChildren();
       const v=scheduleBalance(id);
-      if(!v){box.textContent=id?'No se pueden verificar los saldos. Revisa el acceso a pagos y reservas.':'Selecciona una reserva para consultar sus saldos.';amount.removeAttribute('max');submit.disabled=true;return;}
-      box.textContent='Valor reserva: '+scheduleMoney(v.total)+' · Pagado: '+scheduleMoney(v.paid)+' · Saldo pendiente: '+scheduleMoney(v.due)+' · Cobros pendientes ya programados: '+scheduleMoney(v.pending)+' · Disponible para programar: '+scheduleMoney(v.available);
+      if(!v){box.textContent=id?'No se pueden verificar los saldos y asignaciones. Actualiza y revisa los permisos.':'Selecciona una reserva para consultar sus saldos.';summary.textContent='Selecciona una reserva para ver sus cuotas y abonos vinculados.';amount.removeAttribute('max');submit.disabled=true;return;}
+      box.textContent='Valor reserva: '+scheduleMoney(v.total)+' · Abonado: '+scheduleMoney(v.paid)+' · Saldo por cobrar: '+scheduleMoney(v.due)+' · Cuotas pendientes: '+scheduleMoney(v.pending)+' · Abonos sin asignar: '+scheduleMoney(v.unallocated)+' · Disponible para nuevas cuotas: '+scheduleMoney(v.available);
       amount.max=String(v.available);submit.disabled=v.available<=0;
       if(v.available<=0)box.textContent+=' · No hay saldo disponible para nuevos cobros.';
+      const title=document.createElement('strong');title.textContent='Cuotas de esta reserva';summary.append(title);
+      const installments=scheduleCache.booking.filter(s=>s.booking_id===id).sort((a,b)=>scheduleDate(a).localeCompare(scheduleDate(b)));
+      if(!installments.length){const p=document.createElement('p');p.textContent='Todavía no hay cuotas programadas.';summary.append(p);}
+      installments.forEach((s,i)=>{
+        const row=document.createElement('div');row.className='dash-row';
+        const label=document.createElement('span');label.textContent=(s.description||'Cuota '+(i+1))+' · '+(scheduleDate(s).slice(0,10)||'Sin fecha');
+        const val=document.createElement('b');val.textContent=scheduleMoney(scheduleAmount(s))+' · Aplicado '+scheduleMoney(scheduleApplied(s))+' · '+(scheduleSettled(s)?'Pagada':scheduleApplied(s)>0?'Parcial':'Pendiente');
+        row.append(label,val);summary.append(row);
+      });
     }
     scheduleEl('scBooking').addEventListener('change',updateScheduleBalance);
     async function scheduleSave(kind,record,messageId,form){
