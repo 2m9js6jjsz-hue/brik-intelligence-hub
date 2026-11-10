@@ -321,7 +321,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 37 · Cuotas conectadas</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 39 · Proyecciones y alertas</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -667,8 +667,8 @@
             <p class="hint">Punto de equilibrio estimado: costos fijos ÷ (precio promedio por viajero − costo variable por viajero − comisión promedio por viajero), redondeado hacia arriba. Es una estimación basada en la mezcla actual de reservas; si cambian los precios o las agencias, cambia el resultado. Si no hay reservas, no se estima el punto de equilibrio. Impuestos, devoluciones y costos no registrados quedan fuera.</p>
           </div>
           <div class="dash-panel" style="margin-top:18px" id="occupancyProfitPanel">
-            <div class="section-head"><h2>Rentabilidad y ocupación · escenarios</h2><span class="pill">MXN · Proyección condicionada</span></div>
-            <p class="hint">Compara ocupación, lugares disponibles y escenarios por expedición. El costo de coordinación se considera <strong>fijo por viaje</strong>. Los conceptos con cobertura «incluido» no se suman; «adicional» se suma una sola vez; «pendiente» queda por confirmar y no se suma hasta aclarar si ya está dentro del costo del proveedor.</p>
+            <div class="section-head"><h2>Proyección financiera y ocupación</h2><span class="pill">MXN · Proyección condicionada</span></div>
+            <p class="hint">Consulta ocupación, reservas, cobros y escenarios por expedición. Los importes reservados no equivalen a dinero cobrado. El costo de coordinación se considera <strong>fijo por viaje</strong>. Los conceptos con cobertura «incluido» no se suman; «adicional» se suma una sola vez; «pendiente» queda por confirmar y no se suma hasta aclarar si ya está dentro del costo del proveedor.</p>
             <div class="executive-toolbar"><label>Expedición<select id="occupancyProfitSelect"><option value="">Todas las expediciones</option></select></label><button id="occupancyProfitRefresh" type="button" style="width:auto;margin:0;padding:12px 16px">Actualizar escenarios</button></div>
             <p id="occupancyProfitStatus" class="hint" role="status">Abre Reportes para consultar escenarios.</p>
             <div id="occupancyProfitCards" style="display:grid;gap:16px"></div>
@@ -2316,11 +2316,12 @@
         const queries=await Promise.all([
           supabase.from('expeditions').select('id,name,capacity,min_travelers,public_price_mxn,provider_cost_per_traveler_mxn,coordinator_cost_mxn,fixed_allocated_mxn').limit(1000),
           supabase.from('bookings').select('id,expedition_id,travelers,unit_price_mxn,status').limit(1000),
+          supabase.from('payments').select('id,booking_id,amount_mxn').limit(1000),
           supabase.from('expedition_cost_items').select('id,expedition_id,category,description,cost_type,amount_mxn,provider_coverage').limit(1000)
         ]);
         for(const q of queries)if(q.error)throw q.error;
         if(queries.some(q=>(q.data||[]).length>=1000))throw new Error('Consulta de 1,000 registros alcanzada; no se muestran cálculos parciales.');
-        const [expeditions,bookings,costs]=queries.map(q=>q.data||[]);
+        const [expeditions,bookings,payments,costs]=queries.map(q=>q.data||[]);
         const previous=select.value;
         select.replaceChildren();const all=document.createElement('option');all.value='';all.textContent='Todas las expediciones';select.appendChild(all);
         for(const e of expeditions){const opt=document.createElement('option');opt.value=e.id;opt.textContent=e.name;select.appendChild(opt);}
@@ -2340,35 +2341,42 @@
           const addVariable=additional.filter(c=>c.cost_type==='per_traveler').reduce((n,c)=>n+Number(c.amount_mxn||0),0);
           const fixedTotal=fixed+addFixed,variableTotal=provider+addVariable;
           const bookedSales=active.reduce((n,b)=>n+Number(b.travelers||0)*Number(b.unit_price_mxn||0),0);
+          const activeIds=new Set(active.map(b=>b.id));
+          const received=payments.filter(p=>activeIds.has(p.booking_id)).reduce((n,p)=>n+Number(p.amount_mxn||0),0);
+          const outstanding=Math.max(0,bookedSales-received);
           const card=document.createElement('div');card.className='dash-panel';
           const h=document.createElement('h3');h.style.margin='0 0 12px';h.textContent=e.name;card.appendChild(h);
           line(card,'Viajeros reservados',travelers);
           line(card,'Ocupación',capacity>0?(100*travelers/capacity).toLocaleString('es-MX',{maximumFractionDigits:1})+' %':'Capacidad no definida');
           line(card,'Lugares disponibles',capacity>0?Math.max(0,capacity-travelers):'No disponible');
           line(card,'Mínimo de viajeros para realizar el viaje',minimum||'No definido');
-          line(card,'Valor de las reservas (no significa cobrado)',money(bookedSales));
+          line(card,'Valor de reservas activas (no cobrado)',money(bookedSales));
+          line(card,'Pagos registrados para estas reservas',money(received));
+          line(card,'Saldo pendiente de cobro',money(outstanding));
+          line(card,'Viajeros faltantes para el mínimo',Math.max(0,minimum-travelers));
           line(card,'Costos fijos conocidos por viaje',money(fixed));
           line(card,'Costo base del proveedor por viajero',money(provider));
           line(card,'Otros costos confirmados',money(addFixed)+' por viaje + '+money(addVariable)+' por viajero');
           line(card,'Costos ya incluidos (no se suman otra vez)',items.filter(c=>c.provider_coverage==='included').length);
           line(card,'Costos pendientes de confirmar',pending.length);
-          if(pending.length){const p=document.createElement('p');p.className='finance-balance-preview';p.textContent='Costos por confirmar: '+pending.map(c=>c.description||c.category||'Sin descripción').join(', ')+'. No están sumados todavía. La ganancia real aún no se puede confirmar.';card.appendChild(p);}
+          if(pending.length){const p=document.createElement('p');p.className='finance-balance-preview';p.textContent='Costos por confirmar: '+pending.map(c=>c.description||c.category||'Sin descripción').join(', ')+'. No están sumados todavía. La proyección está incompleta; no es utilidad real.';card.appendChild(p);}
           const needed=Math.max(0,minimum-travelers);
           const progress=document.createElement('p');progress.className='occupancy-simple-note';
           progress.textContent=capacity>0?(needed>0?'Faltan '+needed+' viajero(s) para alcanzar el mínimo de '+minimum+'.':('Ya se alcanzó el mínimo de '+minimum+' viajeros.')):'Confirma la capacidad de este viaje.';
           card.appendChild(progress);
           const h4=document.createElement('h4');h4.textContent='¿Qué pasaría con más viajeros?';h4.style.margin='20px 0 10px';card.appendChild(h4);
           const intro=document.createElement('p');intro.className='hint';intro.textContent='Compara tres posibilidades. Son cálculos estimados, no dinero cobrado ni ganancia final.';card.appendChild(intro);
-          const scenarios=[{label:'Con el mínimo',n:minimum},{label:'Con 12 viajeros',n:12},{label:'Con el viaje lleno',n:capacity}];
+          const middle=Math.min(capacity,Math.max(minimum,Math.round((minimum+capacity)/2)));
+          const scenarios=[{label:'Con el mínimo',n:minimum},{label:'Escenario intermedio',n:middle},{label:'Con el viaje lleno',n:capacity}];
           const used=new Set();let shown=0;
           for(const sc of scenarios){if(!Number.isInteger(sc.n)||sc.n<1||sc.n>capacity||sc.n<minimum||used.has(sc.n))continue;used.add(sc.n);shown++;
             const income=sc.n*price,cost=fixedTotal+sc.n*variableTotal;
             const panel=document.createElement('div');panel.className='occupancy-scenario';
-            const heading=document.createElement('h5');heading.textContent=sc.label==='Con 12 viajeros'?'Con 12 viajeros':sc.label+' · '+sc.n+' viajeros';panel.appendChild(heading);
+            const heading=document.createElement('h5');heading.textContent=sc.label+' · '+sc.n+' viajeros';panel.appendChild(heading);
             const percentage=document.createElement('p');percentage.className='occupancy-scenario-sub';percentage.textContent='Ocupación: '+(100*sc.n/capacity).toLocaleString('es-MX',{maximumFractionDigits:1})+' %';panel.appendChild(percentage);
             line(panel,'Ingresos estimados',money(income));
             line(panel,'Costos estimados conocidos',money(cost));
-            line(panel,'Diferencia estimada (antes de gastos pendientes)',money(income-cost));
+            line(panel,'Diferencia estimada (antes de costos pendientes)',money(income-cost));
             card.appendChild(panel);
           }
           if(!shown){const p=document.createElement('p');p.className='hint';p.textContent='Revisa el mínimo de viajeros y la capacidad para mostrar escenarios.';card.appendChild(p);}
@@ -2379,60 +2387,73 @@
           card.appendChild(note);root.appendChild(card);
         }
         if(!root.children.length){const p=document.createElement('p');p.className='empty-state';p.textContent='No hay expediciones para el filtro seleccionado.';root.appendChild(p);}
-        status.textContent='Escenarios actualizados · '+expeditions.length+' expedición(es) disponibles. Los importes son provisionales.';
+        status.textContent='Proyecciones actualizadas · '+expeditions.length+' expedición(es) disponibles. Cobros basados en pagos registrados; escenarios calculados con precio público de referencia. No incluyen necesariamente comisiones, impuestos ni costos pendientes.';
       }catch(err){root.replaceChildren();status.textContent='No fue posible cargar escenarios: '+(err?.message||'Error desconocido');}
     }
     document.getElementById('occupancyProfitSelect')?.addEventListener('change',()=>{if(currentRole)loadOccupancyProfit();});
     document.getElementById('occupancyProfitRefresh')?.addEventListener('click',()=>{if(currentRole)loadOccupancyProfit();});
 
-    // Alertas informativas, calculadas en el navegador desde datos accesibles por RLS.
+    // Alertas operativas en modo lectura; sin asumir que un saldo pendiente está vencido.
     async function loadAlerts(){
       const status=document.getElementById('alertStatus'),totals=document.getElementById('alertTotals'),tbody=document.getElementById('alertRows');
-      status.textContent='Evaluando ocupación y saldos pendientes...';totals.replaceChildren();tbody.replaceChildren();
+      status.textContent='Evaluando vencimientos, ocupación y costos...';totals.replaceChildren();tbody.replaceChildren();
       const stat=(label,value,note)=>{const d=document.createElement('div');d.className='dash-stat';const a=document.createElement('small');a.textContent=label;const b=document.createElement('strong');b.textContent=value;const c=document.createElement('span');c.textContent=note;d.append(a,b,c);totals.appendChild(d);};
-      const empty=(msg)=>{const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=5;td.textContent=msg;tr.appendChild(td);tbody.appendChild(tr);};
+      const empty=msg=>{const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=5;td.textContent=msg;tr.appendChild(td);tbody.appendChild(tr);};
       try{
-        const [er,br,rr]=await Promise.all([
-          supabase.from('expeditions').select('id,name,capacity,departure_date').limit(1000),
-          supabase.from('bookings').select('id,expedition_id,travelers,status').limit(1000),
-          supabase.from('brik_reporte_expediciones').select('expedition_id,saldo_pendiente_mxn').limit(1000)
+        const results=await Promise.all([
+          supabase.from('expeditions').select('id,name,capacity,min_travelers,departure_date').limit(1000),
+          supabase.from('bookings').select('id,expedition_id,travelers,unit_price_mxn,status,next_payment_due_on').limit(1000),
+          supabase.from('payments').select('id,booking_id,amount_mxn').limit(1000),
+          supabase.from('expedition_cost_items').select('id,expedition_id,description,category,provider_coverage').limit(1000)
         ]);
-        for(const result of [er,br,rr])if(result.error)throw result.error;
-        const expeditions=er.data||[],bookings=br.data||[],report=rr.data||[];
-        if([expeditions,bookings,report].some(a=>a.length>=1000)){
-          status.textContent='Consulta parcial: se alcanzó el límite de 1,000 registros. No se calculan alertas incompletas.';
-          empty('Se requiere paginación antes de calcular alertas.');return;
-        }
-        const byReport=new Map(report.map(r=>[r.expedition_id,r]));
+        for(const result of results)if(result.error)throw result.error;
+        if(results.some(r=>(r.data||[]).length>=1000))throw new Error('Se alcanzó el límite de 1,000 registros; no se muestran alertas parciales.');
+        const [expeditions,bookings,payments,costs]=results.map(r=>r.data||[]);
+        const paid=new Map();for(const p of payments)paid.set(p.booking_id,(paid.get(p.booking_id)||0)+Number(p.amount_mxn||0));
         const today=new Date();today.setHours(0,0,0,0);
-        let low=0,pending=0,missing=0;
+        const daysUntil=date=>{if(!date)return null;const d=new Date(date+'T12:00:00');return Number.isNaN(d.getTime())?null:Math.round((d.getTime()-today.getTime())/86400000);};
+        let overdue=0,upcoming=0,low=0,pending=0,overpaid=0;
         for(const e of expeditions){
           const active=bookings.filter(b=>b.expedition_id===e.id&&b.status!=='cancelled');
           const travelers=active.reduce((n,b)=>n+Number(b.travelers||0),0);
-          const capacity=e.capacity==null?null:Number(e.capacity);
+          const capacity=Number(e.capacity||0),minimum=Number(e.min_travelers||0);
           const occupancy=capacity>0?travelers/capacity:null;
-          const day=e.departure_date?new Date(e.departure_date+'T12:00:00'):null;
-          const days=day&&!Number.isNaN(day.getTime())?Math.ceil((day.getTime()-today.getTime())/86400000):null;
-          const balance=Number(byReport.get(e.id)?.saldo_pendiente_mxn||0);
+          const days=daysUntil(e.departure_date);
+          let balance=0,expiredHere=0,soonHere=0,overpaidHere=0;
+          for(const b of active){
+            const due=Number(b.travelers||0)*Number(b.unit_price_mxn||0)-(paid.get(b.id)||0);
+            if(due < -0.005)overpaidHere++;
+            if(due<=0.005)continue;
+            balance+=due;
+            const d=daysUntil(b.next_payment_due_on);
+            if(d!==null&&d<0)expiredHere++;
+            else if(d!==null&&d<=30)soonHere++;
+          }
+          overdue+=expiredHere;upcoming+=soonHere;overpaid+=overpaidHere;
+          const unresolved=costs.filter(c=>c.expedition_id===e.id&&!['included','additional'].includes(c.provider_coverage));
+          pending+=unresolved.length;
           const notes=[];
-          if(days!==null&&days>=0&&days<=60&&occupancy!==null&&occupancy<0.5){notes.push('Revisar ocupación antes de salida');low++;}
-          if(balance>0.005){notes.push('Dar seguimiento al saldo pendiente (no implica vencimiento)');pending++;}
-          if(occupancy===null||days===null){notes.push('Completar '+(occupancy===null?'capacidad':'fecha de salida')+(occupancy===null&&days===null?' y fecha de salida':''));missing++;}
-          if(!notes.length)notes.push('Sin señales bajo los criterios actuales');
+          if(expiredHere)notes.push(expiredHere+' cobro(s) vencido(s)');
+          if(soonHere)notes.push(soonHere+' cobro(s) próximos (30 días)');
+          if(overpaidHere)notes.push(overpaidHere+' reserva(s) con pagos superiores al valor reservado');
+          if(minimum>0&&travelers<minimum){notes.push('Faltan '+(minimum-travelers)+' viajeros para el mínimo');low++;}
+          if(days!==null&&days>=0&&days<=60&&capacity>travelers)notes.push('Salida próxima · '+(capacity-travelers)+' lugares disponibles');
+          if(unresolved.length)notes.push(unresolved.length+' costo(s) por confirmar: '+unresolved.map(c=>c.description||c.category||'Sin descripción').join(', '));
+          if(!capacity||!e.departure_date)notes.push('Completar capacidad o fecha de salida');
+          if(!notes.length)notes.push('Sin alertas según los datos consultados');
           const tr=document.createElement('tr');
           const percent=occupancy===null?'Sin definir':(occupancy*100).toLocaleString('es-MX',{maximumFractionDigits:1})+' %';
           for(const v of [e.name||'Sin nombre',e.departure_date||'Sin definir',percent,mxn(balance),notes.join(' · ')])putCell(tr,v);
           tbody.appendChild(tr);
         }
-        stat('Ocupación por revisar',String(low),'Menos del 50 % y salida en 60 días o menos');
-        stat('Expediciones con saldo',String(pending),'Pendiente de cobro; no equivale a vencido');
-        stat('Datos por completar',String(missing),'Sin capacidad o fecha de salida');
+        stat('Cobros vencidos',String(overdue),'Reservas con saldo y fecha vencida');
+        stat('Próximos 30 días',String(upcoming),'Reservas con saldo y vencimiento cercano');
+        stat('Debajo del mínimo',String(low),'Expediciones con viajeros insuficientes');
+        stat('Costos por confirmar',String(pending),'Conceptos sin cobertura definida');
+        if(overpaid)stat('Revisar sobrepagos',String(overpaid),'Reservas con pagos mayores al total');
         if(!expeditions.length)empty('No hay expediciones visibles.');
-        status.textContent='Alertas evaluadas · '+expeditions.length+' expedición(es). Actualiza la sección para consultar cambios.';
-      }catch(err){
-        totals.replaceChildren();status.textContent='No fue posible calcular alertas: '+(err?.message||'Error desconocido')+'. Revisa los permisos de lectura de expeditions, bookings y brik_reporte_expediciones.';
-        empty('Sin alertas hasta completar la consulta.');
-      }
+        status.textContent='Alertas actualizadas · '+expeditions.length+' expedición(es). Los vencimientos se basan en la fecha próxima registrada en la reserva; los calendarios de cuotas y proveedores se revisan por separado en Calendario de pagos.';
+      }catch(err){totals.replaceChildren();tbody.replaceChildren();status.textContent='No fue posible calcular alertas: '+(err?.message||'Error desconocido')+'. Verifica permisos de lectura de Supabase.';empty('No se muestran resultados incompletos.');}
     }
 
     // Catálogos maestros: escrituras protegidas por RLS de Supabase.
