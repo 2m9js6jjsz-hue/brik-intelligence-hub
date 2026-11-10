@@ -321,7 +321,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 39 · Proyecciones y alertas</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 40 · Seguimiento de cobros</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -2393,67 +2393,118 @@
     document.getElementById('occupancyProfitSelect')?.addEventListener('change',()=>{if(currentRole)loadOccupancyProfit();});
     document.getElementById('occupancyProfitRefresh')?.addEventListener('click',()=>{if(currentRole)loadOccupancyProfit();});
 
-    // Alertas operativas en modo lectura; sin asumir que un saldo pendiente está vencido.
+    // V40: alertas consolidadas por cuota, con asignaciones reales de pagos.
+    // Solo lectura: ninguna alerta crea ni modifica registros.
     async function loadAlerts(){
       const status=document.getElementById('alertStatus'),totals=document.getElementById('alertTotals'),tbody=document.getElementById('alertRows');
-      status.textContent='Evaluando vencimientos, ocupación y costos...';totals.replaceChildren();tbody.replaceChildren();
+      status.textContent='Consultando cuotas, pagos y expediciones...';totals.replaceChildren();tbody.replaceChildren();
       const stat=(label,value,note)=>{const d=document.createElement('div');d.className='dash-stat';const a=document.createElement('small');a.textContent=label;const b=document.createElement('strong');b.textContent=value;const c=document.createElement('span');c.textContent=note;d.append(a,b,c);totals.appendChild(d);};
       const empty=msg=>{const tr=document.createElement('tr');const td=document.createElement('td');td.colSpan=5;td.textContent=msg;tr.appendChild(td);tbody.appendChild(tr);};
+      const fmt=n=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(n);
+      const today=new Date(),todayISO=[today.getFullYear(),String(today.getMonth()+1).padStart(2,'0'),String(today.getDate()).padStart(2,'0')].join('-');
+      const limit=new Date(today.getFullYear(),today.getMonth(),today.getDate()+30);
+      const limitISO=[limit.getFullYear(),String(limit.getMonth()+1).padStart(2,'0'),String(limit.getDate()).padStart(2,'0')].join('-');
+      const daysUntil=iso=>{if(!/^\d{4}-\d{2}-\d{2}$/.test(String(iso||'').slice(0,10)))return null;return Math.round((new Date(String(iso).slice(0,10)+'T12:00:00')-new Date(todayISO+'T12:00:00'))/86400000);};
       try{
-        const results=await Promise.all([
+        const queries=[
           supabase.from('expeditions').select('id,name,capacity,min_travelers,departure_date').limit(1000),
-          supabase.from('bookings').select('id,expedition_id,travelers,unit_price_mxn,status,next_payment_due_on').limit(1000),
+          supabase.from('bookings').select('id,expedition_id,travelers,unit_price_mxn,status,next_payment_due_on,prospect_id,customer_id,customer_name,is_test').limit(1000),
           supabase.from('payments').select('id,booking_id,amount_mxn').limit(1000),
-          supabase.from('expedition_cost_items').select('id,expedition_id,description,category,provider_coverage').limit(1000)
-        ]);
-        for(const result of results)if(result.error)throw result.error;
-        if(results.some(r=>(r.data||[]).length>=1000))throw new Error('Se alcanzó el límite de 1,000 registros; no se muestran alertas parciales.');
-        const [expeditions,bookings,payments,costs]=results.map(r=>r.data||[]);
-        const paid=new Map();for(const p of payments)paid.set(p.booking_id,(paid.get(p.booking_id)||0)+Number(p.amount_mxn||0));
-        const today=new Date();today.setHours(0,0,0,0);
-        const daysUntil=date=>{if(!date)return null;const d=new Date(date+'T12:00:00');return Number.isNaN(d.getTime())?null:Math.round((d.getTime()-today.getTime())/86400000);};
+          supabase.from('expedition_cost_items').select('id,expedition_id,description,category,provider_coverage').limit(1000),
+          supabase.from('booking_payment_schedule').select('*').limit(1000),
+          supabase.from('booking_payment_allocations').select('id,schedule_id,payment_id,amount_mxn').limit(3000),
+          supabase.from('prospects').select('id,alias').limit(1000),
+          supabase.from('customers').select('id,full_name').limit(1000)
+        ];
+        const results=await Promise.all(queries);
+        for(const r of results)if(r.error)throw r.error;
+        if(results.some((r,i)=>(r.data||[]).length >= (i===5?3000:1000)))throw new Error('Se alcanzó un límite de consulta; no se muestran alertas parciales.');
+        const [expeditions,bookings,payments,costs,schedules,allocations,prospects,customers]=results.map(r=>r.data||[]);
+        const prospectNames=new Map(prospects.map(p=>[p.id,p.alias]));
+        const customerNames=new Map(customers.map(c=>[c.id,c.full_name]));
+        const paid=new Map(),applied=new Map(),byBooking=new Map();
+        payments.forEach(p=>paid.set(p.booking_id,(paid.get(p.booking_id)||0)+Number(p.amount_mxn||0)));
+        allocations.forEach(a=>applied.set(a.schedule_id,(applied.get(a.schedule_id)||0)+Number(a.amount_mxn||0)));
+        schedules.forEach(q=>{if(!byBooking.has(q.booking_id))byBooking.set(q.booking_id,[]);byBooking.get(q.booking_id).push(q);});
+        const activeBookings=bookings.filter(b=>b.status!=='cancelled');
+        const bookingById=new Map(activeBookings.map(b=>[b.id,b]));
+        const expNames=new Map(expeditions.map(e=>[e.id,e.name||'Sin nombre']));
+        const person=b=>customerNames.get(b.customer_id)||prospectNames.get(b.prospect_id)||b.customer_name||'Cliente sin identificar';
+        const items=[],unscheduled=[];
         let overdue=0,upcoming=0,low=0,pending=0,overpaid=0;
-        for(const e of expeditions){
-          const active=bookings.filter(b=>b.expedition_id===e.id&&b.status!=='cancelled');
-          const travelers=active.reduce((n,b)=>n+Number(b.travelers||0),0);
-          const capacity=Number(e.capacity||0),minimum=Number(e.min_travelers||0);
-          const occupancy=capacity>0?travelers/capacity:null;
-          const days=daysUntil(e.departure_date);
-          let balance=0,expiredHere=0,soonHere=0,overpaidHere=0;
-          for(const b of active){
-            const due=Number(b.travelers||0)*Number(b.unit_price_mxn||0)-(paid.get(b.id)||0);
-            if(due < -0.005)overpaidHere++;
-            if(due<=0.005)continue;
-            balance+=due;
-            const d=daysUntil(b.next_payment_due_on);
-            if(d!==null&&d<0)expiredHere++;
-            else if(d!==null&&d<=30)soonHere++;
+        for(const b of activeBookings){
+          const balance=Math.round((Number(b.travelers||0)*Number(b.unit_price_mxn||0)-(paid.get(b.id)||0))*100)/100;
+          if(balance < -0.005){overpaid++;continue;}
+          if(balance <= 0.005)continue;
+          const qs=byBooking.get(b.id)||[];
+          if(qs.length){
+            for(const q of qs){
+              const amount=Number(q.amount_mxn||0);
+              const remaining=Math.max(0,Math.round((amount-(applied.get(q.id)||0))*100)/100);
+              if(remaining<=0.005||String(q.status||'').toLowerCase()==='cancelled')continue;
+              const due=String(q.due_on||'').slice(0,10);
+              const category=due&&due<todayISO?'Vencido':due&&due<=limitISO?'Próximo':'';
+              if(!category)continue;
+              if(category==='Vencido')overdue++;else upcoming++;
+              items.push({category,due,amount:remaining,person:person(b),expedition:expNames.get(b.expedition_id)||'Sin expedición',note:q.description||'Cuota programada',test:!!b.is_test});
+            }
+            const scheduledRemaining=qs.filter(q=>String(q.status||'').toLowerCase()!=='cancelled').reduce((n,q)=>n+Math.max(0,Number(q.amount_mxn||0)-(applied.get(q.id)||0)),0);
+            if(balance>scheduledRemaining+0.01)unscheduled.push({person:person(b),expedition:expNames.get(b.expedition_id)||'Sin expedición',amount:balance-scheduledRemaining});
+          }else{
+            const due=String(b.next_payment_due_on||'').slice(0,10);
+            const category=due&&due<todayISO?'Vencido':due&&due<=limitISO?'Próximo':'';
+            if(category){if(category==='Vencido')overdue++;else upcoming++;items.push({category,due,amount:balance,person:person(b),expedition:expNames.get(b.expedition_id)||'Sin expedición',note:'Fecha de reserva · sin cuotas programadas',test:!!b.is_test});}
+            else unscheduled.push({person:person(b),expedition:expNames.get(b.expedition_id)||'Sin expedición',amount:balance});
           }
-          overdue+=expiredHere;upcoming+=soonHere;overpaid+=overpaidHere;
+        }
+        const detail=document.createElement('div');detail.className='dash-panel';detail.style.marginTop='16px';
+        const heading=document.createElement('h3');heading.textContent='Cobros que requieren seguimiento';heading.style.margin='0 0 10px';detail.append(heading);
+        items.sort((a,b)=>(a.category==='Vencido'?0:1)-(b.category==='Vencido'?0:1)||a.due.localeCompare(b.due)||a.person.localeCompare(b.person,'es'));
+        if(!items.length){const p=document.createElement('p');p.className='hint';p.textContent='No hay cuotas vencidas ni próximas dentro de 30 días.';detail.append(p);}
+        for(const x of items){
+          const card=document.createElement('article');card.className='record-mobile-card';card.style.marginBottom='10px';
+          const h=document.createElement('h3');h.textContent=x.person+(x.test?' · PRUEBA':'');card.append(h);
+          for(const [label,value] of [['Estado',x.category],['Expedición',x.expedition],['Vence',x.due],['Importe pendiente de esta cuota',fmt(x.amount)],['Referencia',x.note]]){
+            const row=document.createElement('div');row.className='dash-row';const a=document.createElement('span');a.textContent=label;const b=document.createElement('b');b.textContent=value;row.append(a,b);card.append(row);
+          }
+          detail.append(card);
+        }
+        const existing=document.getElementById('alertFollowupDetail');if(existing)existing.remove();
+        detail.id='alertFollowupDetail';totals.parentElement.insertBefore(detail,totals.nextSibling);
+        for(const e of expeditions){
+          const active=activeBookings.filter(b=>b.expedition_id===e.id);
+          const travelers=active.reduce((n,b)=>n+Number(b.travelers||0),0),capacity=Number(e.capacity||0),minimum=Number(e.min_travelers||0);
+          const occupancy=capacity>0?travelers/capacity:null,days=daysUntil(e.departure_date);
+          const balance=active.reduce((n,b)=>n+Math.max(0,Number(b.travelers||0)*Number(b.unit_price_mxn||0)-(paid.get(b.id)||0)),0);
+          const expItems=items.filter(x=>x.expedition===(e.name||'Sin nombre'));
+          const expiredHere=expItems.filter(x=>x.category==='Vencido').length,soonHere=expItems.filter(x=>x.category==='Próximo').length;
           const unresolved=costs.filter(c=>c.expedition_id===e.id&&!['included','additional'].includes(c.provider_coverage));
           pending+=unresolved.length;
           const notes=[];
-          if(expiredHere)notes.push(expiredHere+' cobro(s) vencido(s)');
-          if(soonHere)notes.push(soonHere+' cobro(s) próximos (30 días)');
-          if(overpaidHere)notes.push(overpaidHere+' reserva(s) con pagos superiores al valor reservado');
+          if(expiredHere)notes.push(expiredHere+' cuota(s) vencida(s)');
+          if(soonHere)notes.push(soonHere+' cuota(s) próximas');
           if(minimum>0&&travelers<minimum){notes.push('Faltan '+(minimum-travelers)+' viajeros para el mínimo');low++;}
           if(days!==null&&days>=0&&days<=60&&capacity>travelers)notes.push('Salida próxima · '+(capacity-travelers)+' lugares disponibles');
           if(unresolved.length)notes.push(unresolved.length+' costo(s) por confirmar: '+unresolved.map(c=>c.description||c.category||'Sin descripción').join(', '));
           if(!capacity||!e.departure_date)notes.push('Completar capacidad o fecha de salida');
           if(!notes.length)notes.push('Sin alertas según los datos consultados');
           const tr=document.createElement('tr');
-          const percent=occupancy===null?'Sin definir':(occupancy*100).toLocaleString('es-MX',{maximumFractionDigits:1})+' %';
-          for(const v of [e.name||'Sin nombre',e.departure_date||'Sin definir',percent,mxn(balance),notes.join(' · ')])putCell(tr,v);
-          tbody.appendChild(tr);
+          for(const v of [e.name||'Sin nombre',e.departure_date||'Sin definir',occupancy===null?'Sin definir':(occupancy*100).toLocaleString('es-MX',{maximumFractionDigits:1})+' %',fmt(balance),notes.join(' · ')])putCell(tr,v);
+          tbody.append(tr);
         }
-        stat('Cobros vencidos',String(overdue),'Reservas con saldo y fecha vencida');
-        stat('Próximos 30 días',String(upcoming),'Reservas con saldo y vencimiento cercano');
+        stat('Cuotas vencidas',String(overdue),'Cuotas con importe pendiente y fecha vencida');
+        stat('Próximos 30 días',String(upcoming),'Cuotas pendientes con vencimiento cercano');
         stat('Debajo del mínimo',String(low),'Expediciones con viajeros insuficientes');
         stat('Costos por confirmar',String(pending),'Conceptos sin cobertura definida');
-        if(overpaid)stat('Revisar sobrepagos',String(overpaid),'Reservas con pagos mayores al total');
+        if(overpaid)stat('Revisar sobrepagos',String(overpaid),'Reservas con pagos superiores al total');
+        if(unscheduled.length)stat('Saldo sin calendario completo',String(unscheduled.length),'Reservas que requieren revisión de cuotas y fechas');
         if(!expeditions.length)empty('No hay expediciones visibles.');
-        status.textContent='Alertas actualizadas · '+expeditions.length+' expedición(es). Los vencimientos se basan en la fecha próxima registrada en la reserva; los calendarios de cuotas y proveedores se revisan por separado en Calendario de pagos.';
-      }catch(err){totals.replaceChildren();tbody.replaceChildren();status.textContent='No fue posible calcular alertas: '+(err?.message||'Error desconocido')+'. Verifica permisos de lectura de Supabase.';empty('No se muestran resultados incompletos.');}
+        status.textContent='Alertas actualizadas · '+expeditions.length+' expedición(es). Vencimientos basados en cuotas programadas y pagos asignados; cuando no hay cuotas, se usa la fecha de la reserva. No se envían notificaciones ni se modifican registros. '+(unscheduled.length?'Revisa '+unscheduled.length+' reserva(s) con saldo no totalmente programado.':'');
+      }catch(err){
+        totals.replaceChildren();tbody.replaceChildren();document.getElementById('alertFollowupDetail')?.remove();
+        status.textContent='No fue posible calcular alertas: '+(err?.message||'Error desconocido')+'. Verifica permisos de lectura de Supabase.';
+        empty('No se muestran resultados incompletos.');
+      }
     }
 
     // Catálogos maestros: escrituras protegidas por RLS de Supabase.
