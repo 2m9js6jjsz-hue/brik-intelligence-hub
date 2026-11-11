@@ -287,6 +287,21 @@
  #alertFollowupDetail .alert-detail-row b{font-size:15px;line-height:1.45}
  #alertFollowupDetail .alert-detail-row .alert-money{font-size:18px}
 }
+
+  /* A6: vista de tarjetas en pantallas estrechas, sin desplazamiento horizontal */
+  @media (max-width: 700px) {
+    .a6-table, .a6-table tbody, .a6-table tr, .a6-table td {display:block; width:100%; box-sizing:border-box;}
+    .a6-table thead {display:none;}
+    .a6-table {border:0; min-width:0!important; background:transparent;}
+    .a6-table tr {margin:0 0 16px; padding:14px; border:1px solid #e2e3df; border-radius:16px; background:#fff;}
+    .a6-table td {display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 0; border-bottom:1px solid #eee; text-align:right; overflow-wrap:anywhere;}
+    .a6-table td:last-child {border-bottom:0;}
+    .a6-table td::before {content:attr(data-label); flex:0 0 43%; text-align:left; font-size:13px; font-weight:650; color:#5b656a;}
+    .a6-table td:first-child {font-size:19px; font-weight:750; color:#18262c; text-transform:capitalize;}
+    .a6-table td:first-child::before {display:none;}
+    .a6-table td input {width:100%!important; min-width:0; flex:1; font-size:16px;}
+    .a6-table td:has(input)::before {flex-basis:43%;}
+  }
 </style>
 </head>
 <body>
@@ -339,7 +354,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 41 · Alertas precisas</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 43 · Finanzas A6</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -502,7 +517,7 @@
         </section>
         <section class="page" data-section="a6">
           <div class="dash-panel">
-            <div class="section-head"><h2>Mi dinero por mes · A6</h2><span class="pill">V42 · Simulador · MXN</span></div>
+            <div class="section-head"><h2>Mi dinero por mes · A6</h2><span class="pill">V43 · Simulador · MXN</span></div>
             <p class="hint"><strong>Modo simulación independiente.</strong> Todos los importes comienzan en cero y se editan aquí. No lee, modifica ni guarda información en Supabase. Los datos del Excel de Pau son ejemplos, no cifras reales de Paco.</p>
             <div class="quote-form" style="margin-top:16px">
               <label>Capital propio inicial (MXN)<input id="a6Capital" type="number" min="0" step="0.01" value="0"></label>
@@ -515,7 +530,7 @@
               <div class="dash-stat"><small>Saldo final estimado</small><strong id="a6Ending">—</strong><span id="a6EndingNote">Proyección sin datos reales</span></div>
             </div>
             <div class="table-wrap">
-              <table class="dash-table" aria-label="Proyección mensual de caja">
+              <table class="dash-table a6-table" aria-label="Proyección mensual de caja">
                 <thead><tr><th>Mes</th><th>Saldo inicial</th><th>Cobros previstos</th><th>Pagos a proveedores</th><th>Gastos generales</th><th>Saldo final</th><th>Alerta</th></tr></thead>
                 <tbody id="a6Rows"></tbody>
               </table>
@@ -528,7 +543,7 @@
           <div class="dash-panel" style="margin-top:18px">
             <div class="section-head"><h2>Gastos y punto de equilibrio</h2><span class="pill">Criterios de integración</span></div>
             <p>Los <strong>costos directos</strong> corresponden a una expedición; los <strong>gastos generales</strong> (pauta institucional, coworking, asesoría legal, servicios BRIK) pertenecen al negocio y no deben imputarse automáticamente a un viaje.</p>
-            <p class="hint">La V41 exige una expedición para guardar gastos. En esta V42 los gastos generales se simulan por mes, pero todavía no se registran en Supabase. El punto de equilibrio por expedición ya existe como estimación en Reportes; el punto de equilibrio global del negocio requiere una definición adicional de costos fijos, margen de contribución e impuestos. Ninguno de los dos equivale al flujo de caja.</p>
+            <p class="hint">La V41 exige una expedición para guardar gastos. En esta V43 los gastos generales se simulan por mes, pero todavía no se registran en Supabase. El punto de equilibrio por expedición ya existe como estimación en Reportes; el punto de equilibrio global del negocio requiere una definición adicional de costos fijos, margen de contribución e impuestos. Ninguno de los dos equivale al flujo de caja.</p>
           </div>
         </section>
         <section class="page" data-section="calendarios">
@@ -2840,7 +2855,7 @@
       closeMenu();window.scrollTo({top:0,behavior:'instant'});
     }));
 
-    // V42 A6: simulación aislada; sin lectura ni escritura en Supabase ni almacenamiento local.
+    // V43 A6: simulación aislada; sin lectura ni escritura en Supabase ni almacenamiento local.
     const a6Currency=value=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2}).format(value);
     const a6Inputs=Array.from({length:6},()=>({income:0,provider:0,overhead:0}));
     const a6Start=document.getElementById('a6Start');
@@ -2863,18 +2878,18 @@
         const tr=document.createElement('tr');
         const label=document.createElement('td');
         label.textContent=new Intl.DateTimeFormat('es-MX',{month:'short',year:'numeric'}).format(new Date(year,month-1+i,1));
-        tr.appendChild(label);
-        const openCell=document.createElement('td');openCell.textContent=a6Currency(opening);tr.appendChild(openCell);
+        label.dataset.label='Mes';tr.appendChild(label);
+        const openCell=document.createElement('td');openCell.dataset.label='Saldo inicial';openCell.textContent=a6Currency(opening);tr.appendChild(openCell);
         ['income','provider','overhead'].forEach(field=>{
           const td=document.createElement('td'),input=document.createElement('input');
           input.type='number';input.min='0';input.step='0.01';input.value=String(item[field]);
           input.setAttribute('aria-label',field+' mes '+(i+1));
           input.style.cssText='width:140px;max-width:100%;padding:9px;border:1px solid #cbd3d3;border-radius:7px;background:#fff;color:#152127';
           input.addEventListener('input',()=>{item[field]=a6SafeNumber(input.value);updateA6Values();});
-          td.appendChild(input);tr.appendChild(td);
+          td.dataset.label=({income:'Cobros previstos',provider:'Pagos a proveedores',overhead:'Gastos generales'})[field];td.appendChild(input);tr.appendChild(td);
         });
-        const final=document.createElement('td');final.dataset.a6Final=String(i);final.textContent=a6Currency(balance);tr.appendChild(final);
-        const alert=document.createElement('td');alert.dataset.a6Alert=String(i);alert.textContent=balance<0?'⚠ Saldo negativo':'Sin déficit';tr.appendChild(alert);
+        const final=document.createElement('td');final.dataset.label='Saldo final';final.dataset.a6Final=String(i);final.textContent=a6Currency(balance);tr.appendChild(final);
+        const alert=document.createElement('td');alert.dataset.label='Alerta';alert.dataset.a6Alert=String(i);alert.textContent=balance<0?'⚠ Saldo negativo':'Sin déficit';tr.appendChild(alert);
         a6Rows.appendChild(tr);
       });
       document.getElementById('a6Opening').textContent=a6Currency(capital);
@@ -2887,6 +2902,7 @@
     function updateA6Values(){
       let balance=a6SafeNumber(a6Capital.value),totalIncome=0,totalOut=0,negative=0;
       a6Inputs.forEach((item,i)=>{
+        if(i===0 && a6Rows.children[0])a6Rows.children[0].children[1].textContent=a6Currency(balance);
         const income=a6SafeNumber(item.income),provider=a6SafeNumber(item.provider),overhead=a6SafeNumber(item.overhead);
         balance+=income-provider-overhead;totalIncome+=income;totalOut+=provider+overhead;
         const cell=a6Rows.querySelector(`[data-a6-final="${i}"]`),alert=a6Rows.querySelector(`[data-a6-alert="${i}"]`);
