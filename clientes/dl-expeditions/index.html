@@ -334,6 +334,7 @@
         <button class="dash-nav" data-page="clientes" type="button">♧ &nbsp; Clientes</button>
         <button class="dash-nav" data-page="cotizador" type="button">▤ &nbsp; Cotizador</button>
         <button class="dash-nav" data-page="finanzas" type="button">◈ &nbsp; Pagos y gastos</button>
+        <button class="dash-nav" data-page="a6" type="button">▥ &nbsp; Mi dinero por mes · A6</button>
         <button class="dash-nav" data-page="calendarios" type="button">▦ &nbsp; Calendario de pagos</button>
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
@@ -498,6 +499,37 @@
           <div class="dash-panel" style="margin-top:17px"><h2>Pagos registrados</h2><div id="paymentMobileCards" class="finance-mobile-list"></div><div class="table-wrap finance-desktop-table"><table class="dash-table"><thead><tr><th>Fecha</th><th>Pago</th><th>Cliente</th><th>Expedición / reserva</th><th>Método</th><th>Importe</th></tr></thead><tbody id="paymentRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
           <div class="dash-panel" style="margin-top:17px"><h2>Gastos registrados</h2><div id="expenseMobileCards" class="finance-mobile-list"></div><div class="table-wrap finance-desktop-table"><table class="dash-table"><thead><tr><th>Fecha</th><th>Expedición</th><th>Categoría</th><th>Descripción</th><th>Importe</th><th>Acciones</th></tr></thead><tbody id="expenseRows"><tr><td colspan="5">Cargando...</td></tr></tbody></table></div></div>
           <p class="hint">Los indicadores son registros operativos, no conciliación bancaria ni utilidad contable. Los pagos y gastos solo se guardan cuando Supabase confirma la operación. Los registros cancelados no se eliminan automáticamente.</p>
+        </section>
+        <section class="page" data-section="a6">
+          <div class="dash-panel">
+            <div class="section-head"><h2>Mi dinero por mes · A6</h2><span class="pill">V42 · Simulador · MXN</span></div>
+            <p class="hint"><strong>Modo simulación independiente.</strong> Todos los importes comienzan en cero y se editan aquí. No lee, modifica ni guarda información en Supabase. Los datos del Excel de Pau son ejemplos, no cifras reales de Paco.</p>
+            <div class="quote-form" style="margin-top:16px">
+              <label>Capital propio inicial (MXN)<input id="a6Capital" type="number" min="0" step="0.01" value="0"></label>
+              <label>Primer mes de la proyección<input id="a6Start" type="month"></label>
+            </div>
+            <div class="dash-grid" style="margin-bottom:18px">
+              <div class="dash-stat"><small>Saldo inicial</small><strong id="a6Opening">—</strong><span>Capital aportado</span></div>
+              <div class="dash-stat"><small>Cobros proyectados · 6 meses</small><strong id="a6Income">—</strong><span>Entradas estimadas, no ingresos realizados</span></div>
+              <div class="dash-stat"><small>Salidas proyectadas · 6 meses</small><strong id="a6Outflow">—</strong><span>Proveedores + operación</span></div>
+              <div class="dash-stat"><small>Saldo final estimado</small><strong id="a6Ending">—</strong><span id="a6EndingNote">Proyección sin datos reales</span></div>
+            </div>
+            <div class="table-wrap">
+              <table class="dash-table" aria-label="Proyección mensual de caja">
+                <thead><tr><th>Mes</th><th>Saldo inicial</th><th>Cobros previstos</th><th>Pagos a proveedores</th><th>Gastos generales</th><th>Saldo final</th><th>Alerta</th></tr></thead>
+                <tbody id="a6Rows"></tbody>
+              </table>
+            </div>
+            <p class="hint" id="a6Status" role="status">Proyección: saldo inicial + cobros previstos − pagos a proveedores − gastos generales. El saldo final de un mes se traslada al siguiente.</p>
+            <div class="quote-actions" style="margin-top:15px">
+              <button type="button" id="a6Reset" class="outline-btn">Limpiar simulación</button>
+            </div>
+          </div>
+          <div class="dash-panel" style="margin-top:18px">
+            <div class="section-head"><h2>Gastos y punto de equilibrio</h2><span class="pill">Criterios de integración</span></div>
+            <p>Los <strong>costos directos</strong> corresponden a una expedición; los <strong>gastos generales</strong> (pauta institucional, coworking, asesoría legal, servicios BRIK) pertenecen al negocio y no deben imputarse automáticamente a un viaje.</p>
+            <p class="hint">La V41 exige una expedición para guardar gastos. En esta V42 los gastos generales se simulan por mes, pero todavía no se registran en Supabase. El punto de equilibrio por expedición ya existe como estimación en Reportes; el punto de equilibrio global del negocio requiere una definición adicional de costos fijos, margen de contribución e impuestos. Ninguno de los dos equivale al flujo de caja.</p>
+          </div>
         </section>
         <section class="page" data-section="calendarios">
           <div class="dash-panel">
@@ -2790,7 +2822,7 @@
     menuToggle.addEventListener('click',()=>{const opening=!sideNav.classList.contains('open');sideNav.classList.toggle('open',opening);shade.hidden=!opening;menuToggle.setAttribute('aria-expanded',String(opening));});
     shade.addEventListener('click',closeMenu);
     document.addEventListener('keydown',e=>{if(e.key==='Escape')closeMenu();});
-    const pageTitles={inicio:['Panel principal','DL Expeditions · Resumen comercial y financiero'],agencias:['Agencias','Directorio de aliados comerciales'],expediciones:['Expediciones','Catálogo y configuración de viajes'],prospectos:['Prospectos','Seguimiento de oportunidades'],reservas:['Reservas','Control de expediciones'],finanzas:['Pagos y gastos','Cobros recibidos y gastos registrados'],calendarios:['Calendario de pagos','Vencimientos de viajeros y proveedores'],clientes:['Clientes','Historial de viajeros'],cotizador:['Cotizador','Cálculo de precios y márgenes'],reportes:['Reportes y análisis','Inteligencia comercial']};
+    const pageTitles={inicio:['Panel principal','DL Expeditions · Resumen comercial y financiero'],agencias:['Agencias','Directorio de aliados comerciales'],expediciones:['Expediciones','Catálogo y configuración de viajes'],prospectos:['Prospectos','Seguimiento de oportunidades'],reservas:['Reservas','Control de expediciones'],finanzas:['Pagos y gastos','Cobros recibidos y gastos registrados'],a6:['Mi dinero por mes · A6','Flujo de caja proyectado · simulador independiente'],calendarios:['Calendario de pagos','Vencimientos de viajeros y proveedores'],clientes:['Clientes','Historial de viajeros'],cotizador:['Cotizador','Cálculo de precios y márgenes'],reportes:['Reportes y análisis','Inteligencia comercial']};
     sideNav.querySelectorAll('[data-page]').forEach(btn=>btn.addEventListener('click',()=>{
       const page=btn.dataset.page;
       sideNav.querySelectorAll('[data-page]').forEach(b=>{b.classList.toggle('active',b===btn);if(b===btn)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
@@ -2807,6 +2839,77 @@
       if(page==='reportes'&&currentRole){loadDataAudit();loadReports();loadCommercial();loadChannels();loadProfitability();loadEconomicProjection();loadOccupancyProfit();loadAlerts();}
       closeMenu();window.scrollTo({top:0,behavior:'instant'});
     }));
+
+    // V42 A6: simulación aislada; sin lectura ni escritura en Supabase ni almacenamiento local.
+    const a6Currency=value=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:2}).format(value);
+    const a6Inputs=Array.from({length:6},()=>({income:0,provider:0,overhead:0}));
+    const a6Start=document.getElementById('a6Start');
+    const a6Capital=document.getElementById('a6Capital');
+    const a6Rows=document.getElementById('a6Rows');
+    a6Start.value=new Date().toISOString().slice(0,7);
+    const a6SafeNumber=v=>Math.max(0,Number.isFinite(Number(v))?Number(v):0);
+    function renderA6(){
+      const capital=a6SafeNumber(a6Capital.value);
+      const raw=a6Start.value||new Date().toISOString().slice(0,7);
+      const [year,month]=raw.split('-').map(Number);
+      let balance=capital,totalIncome=0,totalOut=0,negative=0;
+      a6Rows.replaceChildren();
+      a6Inputs.forEach((item,i)=>{
+        const opening=balance;
+        const income=a6SafeNumber(item.income),provider=a6SafeNumber(item.provider),overhead=a6SafeNumber(item.overhead);
+        balance=opening+income-provider-overhead;
+        totalIncome+=income;totalOut+=provider+overhead;
+        if(balance<0)negative++;
+        const tr=document.createElement('tr');
+        const label=document.createElement('td');
+        label.textContent=new Intl.DateTimeFormat('es-MX',{month:'short',year:'numeric'}).format(new Date(year,month-1+i,1));
+        tr.appendChild(label);
+        const openCell=document.createElement('td');openCell.textContent=a6Currency(opening);tr.appendChild(openCell);
+        ['income','provider','overhead'].forEach(field=>{
+          const td=document.createElement('td'),input=document.createElement('input');
+          input.type='number';input.min='0';input.step='0.01';input.value=String(item[field]);
+          input.setAttribute('aria-label',field+' mes '+(i+1));
+          input.style.cssText='width:140px;max-width:100%;padding:9px;border:1px solid #cbd3d3;border-radius:7px;background:#fff;color:#152127';
+          input.addEventListener('input',()=>{item[field]=a6SafeNumber(input.value);updateA6Values();});
+          td.appendChild(input);tr.appendChild(td);
+        });
+        const final=document.createElement('td');final.dataset.a6Final=String(i);final.textContent=a6Currency(balance);tr.appendChild(final);
+        const alert=document.createElement('td');alert.dataset.a6Alert=String(i);alert.textContent=balance<0?'⚠ Saldo negativo':'Sin déficit';tr.appendChild(alert);
+        a6Rows.appendChild(tr);
+      });
+      document.getElementById('a6Opening').textContent=a6Currency(capital);
+      document.getElementById('a6Income').textContent=a6Currency(totalIncome);
+      document.getElementById('a6Outflow').textContent=a6Currency(totalOut);
+      document.getElementById('a6Ending').textContent=a6Currency(balance);
+      document.getElementById('a6EndingNote').textContent=negative?`${negative} mes(es) con saldo negativo`:'Sin meses con saldo negativo';
+      document.getElementById('a6Status').textContent='Simulación sin conexión a datos reales. Saldo acumulado = capital inicial + cobros proyectados − proveedores − gastos generales. No incluye impuestos ni movimientos no ingresados.';
+    }
+    function updateA6Values(){
+      let balance=a6SafeNumber(a6Capital.value),totalIncome=0,totalOut=0,negative=0;
+      a6Inputs.forEach((item,i)=>{
+        const income=a6SafeNumber(item.income),provider=a6SafeNumber(item.provider),overhead=a6SafeNumber(item.overhead);
+        balance+=income-provider-overhead;totalIncome+=income;totalOut+=provider+overhead;
+        const cell=a6Rows.querySelector(`[data-a6-final="${i}"]`),alert=a6Rows.querySelector(`[data-a6-alert="${i}"]`);
+        if(cell)cell.textContent=a6Currency(balance);
+        if(alert){alert.textContent=balance<0?'⚠ Saldo negativo':'Sin déficit';alert.style.color=balance<0?'#b42318':'';}
+        if(balance<0)negative++;
+        // Update the next month's opening balance without replacing the editable inputs.
+        if(i<5){const next=a6Rows.children[i+1];if(next)next.children[1].textContent=a6Currency(balance);}
+      });
+      document.getElementById('a6Opening').textContent=a6Currency(a6SafeNumber(a6Capital.value));
+      document.getElementById('a6Income').textContent=a6Currency(totalIncome);
+      document.getElementById('a6Outflow').textContent=a6Currency(totalOut);
+      document.getElementById('a6Ending').textContent=a6Currency(balance);
+      document.getElementById('a6EndingNote').textContent=negative?`${negative} mes(es) con saldo negativo`:'Sin meses con saldo negativo';
+    }
+    a6Capital.addEventListener('input',updateA6Values);
+    a6Start.addEventListener('change',renderA6);
+    document.getElementById('a6Reset').addEventListener('click',()=>{
+      a6Capital.value='0';
+      a6Inputs.forEach(item=>{item.income=0;item.provider=0;item.overhead=0;});
+      renderA6();
+    });
+    renderA6();
 
     // Calendarios: operaciones protegidas por RLS; sin avisos externos.
     let scheduleCache={booking:[],provider:[]};
