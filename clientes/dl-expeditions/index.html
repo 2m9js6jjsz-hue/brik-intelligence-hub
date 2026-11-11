@@ -369,7 +369,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 44 · Finanzas A6</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 52 · Prospectos y cotizador</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -450,6 +450,8 @@
             <label>Nombre completo del prospecto *<input id="pAlias" maxlength="120" required placeholder="Ej. Juan Pérez"></label>
             <label>Teléfono del prospecto (pendiente de habilitar guardado)<input id="pContactPhone" type="tel" maxlength="40" placeholder="Ej. +52 55 1234 5678"></label>
             <label>Correo del prospecto (pendiente de habilitar guardado)<input id="pContactEmail" type="email" maxlength="180" placeholder="Ej. cliente@correo.com"></label>
+            <label style="grid-column:1/-1">Requerimiento especial del prospecto (pendiente de guardado seguro)<textarea id="pSpecialRequirement" rows="3" maxlength="1200" placeholder="Ej. Preferencia de habitación o solicitud de accesibilidad. No ingreses alergias ni información médica real todavía."></textarea></label>
+            <p class="hint" style="grid-column:1/-1;color:#855322">Este campo pertenece a la persona registrada en Prospectos y también deberá poder editarse desde su historial en Clientes. Aún NO se almacena; si lo completas, se bloqueará el guardado para evitar pérdida de información.</p>
             <p class="hint" style="grid-column:1/-1;color:#855322">Para no perder información, si escribes teléfono o correo en Prospectos, el sistema impedirá guardar hasta habilitar sus columnas en Supabase. No registres esos datos en otro módulo: la integración está pendiente.</p>
             <label>Expedición *<select id="pExpedition" required><option value="">Cargando expediciones...</option></select></label>
             <label>Canal de contacto *<select id="pChannel" required><option value="">Seleccionar</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option><option value="directo">Directo</option><option value="agency">Agencia</option><option value="otro">Otro</option></select></label>
@@ -1078,8 +1080,8 @@
       e.preventDefault();
       if(currentRole!=='admin'){prospectStatus.textContent='No tienes permiso para registrar prospectos.';return;}
       if(!prospectForm.reportValidity())return;
-      if(document.querySelector('#pContactPhone')?.value.trim()||document.querySelector('#pContactEmail')?.value.trim()){
-        prospectStatus.textContent='No se guardó el prospecto: teléfono y correo todavía no tienen columnas validadas en Supabase. No se creó el registro: los datos de contacto requieren integración segura en Prospectos. No crees una ficha duplicada en Clientes.';
+      if(document.querySelector('#pContactPhone')?.value.trim()||document.querySelector('#pContactEmail')?.value.trim()||document.querySelector('#pSpecialRequirement')?.value.trim()){
+        prospectStatus.textContent='No se guardó el prospecto: teléfono, correo o requerimiento especial todavía no tienen columnas validadas en Supabase. No se creó el registro: los datos de contacto requieren integración segura en Prospectos. No crees una ficha duplicada en Clientes.';
         return;
       }
       const btn=document.querySelector('#saveProspect');btn.disabled=true;
@@ -3841,14 +3843,20 @@ document.addEventListener('focusin', function(event) {
     if(bookingMap.has(previous))select.value=previous;
   }
   $('qBookingSource')?.addEventListener('focus',loadQuoteBookingSources);
+  $('qBookingSource')?.addEventListener('pointerdown',()=>{if(bookingMap.size===0)loadQuoteBookingSources();});
   $('qBookingSource')?.addEventListener('change',async()=>{
     const b=bookingMap.get($('qBookingSource').value);if(!b){$('qBookingPreview').textContent='Nueva cotización independiente.';return;}
     const contact=b.customer;
     $('qBookingPreview').textContent='Cliente: '+b.name+' · Expedición: '+b.expName+' · Viajeros en reserva: '+b.travelers+' · Total reservado: '+fmt(Number(b.travelers)*Number(b.unit_price_mxn))+' · Teléfono: '+(contact?.phone||'No registrado en Clientes')+' · Correo: '+(contact?.email||'No registrado en Clientes')+'.';
     // No se cambian identidad ni reserva: se recupera solo la expedición y se recalculan costos.
     const q=$('qExpedition');if(q&&!q.disabled){q.value=b.expedition_id;q.dispatchEvent(new Event('change',{bubbles:true}));}
-    $('qTravelers').value=String(b.travelers||1);
-    $('qTravelers').dispatchEvent(new Event('input',{bubbles:true}));
+    const person=$('qProspect');if(person&&b.prospect_id){person.value=b.prospect_id;person.dispatchEvent(new Event('change',{bubbles:true}));}
+    const bookedTravelers=Number(b.travelers);
+    if(Number.isInteger(bookedTravelers)&&bookedTravelers>0){
+      $('qTravelers').value=String(bookedTravelers);
+      $('qTravelers').dispatchEvent(new Event('input',{bubbles:true}));
+      $('qBookingPreview').textContent+=' ✓ Cantidad de viajeros cargada en el cotizador: '+bookedTravelers+'.';
+    }else{$('qBookingPreview').textContent+=' ⚠ Esta reserva no tiene una cantidad de viajeros válida.';} 
   });
   $('qNewTravelerCount')?.addEventListener('click',()=>{
     const input=$('qTravelers');if(!input)return;
