@@ -448,6 +448,9 @@
           <p>Registra oportunidades y consulta los prospectos guardados en Supabase. El acceso de consulta no permite registrar nuevos.</p>
           <form id="prospectForm" class="prospect-form" hidden>
             <label>Nombre completo del prospecto *<input id="pAlias" maxlength="120" required placeholder="Ej. Juan Pérez"></label>
+            <label>Teléfono del prospecto (pendiente de habilitar guardado)<input id="pContactPhone" type="tel" maxlength="40" placeholder="Ej. +52 55 1234 5678"></label>
+            <label>Correo del prospecto (pendiente de habilitar guardado)<input id="pContactEmail" type="email" maxlength="180" placeholder="Ej. cliente@correo.com"></label>
+            <p class="hint" style="grid-column:1/-1;color:#855322">Para no perder información, si escribes teléfono o correo en Prospectos, el sistema impedirá guardar hasta habilitar sus columnas en Supabase. No registres esos datos en otro módulo: la integración está pendiente.</p>
             <label>Expedición *<select id="pExpedition" required><option value="">Cargando expediciones...</option></select></label>
             <label>Canal de contacto *<select id="pChannel" required><option value="">Seleccionar</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option><option value="directo">Directo</option><option value="agency">Agencia</option><option value="otro">Otro</option></select></label>
             <label id="pAgencyWrap" hidden>Agencia de origen *<select id="pAgency"><option value="">Seleccionar agencia</option></select></label>
@@ -456,16 +459,16 @@
           </form>
           <p id="prospectStatus" class="prospect-status" role="status"></p>
           <div id="prospectMobileList" class="record-mobile-list" aria-label="Prospectos registrados"></div><div class="table-wrap record-desktop-table"><table class="dash-table"><thead><tr><th>Prospecto</th><th>Canal</th><th>Expedición</th><th>Etapa</th><th>Registro</th><th>Acciones</th></tr></thead><tbody id="prospectRows"><tr><td colspan="5">Inicia sesión para consultar los registros.</td></tr></tbody></table></div>
-          <p class="hint"><strong>Teléfono y correo:</strong> se incorporarán a la ficha de prospecto después de agregar y validar sus columnas en Supabase. Actualmente esos datos están disponibles en Clientes; no se solicitarán en un formulario que todavía no pueda guardarlos.</p><p class="hint">Los registros se guardan en la nube. Las etapas son etiquetas operativas; valida sus valores con las reglas de tu base de datos.</p>
+          <p class="hint"><strong>Teléfono y correo:</strong> se incorporarán a la ficha de prospecto después de agregar y validar sus columnas en Supabase. No crees otra ficha en Clientes; esperaremos a habilitar el guardado seguro en Prospectos.</p><p class="hint">Los registros se guardan en la nube. Las etapas son etiquetas operativas; valida sus valores con las reglas de tu base de datos.</p>
         </div></section>
         <section class="page" data-section="reservas"><div class="dash-panel">
           <div class="section-head"><h2>Reservas por expedición</h2><span id="bookingCount" class="pill">Cargando...</span></div>
           <p>Registra y consulta reservas reales de DL Expeditions. Los importes se expresan en pesos mexicanos (MXN). Si seleccionas «Con anticipo», podrás registrar el importe recibido y su forma de pago en la misma operación.</p>
           <form id="bookingForm" class="booking-form" hidden>
             <label>Expedición *<select id="bExpedition" required><option value="">Seleccionar expedición</option></select></label>
-            <label>¿Cómo se originó la reserva? *<select id="bOrigin"><option value="direct">Cliente registrado (venta directa)</option><option value="prospect">Prospecto registrado</option></select></label>
-            <p id="bOriginHelp" class="hint" style="grid-column:1/-1;margin:0">Si ya registraste a la persona como prospecto, elige «Prospecto registrado». Si llegó directamente a comprar, selecciona un cliente de Clientes.</p><label id="bProspectWrap" hidden>Seleccionar prospecto *<select id="bProspect"><option value="">Seleccionar prospecto</option></select></label>
-            <label id="bCustomerWrap">Seleccionar cliente *<select id="bCustomerId"><option value="">Seleccionar cliente registrado</option></select><small style="display:block;margin-top:6px;color:#69777d">Si aún no está registrado, agrégalo en Clientes antes de crear una reserva directa.</small><input id="bCustomerName" type="hidden"></label>
+            <label>¿Cómo se originó la reserva? *<select id="bOrigin"><option value="prospect" selected>Prospecto registrado (flujo recomendado)</option><option value="direct">Cliente antiguo (solo compatibilidad)</option></select></label>
+            <p id="bOriginHelp" class="hint" style="grid-column:1/-1;margin:0">Toda persona nueva debe registrarse en Prospectos. La opción de cliente registrado se conserva únicamente para editar reservas antiguas.</p><label id="bProspectWrap" hidden>Seleccionar prospecto *<select id="bProspect"><option value="">Seleccionar prospecto</option></select></label>
+            <label id="bCustomerWrap">Seleccionar cliente *<select id="bCustomerId"><option value="">Seleccionar cliente registrado</option></select><small style="display:block;margin-top:6px;color:#69777d">Para personas nuevas, crea primero un prospecto. Esta opción es únicamente para reservas antiguas.</small><input id="bCustomerName" type="hidden"></label>
             <label>Canal de venta *<select id="bChannel" required><option value="direct">Venta directa</option><option value="agency">Agencia</option></select></label>
             <label id="bAgencyWrap" hidden>Agencia *<select id="bAgency"><option value="">Seleccionar agencia</option></select><small style="display:block;margin-top:6px;color:#69777d">En reservas directas puedes elegir una agencia. Si la reserva viene de un prospecto, se utiliza la agencia registrada en su ficha.</small></label>
             <label>Cantidad de viajeros *<input id="bTravelers" type="number" min="1" max="10000" step="1" value="1" required></label>
@@ -537,7 +540,7 @@
         </section>
         <section class="page" data-section="a6">
           <div class="dash-panel">
-            <div class="section-head"><h2>Mi dinero · A6</h2><span class="pill">V49 · Operación real y simulador · MXN</span></div>
+            <div class="section-head"><h2>Mi dinero · A6</h2><span class="pill">V51 · Operación real y simulador · MXN</span></div>
             <p class="hint"><strong>Simulador de prueba · No son cifras reales de Paco.</strong> Los importes de esta pantalla no se guardan ni se toman de Supabase. En la futura versión conectada, ingresos y gastos se calcularán automáticamente desde sus registros, sin volver a capturarlos.</p>
             <div class="dash-panel" style="margin:16px 0 22px;border:1px solid #d5e5dd;background:#f7faf8" aria-label="Resumen de validación de datos reales">
               <div class="section-head"><h3 style="margin:0">Operación real · Validación inicial</h3><span class="pill">Corte revisado · 11 nov 2026</span></div>
@@ -635,9 +638,9 @@
           </div>
         </section>
         <section class="page" data-section="clientes"><div class="dash-panel">
-<div class="section-head"><h2>Clientes · historial comercial</h2><span class="pill" id="clientCount">Cargando...</span></div>
-<p>Directorio único de clientes. Cada persona conserva su ID aunque cambie de teléfono o reserve otra expedición. Los pagos siguen vinculados a cada reserva.</p>
-<form id="customerMasterForm" class="master-form" hidden>
+<div class="section-head"><h2>Clientes · consulta e historial</h2><span class="pill" id="clientCount">Cargando...</span></div>
+<p>Clientes es una vista de consulta, no un formulario de registro. Las personas nuevas deben ingresar primero por Prospectos; al confirmar su reserva, su historial deberá aparecer aquí. La unificación automática de fichas antiguas está pendiente de integración segura.</p>
+<form id="customerMasterForm" class="master-form" hidden style="display:none!important" aria-hidden="true">
 <label>Nombre completo *<input id="cFullName" maxlength="160" required></label>
 <label>Teléfono (opcional)<input id="cPhone" type="tel" maxlength="40" placeholder="Ej. +52 55 1234 5678"></label>
 <label>Correo (opcional)<input id="cEmail" type="email" maxlength="180"></label>
@@ -651,7 +654,7 @@
 <input id="clientSearch" type="search" placeholder="Buscar cliente" autocomplete="off"></label>
 <p id="clientStatus" class="hint" role="status">Abre esta sección para consultar los datos.</p>
 <div id="clientMobileList" class="client-mobile-list" aria-label="Historial de clientes"></div><div class="table-wrap client-desktop-table"><table class="dash-table"><thead><tr><th>Cliente / ID</th><th>Reservas</th><th>Viajeros reservados</th><th>Valor reservado (MXN)</th><th>Pagos asociados (MXN)</th><th>Saldo estimado (MXN)</th><th>Expediciones y estados</th></tr></thead><tbody id="clientRows"><tr><td colspan="7">Sin cargar</td></tr></tbody></table></div>
-<p class="hint">Abre «Ver historial» en cada ficha para consultar reservas, pagos y saldos por expedición. Las reservas canceladas aparecen separadas y no se incluyen en el valor reservado activo.</p>
+<p class="hint" style="color:#8a4b26"><strong>Integración pendiente:</strong> las reservas que solo están vinculadas a Prospectos pueden no aparecer todavía en el historial de Clientes. No crees clientes manualmente para corregirlo. El requerimiento especial de una persona existente también está pendiente de almacenamiento seguro.</p><p class="hint">Abre «Ver historial» en cada ficha para consultar reservas, pagos y saldos por expedición. Las reservas canceladas aparecen separadas y no se incluyen en el valor reservado activo.</p>
 <p class="hint">El saldo es una estimación operativa sobre reservas no canceladas; no es una conciliación bancaria. Los importes se basan en registros accesibles para tu usuario. No se permite editar desde esta vista.</p>
 </div></section>
         <section class="page" data-section="cotizador">
@@ -663,6 +666,7 @@
                 <label>Usar datos de una reserva existente (opcional)<select id="qBookingSource"><option value="">Nueva cotización sin reserva previa</option></select></label>
                 <div id="qBookingPreview" class="hint" role="status" style="margin:10px 0">Selecciona una reserva para consultar su cliente, viajeros y monto. No se modificará la reserva original.</div>
                 <button id="qUseBookingTravelers" type="button" class="outline-btn" style="width:auto">Usar viajeros de la reserva</button>
+                <button id="qNewTravelerCount" type="button" class="outline-btn" style="width:auto">Cotizar otra cantidad de viajeros</button>
                 <p class="hint">Puedes modificar la cantidad de viajeros de esta cotización. El precio se recalcula según la expedición; no altera la reserva ni sus pagos. El vínculo con la reserva es temporal hasta ampliar el modelo de datos.</p>
               </div>
               <label class="quote-first-prospect">Buscar prospecto (opcional)<select id="qFindProspect"><option value="">Seleccionar prospecto registrado</option></select></label>
@@ -1074,6 +1078,10 @@
       e.preventDefault();
       if(currentRole!=='admin'){prospectStatus.textContent='No tienes permiso para registrar prospectos.';return;}
       if(!prospectForm.reportValidity())return;
+      if(document.querySelector('#pContactPhone')?.value.trim()||document.querySelector('#pContactEmail')?.value.trim()){
+        prospectStatus.textContent='No se guardó el prospecto: teléfono y correo todavía no tienen columnas validadas en Supabase. No se creó el registro: los datos de contacto requieren integración segura en Prospectos. No crees una ficha duplicada en Clientes.';
+        return;
+      }
       const btn=document.querySelector('#saveProspect');btn.disabled=true;
       prospectStatus.textContent='Guardando prospecto...';
       const selectedChannel=document.querySelector('#pChannel').value;
@@ -1166,7 +1174,7 @@
       const customerWrap=document.querySelector('#bCustomerWrap');
       prospectWrap.hidden=!fromProspect;
       customerWrap.hidden=fromProspect;
-      document.querySelector('#bOriginHelp').textContent=fromProspect?'Selecciona el prospecto de esta expedición. No necesitas crear otra ficha ni una cotización para guardar la reserva.':'Selecciona un cliente registrado. Si antes fue prospecto, usa «Prospecto registrado» para conservar su origen.';
+      document.querySelector('#bOriginHelp').textContent=fromProspect?'Selecciona el prospecto de esta expedición. No necesitas crear otra ficha ni una cotización para guardar la reserva.':'Esta opción se conserva para reservas antiguas. Para reservas nuevas, registra primero a la persona en Prospectos.';
       document.querySelector('#bProspect').required=fromProspect;
       document.querySelector('#bCustomerId').required=!fromProspect;
       if(!fromProspect){document.querySelector('#bProspect').value='';preparedQuote=null;document.querySelector('#preparedQuoteNotice').hidden=true;syncBookingChannelFromProspect();}
@@ -1226,6 +1234,7 @@
     }
     function resetBookingEditor(){
       editingBookingId=null;preparedQuote=null;bookingForm.reset();
+      document.querySelector('#bOrigin').value='prospect';
       document.querySelector('#preparedQuoteNotice').hidden=true;
       document.querySelector('#saveBooking').textContent='Guardar reserva';
       document.querySelector('#cancelBookingEdit').hidden=true;
@@ -1987,7 +1996,7 @@
 
     async function loadClients(){
       const status=document.querySelector('#clientStatus');status.textContent='Consultando fichas e historial de clientes...';
-      document.querySelector('#customerMasterForm').hidden=currentRole!=='admin';
+      document.querySelector('#customerMasterForm').hidden=true;
       const [customers,books,pays,exps]=await Promise.all([
         supabase.from('customers').select('id,customer_number,full_name,phone,email').order('customer_number', { ascending: true }).limit(1000),
         supabase.from('bookings').select('id,customer_id,expedition_id,travelers,unit_price_mxn,status,created_at').limit(1000),
@@ -3841,6 +3850,12 @@ document.addEventListener('focusin', function(event) {
     $('qTravelers').value=String(b.travelers||1);
     $('qTravelers').dispatchEvent(new Event('input',{bubbles:true}));
   });
+  $('qNewTravelerCount')?.addEventListener('click',()=>{
+    const input=$('qTravelers');if(!input)return;
+    input.scrollIntoView({behavior:'smooth',block:'center'});
+    input.focus();try{input.select();}catch(_){ }
+    $('qBookingPreview').textContent+=' Puedes cambiar la cantidad de viajeros en esta cotización sin alterar la reserva original.';
+  });
   $('qUseBookingTravelers')?.addEventListener('click',()=>{
     const b=bookingMap.get($('qBookingSource').value);if(!b){$('qBookingPreview').textContent='Selecciona primero una reserva.';return;}
     $('qTravelers').value=String(b.travelers||1);$('qTravelers').dispatchEvent(new Event('input',{bubbles:true}));
@@ -3850,6 +3865,18 @@ document.addEventListener('focusin', function(event) {
   const observer=new MutationObserver(mutations=>{for(const m of mutations){for(const node of m.addedNodes){if(node.nodeType!==1)continue;const inputs=node.matches?.('input[type="number"]')?[node]:[...(node.querySelectorAll?.('input[type="number"]')||[])];for(const el of inputs){if(el.closest('#a6Rows')&&el.value==='0')el.value='';}}}});
   const rows=$('a6Rows');if(rows)observer.observe(rows,{childList:true,subtree:true});
 })();
+</script>
+<script>
+/* V50: orden alfabético para selectores de entidades; mantiene opción inicial y selección. */
+document.addEventListener('focusin',function(ev){
+ const el=ev.target;if(!(el instanceof HTMLSelectElement))return;
+ const ids=['pExpedition','pAgency','bExpedition','qExpedition','qProspect','qFindProspect','qAgency','qBookingSource','qNewAgency'];
+ if(!ids.includes(el.id))return;
+ const options=[...el.options];if(options.length<3)return;
+ const selected=el.value,first=options.filter(x=>!x.value),rest=options.filter(x=>x.value);
+ rest.sort((a,b)=>a.textContent.trim().localeCompare(b.textContent.trim(),'es',{sensitivity:'base',numeric:true}));
+ el.replaceChildren(...first,...rest);el.value=selected;
+});
 </script>
 </body>
 </html>
