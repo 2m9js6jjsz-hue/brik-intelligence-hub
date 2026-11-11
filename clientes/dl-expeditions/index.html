@@ -532,8 +532,19 @@
         </section>
         <section class="page" data-section="a6">
           <div class="dash-panel">
-            <div class="section-head"><h2>Mi dinero · A6</h2><span class="pill">V46 · Ingresos, gastos y saldo · MXN</span></div>
+            <div class="section-head"><h2>Mi dinero · A6</h2><span class="pill">V47 · Operación real y simulador · MXN</span></div>
             <p class="hint"><strong>Simulador de prueba · No son cifras reales de Paco.</strong> Los importes de esta pantalla no se guardan ni se toman de Supabase. En la futura versión conectada, ingresos y gastos se calcularán automáticamente desde sus registros, sin volver a capturarlos.</p>
+            <div class="dash-panel" style="margin:16px 0 22px;border:1px solid #d5e5dd;background:#f7faf8" aria-label="Resumen de validación de datos reales">
+              <div class="section-head"><h3 style="margin:0">Operación real · Validación inicial</h3><span class="pill">Corte revisado · 11 nov 2026</span></div>
+              <p class="hint"><strong>Resumen de los registros revisados, no consulta en vivo.</strong> La revisión confirmó que los 17 pagos por $784,000 MXN pertenecen a reservas marcadas como prueba y que los cuatro gastos por $19,000 MXN también son de prueba. No se han identificado movimientos reales en ese conjunto de registros.</p>
+              <div class="a6-v45-summary">
+                <div class="a6-v45-feature a6-v45-in"><small>Ingresos reales identificados</small><strong>$0.00</strong><span>Entre los pagos revisados</span></div>
+                <div class="a6-v45-feature a6-v45-out"><small>Gastos reales identificados</small><strong>$0.00</strong><span>Entre los gastos revisados</span></div>
+                <div class="a6-v45-feature"><small>Saldo bancario real</small><strong>Sin confirmar</strong><span>Requiere saldo inicial y conciliación</span></div>
+              </div>
+              <p class="hint" style="margin-bottom:0">Estos valores no significan que el negocio no haya tenido otros movimientos. No se actualizan automáticamente ni representan una conciliación bancaria. No se escriben datos en Supabase.</p>
+            </div>
+            <h3 style="margin:20px 0 8px">Simulador · Planifica sin modificar tus registros</h3>
             <div class="a6-v45-setup">
               <details open class="a6-v45-details"><summary>1. ¿Con cuánto dinero comienza Paco?</summary>
                 <p class="hint">El saldo inicial es el dinero que ya existe en el banco al empezar el primer mes. No son ventas ni ganancias nuevas.</p>
@@ -576,7 +587,7 @@
           <div class="dash-panel" style="margin-top:18px">
             <div class="section-head"><h2>Gastos y punto de equilibrio</h2><span class="pill">Criterios de integración</span></div>
             <p>Los <strong>costos directos</strong> corresponden a una expedición; los <strong>gastos generales</strong> (pauta institucional, coworking, asesoría legal, servicios BRIK) pertenecen al negocio y no deben imputarse automáticamente a un viaje.</p>
-            <p class="hint">La estructura actual exige una expedición para guardar gastos. En esta V45 los gastos generales se simulan por mes, pero todavía no se registran en Supabase. El punto de equilibrio por expedición ya existe como estimación en Reportes; el punto de equilibrio global del negocio requiere una definición adicional de costos fijos, margen de contribución e impuestos. Ninguno de los dos equivale al flujo de caja.</p>
+            <p class="hint">La estructura actual exige una expedición para guardar gastos. En esta V47 los gastos generales se simulan por mes, pero todavía no se registran en Supabase. El punto de equilibrio por expedición ya existe como estimación en Reportes; el punto de equilibrio global del negocio requiere una definición adicional de costos fijos, margen de contribución e impuestos. Ninguno de los dos equivale al flujo de caja.</p>
           </div>
         </section>
         <section class="page" data-section="calendarios">
