@@ -369,7 +369,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 52 · Prospectos y cotizador</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 53 · Prospectos y cotizador</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -665,11 +665,11 @@
             <p>Selecciona una expedición y cotiza por viajero o por grupo. Los importes se calculan con los costos registrados para esa expedición; puedes ajustarlos antes de guardar.</p>
             <form id="quoteForm" class="quote-form">
               <div class="dash-panel" style="grid-column:1/-1;background:#f5f8f7;padding:14px">
-                <label>Usar datos de una reserva existente (opcional)<select id="qBookingSource"><option value="">Nueva cotización sin reserva previa</option></select></label>
-                <div id="qBookingPreview" class="hint" role="status" style="margin:10px 0">Selecciona una reserva para consultar su cliente, viajeros y monto. No se modificará la reserva original.</div>
-                <button id="qUseBookingTravelers" type="button" class="outline-btn" style="width:auto">Usar viajeros de la reserva</button>
-                <button id="qNewTravelerCount" type="button" class="outline-btn" style="width:auto">Cotizar otra cantidad de viajeros</button>
-                <p class="hint">Puedes modificar la cantidad de viajeros de esta cotización. El precio se recalcula según la expedición; no altera la reserva ni sus pagos. El vínculo con la reserva es temporal hasta ampliar el modelo de datos.</p>
+                <label><strong>Seleccionar cliente y reserva</strong><select id="qBookingSource"><option value="">Cargando reservas…</option></select></label>
+                <button id="qReloadBookings" type="button" class="outline-btn" style="margin-top:9px">Actualizar lista de reservas</button>
+                <div id="qBookingPreview" class="hint" role="status" style="margin:12px 0">Selecciona una reserva: se cargarán automáticamente el cliente, la expedición y los viajeros.</div>
+                <label id="qBookingTravelersEdit" hidden>Viajeros para esta nueva cotización (puedes cambiarlos)<input id="qBookingTravelersInput" type="number" min="1" max="10000" step="1" placeholder="Cantidad de viajeros"></label>
+                <p class="hint">Cambiar los viajeros aquí solo modifica la cotización; nunca cambia la reserva ni sus pagos. El monto original se muestra como referencia y el nuevo importe se calcula con el precio vigente de la expedición.</p>
               </div>
               <label class="quote-first-prospect">Buscar prospecto (opcional)<select id="qFindProspect"><option value="">Seleccionar prospecto registrado</option></select></label>
               <div class="quote-first-prospect"><button type="button" id="qChangePerson" class="outline-btn" hidden>Cambiar persona / iniciar otra cotización</button></div>
@@ -3825,49 +3825,77 @@ document.addEventListener('focusin', function(event) {
     finally{button.disabled=false;}
   });
   let bookingMap=new Map();
+  const qQuoteForm=$('quoteForm');
+  function quoteBookingMode(active){
+    qQuoteForm?.classList.toggle('booking-selected',active);
+    $('qBookingTravelersEdit').hidden=!active;
+  }
+  const qStyle=document.createElement('style');
+  qStyle.textContent='#quoteForm.booking-selected .quote-first-prospect,#quoteForm.booking-selected label:has(> #qTravelers),#quoteForm.booking-selected #qQuickProspectArea,#quoteForm.booking-selected #qProspect,#quoteForm.booking-selected #qProspect + *{display:none!important}';
+  document.head.appendChild(qStyle);
+
+  let qBookingLoading=false;
   async function loadQuoteBookingSources(){
     const select=$('qBookingSource');if(!select||typeof supabase==='undefined')return;
-    const [b,e,c,p]=await Promise.all([
-      supabase.from('bookings').select('id,expedition_id,prospect_id,customer_id,customer_name,travelers,unit_price_mxn,status').limit(1000),
-      supabase.from('expeditions').select('id,name').limit(1000),
-      supabase.from('customers').select('id,full_name,phone,email').limit(1000),
-      supabase.from('prospects').select('id,alias').limit(1000)
-    ]);
-    if(b.error||e.error||c.error||p.error){$('qBookingPreview').textContent='No se pudieron consultar todas las reservas y contactos: '+(b.error||e.error||c.error||p.error).message;return;}
-    const exps=new Map((e.data||[]).map(x=>[x.id,x.name]));
-    const customers=new Map((c.data||[]).map(x=>[x.id,x]));
-    const prospects=new Map((p.data||[]).map(x=>[x.id,x.alias]));
-    bookingMap=new Map((b.data||[]).map(x=>[x.id,{...x,expName:exps.get(x.expedition_id)||'Expedición',customer:customers.get(x.customer_id),name:customers.get(x.customer_id)?.full_name||x.customer_name||prospects.get(x.prospect_id)||'Cliente sin nombre'}]));
-    const previous=select.value;select.replaceChildren(new Option('Nueva cotización sin reserva previa',''));
-    [...bookingMap.values()].sort((a,b)=>a.name.localeCompare(b.name,'es',{sensitivity:'base'})).forEach(x=>select.add(new Option(x.name+' · '+x.expName+' · '+x.travelers+' viajero(s)',x.id)));
-    if(bookingMap.has(previous))select.value=previous;
+    if(qBookingLoading)return;
+    qBookingLoading=true;
+    const previous=select.value;
+    $('qBookingPreview').textContent='Consultando reservas…';
+    try{
+      const [b,e,c,p]=await Promise.all([
+        supabase.from('bookings').select('id,expedition_id,prospect_id,customer_id,customer_name,travelers,unit_price_mxn,status').limit(1000),
+        supabase.from('expeditions').select('id,name').limit(1000),
+        supabase.from('customers').select('id,full_name,phone,email').limit(1000),
+        supabase.from('prospects').select('id,alias').limit(1000)
+      ]);
+      if(b.error||e.error||c.error||p.error)throw b.error||e.error||c.error||p.error;
+      if([b,e,c,p].some(x=>(x.data||[]).length>=1000))throw new Error('Hay más registros que el límite de consulta. No se mostrará una lista incompleta.');
+      const exps=new Map((e.data||[]).map(x=>[x.id,x.name]));
+      const customers=new Map((c.data||[]).map(x=>[x.id,x]));
+      const prospects=new Map((p.data||[]).map(x=>[x.id,x.alias]));
+      bookingMap=new Map((b.data||[]).filter(x=>x.status!=='cancelled'&&x.status!=='cancelada').map(x=>[x.id,{...x,expName:exps.get(x.expedition_id)||'Expedición',customer:customers.get(x.customer_id),name:customers.get(x.customer_id)?.full_name||x.customer_name||prospects.get(x.prospect_id)||'Cliente sin nombre'}]));
+      select.replaceChildren(new Option('Selecciona un cliente y su reserva',''));
+      [...bookingMap.values()].sort((a,b)=>a.name.localeCompare(b.name,'es',{sensitivity:'base'})||a.expName.localeCompare(b.expName,'es',{sensitivity:'base'})).forEach(x=>select.add(new Option(x.name+' · '+x.expName+' · '+(x.travelers??'?')+' viajero(s)',x.id)));
+      if(bookingMap.has(previous))select.value=previous;
+      if(!bookingMap.size)$('qBookingPreview').textContent='No se encontraron reservas accesibles. Comprueba tu sesión y permisos.';
+      else if(!select.value)$('qBookingPreview').textContent='Selecciona un cliente de la lista. Encontré '+bookingMap.size+' reserva(s).';
+    }catch(err){select.replaceChildren(new Option('No se pudieron cargar reservas',''));$('qBookingPreview').textContent='Error al cargar reservas: '+(err?.message||'Error de conexión')+'. Pulsa «Actualizar lista de reservas».';}
+    finally{qBookingLoading=false;}
   }
-  $('qBookingSource')?.addEventListener('focus',loadQuoteBookingSources);
-  $('qBookingSource')?.addEventListener('pointerdown',()=>{if(bookingMap.size===0)loadQuoteBookingSources();});
+  $('qReloadBookings')?.addEventListener('click',loadQuoteBookingSources);
+  $('qBookingSource')?.addEventListener('focus',()=>{if(bookingMap.size===0)loadQuoteBookingSources();});
   $('qBookingSource')?.addEventListener('change',async()=>{
-    const b=bookingMap.get($('qBookingSource').value);if(!b){$('qBookingPreview').textContent='Nueva cotización independiente.';return;}
+    const b=bookingMap.get($('qBookingSource').value);
+    if(!b){quoteBookingMode(false);$('qBookingPreview').textContent='Selecciona una reserva para cargar los datos.';return;}
+    quoteBookingMode(true);
     const contact=b.customer;
-    $('qBookingPreview').textContent='Cliente: '+b.name+' · Expedición: '+b.expName+' · Viajeros en reserva: '+b.travelers+' · Total reservado: '+fmt(Number(b.travelers)*Number(b.unit_price_mxn))+' · Teléfono: '+(contact?.phone||'No registrado en Clientes')+' · Correo: '+(contact?.email||'No registrado en Clientes')+'.';
-    // No se cambian identidad ni reserva: se recupera solo la expedición y se recalculan costos.
-    const q=$('qExpedition');if(q&&!q.disabled){q.value=b.expedition_id;q.dispatchEvent(new Event('change',{bubbles:true}));}
-    const person=$('qProspect');if(person&&b.prospect_id){person.value=b.prospect_id;person.dispatchEvent(new Event('change',{bubbles:true}));}
-    const bookedTravelers=Number(b.travelers);
-    if(Number.isInteger(bookedTravelers)&&bookedTravelers>0){
-      $('qTravelers').value=String(bookedTravelers);
+    const amount=Number(b.travelers)*Number(b.unit_price_mxn);
+    $('qBookingPreview').textContent='Cliente: '+b.name+' | Expedición: '+b.expName+' | Viajeros: '+(b.travelers??'No registrado')+' | Monto reservado: '+(Number.isFinite(amount)?fmt(amount):'No disponible')+' | Teléfono: '+(contact?.phone||'No registrado')+' | Correo: '+(contact?.email||'No registrado')+'.';
+    // Desbloquea controles antes de seleccionar expedición; algunas fichas de prospecto los bloquean.
+    const q=$('qExpedition');const person=$('qProspect');
+    if(q){q.disabled=false;q.value=b.expedition_id;q.dispatchEvent(new Event('change',{bubbles:true}));}
+    if(person){person.disabled=false;person.value=b.prospect_id||'';person.dispatchEvent(new Event('change',{bubbles:true}));}
+    const travelers=Number(b.travelers);
+    if(Number.isInteger(travelers)&&travelers>0){
+      $('qTravelers').value=String(travelers);
+      $('qBookingTravelersInput').value=String(travelers);
       $('qTravelers').dispatchEvent(new Event('input',{bubbles:true}));
-      $('qBookingPreview').textContent+=' ✓ Cantidad de viajeros cargada en el cotizador: '+bookedTravelers+'.';
-    }else{$('qBookingPreview').textContent+=' ⚠ Esta reserva no tiene una cantidad de viajeros válida.';} 
+    }else{$('qBookingTravelersInput').value='';$('qBookingPreview').textContent+=' Atención: falta una cantidad válida de viajeros en esta reserva.';}
   });
-  $('qNewTravelerCount')?.addEventListener('click',()=>{
-    const input=$('qTravelers');if(!input)return;
-    input.scrollIntoView({behavior:'smooth',block:'center'});
-    input.focus();try{input.select();}catch(_){ }
-    $('qBookingPreview').textContent+=' Puedes cambiar la cantidad de viajeros en esta cotización sin alterar la reserva original.';
+  $('qBookingTravelersInput')?.addEventListener('input',()=>{
+    const value=$('qBookingTravelersInput').value;
+    $('qTravelers').value=value;
+    $('qTravelers').dispatchEvent(new Event('input',{bubbles:true}));
   });
-  $('qUseBookingTravelers')?.addEventListener('click',()=>{
-    const b=bookingMap.get($('qBookingSource').value);if(!b){$('qBookingPreview').textContent='Selecciona primero una reserva.';return;}
-    $('qTravelers').value=String(b.travelers||1);$('qTravelers').dispatchEvent(new Event('input',{bubbles:true}));
+  $('qTravelers')?.addEventListener('input',()=>{
+    if(qQuoteForm?.classList.contains('booking-selected'))$('qBookingTravelersInput').value=$('qTravelers').value;
   });
+  // Carga al abrir la página, no al tocar el selector (en iPhone el menú puede abrir antes de que llegue la respuesta).
+  document.addEventListener('click',ev=>{
+    const link=ev.target.closest?.('[data-page="cotizador"], [data-section-target="cotizador"], [data-nav="cotizador"], a[href="#cotizador"]');
+    if(link)setTimeout(loadQuoteBookingSources,0);
+  },true);
+  loadQuoteBookingSources();
   // En blanco al inicio, pero conserva los ceros calculados de solo lectura.
   ['a6Bank','a6Reserved','a6Capital'].forEach(id=>{const el=$(id);if(el&&el.value==='0')el.value='';});
   const observer=new MutationObserver(mutations=>{for(const m of mutations){for(const node of m.addedNodes){if(node.nodeType!==1)continue;const inputs=node.matches?.('input[type="number"]')?[node]:[...(node.querySelectorAll?.('input[type="number"]')||[])];for(const el of inputs){if(el.closest('#a6Rows')&&el.value==='0')el.value='';}}}});
