@@ -532,7 +532,7 @@
         </section>
         <section class="page" data-section="a6">
           <div class="dash-panel">
-            <div class="section-head"><h2>Mi dinero · A6</h2><span class="pill">V45 · Ingresos, gastos y saldo · MXN</span></div>
+            <div class="section-head"><h2>Mi dinero · A6</h2><span class="pill">V46 · Ingresos, gastos y saldo · MXN</span></div>
             <p class="hint"><strong>Simulador de prueba · No son cifras reales de Paco.</strong> Los importes de esta pantalla no se guardan ni se toman de Supabase. En la futura versión conectada, ingresos y gastos se calcularán automáticamente desde sus registros, sin volver a capturarlos.</p>
             <div class="a6-v45-setup">
               <details open class="a6-v45-details"><summary>1. ¿Con cuánto dinero comienza Paco?</summary>
@@ -3727,6 +3727,24 @@
       page.querySelectorAll('tbody').forEach(t=>observer.observe(t,{childList:true}));}
   });
 })();
+</script>
+
+<script>
+/* V46: Al comenzar a escribir en cualquier campo numérico editable,
+   elimina el cero inicial para que el usuario no tenga que borrarlo.
+   Delegación: también funciona con campos creados dinámicamente. */
+document.addEventListener('focusin', function(event) {
+  const field = event.target;
+  if (!(field instanceof HTMLInputElement) ||
+      field.type !== 'number' || field.readOnly || field.disabled) return;
+  if (field.value.trim() !== '' && Number(field.value) === 0) {
+    field.value = '';
+    field.dispatchEvent(new Event('input', { bubbles: true }));
+  } else {
+    // Si el campo tiene otra cifra, seleccionarla facilita reemplazarla.
+    try { field.select(); } catch (_) {}
+  }
+});
 </script>
 </body>
 </html>
