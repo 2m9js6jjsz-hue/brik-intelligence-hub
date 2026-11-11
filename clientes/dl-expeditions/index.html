@@ -447,7 +447,7 @@
           <div class="section-head"><h2>Seguimiento de prospectos</h2><span id="prospectCount" class="pill">Cargando...</span></div>
           <p>Registra oportunidades y consulta los prospectos guardados en Supabase. El acceso de consulta no permite registrar nuevos.</p>
           <form id="prospectForm" class="prospect-form" hidden>
-            <label>Nombre o referencia del prospecto *<input id="pAlias" maxlength="120" required placeholder="Ej. Juan Pérez"></label>
+            <label>Nombre completo del prospecto *<input id="pAlias" maxlength="120" required placeholder="Ej. Juan Pérez"></label>
             <label>Expedición *<select id="pExpedition" required><option value="">Cargando expediciones...</option></select></label>
             <label>Canal de contacto *<select id="pChannel" required><option value="">Seleccionar</option><option value="whatsapp">WhatsApp</option><option value="instagram">Instagram</option><option value="directo">Directo</option><option value="agency">Agencia</option><option value="otro">Otro</option></select></label>
             <label id="pAgencyWrap" hidden>Agencia de origen *<select id="pAgency"><option value="">Seleccionar agencia</option></select></label>
@@ -456,7 +456,7 @@
           </form>
           <p id="prospectStatus" class="prospect-status" role="status"></p>
           <div id="prospectMobileList" class="record-mobile-list" aria-label="Prospectos registrados"></div><div class="table-wrap record-desktop-table"><table class="dash-table"><thead><tr><th>Prospecto</th><th>Canal</th><th>Expedición</th><th>Etapa</th><th>Registro</th><th>Acciones</th></tr></thead><tbody id="prospectRows"><tr><td colspan="5">Inicia sesión para consultar los registros.</td></tr></tbody></table></div>
-          <p class="hint">Los registros se guardan en la nube. Las etapas son etiquetas operativas; valida sus valores con las reglas de tu base de datos.</p>
+          <p class="hint"><strong>Teléfono y correo:</strong> se incorporarán a la ficha de prospecto después de agregar y validar sus columnas en Supabase. Actualmente esos datos están disponibles en Clientes; no se solicitarán en un formulario que todavía no pueda guardarlos.</p><p class="hint">Los registros se guardan en la nube. Las etapas son etiquetas operativas; valida sus valores con las reglas de tu base de datos.</p>
         </div></section>
         <section class="page" data-section="reservas"><div class="dash-panel">
           <div class="section-head"><h2>Reservas por expedición</h2><span id="bookingCount" class="pill">Cargando...</span></div>
@@ -488,7 +488,12 @@
           <div id="bookingMobileList" class="record-mobile-list" aria-label="Reservas registradas"></div><div class="table-wrap record-desktop-table"><table class="dash-table"><thead><tr><th>Expedición</th><th>Prospecto</th><th>Canal</th><th>Viajeros</th><th>Precio unitario</th><th>Total</th><th>Abonado</th><th>Saldo pendiente</th><th>Próximo pago</th><th>Seguimiento</th><th>Estado</th><th>Registro</th><th>Acciones</th></tr></thead><tbody id="bookingRows"><tr><td colspan="8">Inicia sesión para consultar las reservas.</td></tr></tbody></table></div>
           <p class="hint">Solo administración puede registrar reservas. Los usuarios de consulta pueden verlas, sujeto a los permisos RLS de Supabase. Para cambiar estados o registrar pagos se habilitarán módulos específicos.</p>
         </div></section>
-        <section class="page" data-section="finanzas">
+        <section class="page" data-section="finanzas"><div class="dash-panel" style="margin-bottom:18px">
+            <div class="section-head"><h2>Resumen mensual para contador</h2><span class="pill">Exportación de consulta</span></div>
+            <p class="hint">Exporta únicamente movimientos confirmados como reales. Los gastos sin clasificación de prueba/real quedan excluidos por seguridad. No equivale a una declaración fiscal.</p>
+            <div class="executive-toolbar"><label>Mes del informe<input id="accountantMonth" type="month"></label><button id="accountantExport" type="button">Resumen mensual para contador · Excel (CSV)</button></div>
+            <p id="accountantStatus" class="hint" role="status">El archivo se abre con Excel. La versión XLSX con hojas separadas se habilitará después de validar la clasificación de gastos.</p>
+          </div>
           <div class="dash-grid">
             <div class="dash-stat"><small>Pagos recibidos · pruebas + reales</small><strong id="fReceived">—</strong><span>MXN · Cobros registrados</span></div>
             <div class="dash-stat"><small>Gastos registrados · sin clasificación</small><strong id="fSpent">—</strong><span>MXN · Egresos registrados</span></div>
@@ -532,7 +537,7 @@
         </section>
         <section class="page" data-section="a6">
           <div class="dash-panel">
-            <div class="section-head"><h2>Mi dinero · A6</h2><span class="pill">V47 · Operación real y simulador · MXN</span></div>
+            <div class="section-head"><h2>Mi dinero · A6</h2><span class="pill">V49 · Operación real y simulador · MXN</span></div>
             <p class="hint"><strong>Simulador de prueba · No son cifras reales de Paco.</strong> Los importes de esta pantalla no se guardan ni se toman de Supabase. En la futura versión conectada, ingresos y gastos se calcularán automáticamente desde sus registros, sin volver a capturarlos.</p>
             <div class="dash-panel" style="margin:16px 0 22px;border:1px solid #d5e5dd;background:#f7faf8" aria-label="Resumen de validación de datos reales">
               <div class="section-head"><h3 style="margin:0">Operación real · Validación inicial</h3><span class="pill">Corte revisado · 11 nov 2026</span></div>
@@ -587,7 +592,7 @@
           <div class="dash-panel" style="margin-top:18px">
             <div class="section-head"><h2>Gastos y punto de equilibrio</h2><span class="pill">Criterios de integración</span></div>
             <p>Los <strong>costos directos</strong> corresponden a una expedición; los <strong>gastos generales</strong> (pauta institucional, coworking, asesoría legal, servicios BRIK) pertenecen al negocio y no deben imputarse automáticamente a un viaje.</p>
-            <p class="hint">La estructura actual exige una expedición para guardar gastos. En esta V47 los gastos generales se simulan por mes, pero todavía no se registran en Supabase. El punto de equilibrio por expedición ya existe como estimación en Reportes; el punto de equilibrio global del negocio requiere una definición adicional de costos fijos, margen de contribución e impuestos. Ninguno de los dos equivale al flujo de caja.</p>
+            <p class="hint">La estructura actual exige una expedición para guardar gastos. En esta V48 los gastos generales se simulan por mes, pero todavía no se registran en Supabase. El punto de equilibrio por expedición ya existe como estimación en Reportes; el punto de equilibrio global del negocio requiere una definición adicional de costos fijos, margen de contribución e impuestos. Ninguno de los dos equivale al flujo de caja.</p>
           </div>
         </section>
         <section class="page" data-section="calendarios">
@@ -636,6 +641,10 @@
 <label>Nombre completo *<input id="cFullName" maxlength="160" required></label>
 <label>Teléfono (opcional)<input id="cPhone" type="tel" maxlength="40" placeholder="Ej. +52 55 1234 5678"></label>
 <label>Correo (opcional)<input id="cEmail" type="email" maxlength="180"></label>
+<label style="grid-column:1/-1">Requerimiento especial del cliente (opcional)
+<textarea id="cSpecialRequirement" maxlength="1200" rows="3" placeholder="Ej. Solicitud de habitación accesible o preferencia logística. Evita registrar datos médicos hasta habilitar el almacenamiento seguro."></textarea>
+<small style="display:block;margin-top:6px;color:#8a4b26"><strong>Campo en preparación:</strong> el contenido NO se guarda todavía. No ingreses alergias ni datos de salud reales hasta habilitar su almacenamiento seguro en Supabase.</small>
+</label>
 <button type="submit" id="cSave">Crear ficha de cliente</button>
 </form><p id="customerMasterStatus" class="master-status" role="status"></p>
 <label style="display:block;max-width:460px;margin:16px 0">Buscar cliente por nombre, número, teléfono o correo
@@ -650,6 +659,12 @@
             <div class="section-head"><h2>Cotizador BRIK · DL Expeditions</h2><span class="pill">MXN · Supabase</span></div>
             <p>Selecciona una expedición y cotiza por viajero o por grupo. Los importes se calculan con los costos registrados para esa expedición; puedes ajustarlos antes de guardar.</p>
             <form id="quoteForm" class="quote-form">
+              <div class="dash-panel" style="grid-column:1/-1;background:#f5f8f7;padding:14px">
+                <label>Usar datos de una reserva existente (opcional)<select id="qBookingSource"><option value="">Nueva cotización sin reserva previa</option></select></label>
+                <div id="qBookingPreview" class="hint" role="status" style="margin:10px 0">Selecciona una reserva para consultar su cliente, viajeros y monto. No se modificará la reserva original.</div>
+                <button id="qUseBookingTravelers" type="button" class="outline-btn" style="width:auto">Usar viajeros de la reserva</button>
+                <p class="hint">Puedes modificar la cantidad de viajeros de esta cotización. El precio se recalcula según la expedición; no altera la reserva ni sus pagos. El vínculo con la reserva es temporal hasta ampliar el modelo de datos.</p>
+              </div>
               <label class="quote-first-prospect">Buscar prospecto (opcional)<select id="qFindProspect"><option value="">Seleccionar prospecto registrado</option></select></label>
               <div class="quote-first-prospect"><button type="button" id="qChangePerson" class="outline-btn" hidden>Cambiar persona / iniciar otra cotización</button></div>
               <p class="hint quote-first-prospect" style="margin:0">Al seleccionar un prospecto, su expedición, canal y agencia quedan vinculados. Para cotizar a otra persona, pulsa «Cambiar persona».</p>
@@ -996,7 +1011,7 @@
       for(const e of expResult.data||[])sel.add(new Option(e.name,e.id));
       prospectRows.replaceChildren();
       const prospectMobileList=document.querySelector('#prospectMobileList');prospectMobileList.replaceChildren();
-      const prospects=prosResult.data||[];
+      const prospects=[...(prosResult.data||[])].sort((a,b)=>String(a.alias||'').localeCompare(String(b.alias||''),'es',{sensitivity:'base'}));
       if(!prospects.length){const tr=document.createElement('tr');putCell(tr,'Todavía no hay prospectos registrados.');prospectRows.appendChild(tr);prospectRows.firstChild.firstChild.colSpan=6;prospectMobileList.textContent='Todavía no hay prospectos registrados.';}
       for(const p of prospects){
         const tr=document.createElement('tr');
@@ -1808,7 +1823,7 @@
       updateReceivables(br.data||[],pr.data||[]);
       const pb=fEl('fBooking'),pe=fEl('fExpenseExpedition'),oldB=pb.value,oldE=pe.value;
       pb.replaceChildren(new Option('Seleccionar reserva',''));pe.replaceChildren(new Option('Seleccionar expedición',''));
-      for(const b of br.data||[]){if(b.status==='cancelled')continue;const exp=financeExpeditions.get(b.expedition_id)?.name||'Expedición';const client=financeProspects.get(b.prospect_id)?.alias||b.customer_name||'Cliente sin identificar';pb.add(new Option(`${client} · ${exp} · ${b.travelers} viajero(s) · ${mxn(Number(b.travelers)*Number(b.unit_price_mxn))}`,b.id));}
+      for(const b of [...(br.data||[])].sort((a,b)=>String(financeProspects.get(a.prospect_id)?.alias||a.customer_name||'').localeCompare(String(financeProspects.get(b.prospect_id)?.alias||b.customer_name||''),'es',{sensitivity:'base'}))){if(b.status==='cancelled')continue;const exp=financeExpeditions.get(b.expedition_id)?.name||'Expedición';const client=financeProspects.get(b.prospect_id)?.alias||b.customer_name||'Cliente sin identificar';pb.add(new Option(`${client} · ${exp} · ${b.travelers} viajero(s) · ${mxn(Number(b.travelers)*Number(b.unit_price_mxn))}`,b.id));}
       for(const e of er.data||[])pe.add(new Option(e.name,e.id));
       if(financeBookings.has(oldB))pb.value=oldB;if(financeExpeditions.has(oldE))pe.value=oldE;
       updateFinanceBalance();
@@ -2002,6 +2017,14 @@
       drawClients();
     }
     document.querySelector('#customerMasterForm').addEventListener('submit',async e=>{
+      const special=document.querySelector('#cSpecialRequirement');
+      if(special?.value.trim()){
+        e.preventDefault();
+        document.querySelector('#customerMasterStatus').textContent='El requerimiento especial todavía no se puede guardar de forma segura. Para crear la ficha ahora, deja este campo vacío. No se ha enviado información.';
+        special.focus();
+        return;
+      }
+
       e.preventDefault();if(currentRole!=='admin')return;
       const status=document.querySelector('#customerMasterStatus');
       const name=document.querySelector('#cFullName').value.trim().replace(/\s+/g,' ');
@@ -3756,6 +3779,77 @@ document.addEventListener('focusin', function(event) {
     try { field.select(); } catch (_) {}
   }
 });
+</script>
+
+<script>
+/* V48: herramientas de consulta, sin modificaciones de esquema ni escritura en Supabase. */
+(function(){
+  const $=id=>document.getElementById(id);
+  const fmt=n=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN'}).format(Number(n)||0);
+  const month=$('accountantMonth');if(month)month.value=new Date().toISOString().slice(0,7);
+  function csvCell(value){let s=String(value??'');if(/^[\s]*[=+@-]/.test(s)&&typeof value!=='number')s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}
+  function exportCSV(rows,name){
+    const csv='\ufeff'+rows.map(r=>r.map(csvCell).join(';')).join('\r\n');
+    const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+    const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
+  }
+  $('accountantExport')?.addEventListener('click',async()=>{
+    const status=$('accountantStatus'),period=month.value;
+    if(!/^\d{4}-\d{2}$/.test(period)){status.textContent='Selecciona un mes válido.';return;}
+    if(typeof supabase==='undefined'){status.textContent='Inicia sesión para consultar Supabase.';return;}
+    const button=$('accountantExport');button.disabled=true;status.textContent='Consultando ingresos reales...';
+    try{
+      const [b,p]=await Promise.all([
+        supabase.from('bookings').select('id,is_test,customer_name,expedition_id,prospect_id').eq('is_test',false).limit(5000),
+        supabase.from('payments').select('id,booking_id,amount_mxn,paid_at,payment_method').gte('paid_at',period+'-01T00:00:00').lt('paid_at',(function(){let [y,m]=period.split('-').map(Number);return new Date(Date.UTC(y,m,1)).toISOString()})()).limit(5000)
+      ]);
+      if(b.error||p.error)throw b.error||p.error;
+      if((b.data||[]).length===5000||(p.data||[]).length===5000)throw new Error('Hay demasiados registros para un informe completo. No se exportó un archivo parcial.');
+      const ids=new Map((b.data||[]).map(x=>[x.id,x]));
+      const real=(p.data||[]).filter(x=>ids.has(x.booking_id));
+      const rows=[['RESUMEN MENSUAL PARA CONTADOR · BRIK'],['Mes',period],['Tipo','Fecha','Concepto / Cliente','Reserva ID','Monto MXN','Método','Estado'],...real.map(x=>['INGRESO',String(x.paid_at||'').slice(0,10),ids.get(x.booking_id)?.customer_name||'Cliente de reserva',x.booking_id,Number(x.amount_mxn||0),x.payment_method||'', 'Real (reserva no prueba)']),[],['TOTAL INGRESOS','','','',real.reduce((n,x)=>n+Number(x.amount_mxn||0),0)],['GASTOS REALES','','','','PENDIENTE DE CLASIFICACIÓN'],['AVISO','Los gastos existentes no tienen indicador de prueba; se excluyen hasta validación.'],['AVISO','No incluye conciliación bancaria, impuestos ni movimientos fuera de la app.']];
+      exportCSV(rows,'BRIK_Contador_'+period+'.csv');
+      status.textContent='Archivo generado: '+real.length+' ingresos reales identificados. Gastos excluidos hasta contar con clasificación segura. Formato CSV compatible con Excel.';
+    }catch(e){status.textContent='No se pudo generar el informe: '+(e?.message||'Error de consulta');}
+    finally{button.disabled=false;}
+  });
+  let bookingMap=new Map();
+  async function loadQuoteBookingSources(){
+    const select=$('qBookingSource');if(!select||typeof supabase==='undefined')return;
+    const [b,e,c,p]=await Promise.all([
+      supabase.from('bookings').select('id,expedition_id,prospect_id,customer_id,customer_name,travelers,unit_price_mxn,status').limit(1000),
+      supabase.from('expeditions').select('id,name').limit(1000),
+      supabase.from('customers').select('id,full_name,phone,email').limit(1000),
+      supabase.from('prospects').select('id,alias').limit(1000)
+    ]);
+    if(b.error||e.error||c.error||p.error){$('qBookingPreview').textContent='No se pudieron consultar todas las reservas y contactos: '+(b.error||e.error||c.error||p.error).message;return;}
+    const exps=new Map((e.data||[]).map(x=>[x.id,x.name]));
+    const customers=new Map((c.data||[]).map(x=>[x.id,x]));
+    const prospects=new Map((p.data||[]).map(x=>[x.id,x.alias]));
+    bookingMap=new Map((b.data||[]).map(x=>[x.id,{...x,expName:exps.get(x.expedition_id)||'Expedición',customer:customers.get(x.customer_id),name:customers.get(x.customer_id)?.full_name||x.customer_name||prospects.get(x.prospect_id)||'Cliente sin nombre'}]));
+    const previous=select.value;select.replaceChildren(new Option('Nueva cotización sin reserva previa',''));
+    [...bookingMap.values()].sort((a,b)=>a.name.localeCompare(b.name,'es',{sensitivity:'base'})).forEach(x=>select.add(new Option(x.name+' · '+x.expName+' · '+x.travelers+' viajero(s)',x.id)));
+    if(bookingMap.has(previous))select.value=previous;
+  }
+  $('qBookingSource')?.addEventListener('focus',loadQuoteBookingSources);
+  $('qBookingSource')?.addEventListener('change',async()=>{
+    const b=bookingMap.get($('qBookingSource').value);if(!b){$('qBookingPreview').textContent='Nueva cotización independiente.';return;}
+    const contact=b.customer;
+    $('qBookingPreview').textContent='Cliente: '+b.name+' · Expedición: '+b.expName+' · Viajeros en reserva: '+b.travelers+' · Total reservado: '+fmt(Number(b.travelers)*Number(b.unit_price_mxn))+' · Teléfono: '+(contact?.phone||'No registrado en Clientes')+' · Correo: '+(contact?.email||'No registrado en Clientes')+'.';
+    // No se cambian identidad ni reserva: se recupera solo la expedición y se recalculan costos.
+    const q=$('qExpedition');if(q&&!q.disabled){q.value=b.expedition_id;q.dispatchEvent(new Event('change',{bubbles:true}));}
+    $('qTravelers').value=String(b.travelers||1);
+    $('qTravelers').dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  $('qUseBookingTravelers')?.addEventListener('click',()=>{
+    const b=bookingMap.get($('qBookingSource').value);if(!b){$('qBookingPreview').textContent='Selecciona primero una reserva.';return;}
+    $('qTravelers').value=String(b.travelers||1);$('qTravelers').dispatchEvent(new Event('input',{bubbles:true}));
+  });
+  // En blanco al inicio, pero conserva los ceros calculados de solo lectura.
+  ['a6Bank','a6Reserved','a6Capital'].forEach(id=>{const el=$(id);if(el&&el.value==='0')el.value='';});
+  const observer=new MutationObserver(mutations=>{for(const m of mutations){for(const node of m.addedNodes){if(node.nodeType!==1)continue;const inputs=node.matches?.('input[type="number"]')?[node]:[...(node.querySelectorAll?.('input[type="number"]')||[])];for(const el of inputs){if(el.closest('#a6Rows')&&el.value==='0')el.value='';}}}});
+  const rows=$('a6Rows');if(rows)observer.observe(rows,{childList:true,subtree:true});
+})();
 </script>
 </body>
 </html>
