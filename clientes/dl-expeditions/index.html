@@ -369,7 +369,7 @@
         <button class="dash-nav" data-page="reportes" type="button">▥ &nbsp; Reportes y análisis</button>
         <div class="nav-note">Prospectos, reservas, finanzas y reportes conectados · valida permisos RLS</div>
       </nav><div class="dash-content">
-        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 53 · Prospectos y cotizador</span></div>
+        <div class="dash-head"><div><div class="dash-kicker">BRIK / INTELIGENCIA DE NEGOCIOS</div><h1 id="greeting">Panel principal</h1><p id="pageSubtitle">DL Expeditions · Resumen comercial y financiero</p></div><span class="pill">Versión 54 · Prospectos y cotizador</span></div>
         <details class="dash-demo" style="padding:11px 14px;margin-bottom:14px"><summary style="cursor:pointer;font-weight:700">Entorno de prueba · información y privacidad</summary><p style="margin:9px 0 0">Conectado a Supabase. Los indicadores dependen de los permisos y registros accesibles. Antes de usar datos personales reales, valida las políticas RLS y el aviso de privacidad.</p></details>
         <section class="page active" data-section="inicio">
 <div class="dash-panel" style="margin-bottom:17px">
@@ -669,7 +669,7 @@
                 <button id="qReloadBookings" type="button" class="outline-btn" style="margin-top:9px">Actualizar lista de reservas</button>
                 <div id="qBookingPreview" class="hint" role="status" style="margin:12px 0">Selecciona una reserva: se cargarán automáticamente el cliente, la expedición y los viajeros.</div>
                 <label id="qBookingTravelersEdit" hidden>Viajeros para esta nueva cotización (puedes cambiarlos)<input id="qBookingTravelersInput" type="number" min="1" max="10000" step="1" placeholder="Cantidad de viajeros"></label>
-                <p class="hint">Cambiar los viajeros aquí solo modifica la cotización; nunca cambia la reserva ni sus pagos. El monto original se muestra como referencia y el nuevo importe se calcula con el precio vigente de la expedición.</p>
+                <p class="hint">La cantidad se carga desde la reserva seleccionada. Cambiar los viajeros aquí solo modifica la cotización; nunca cambia la reserva ni sus pagos. El monto original se muestra como referencia y el nuevo importe se calcula con el precio vigente de la expedición.</p>
               </div>
               <label class="quote-first-prospect">Buscar prospecto (opcional)<select id="qFindProspect"><option value="">Seleccionar prospecto registrado</option></select></label>
               <div class="quote-first-prospect"><button type="button" id="qChangePerson" class="outline-btn" hidden>Cambiar persona / iniciar otra cotización</button></div>
@@ -3864,23 +3864,46 @@ document.addEventListener('focusin', function(event) {
   }
   $('qReloadBookings')?.addEventListener('click',loadQuoteBookingSources);
   $('qBookingSource')?.addEventListener('focus',()=>{if(bookingMap.size===0)loadQuoteBookingSources();});
+  let qSelectedBookingId='';
+  let qBookingSelectionSequence=0;
+  function applyBookingTravelers(booking){
+    const travelers=Number(booking?.travelers);
+    if(!Number.isInteger(travelers)||travelers<1){
+      $('qBookingTravelersInput').value='';
+      $('qBookingPreview').textContent+=' ⚠ La reserva no tiene una cantidad válida de viajeros.';
+      return;
+    }
+    $('qTravelers').value=String(travelers);
+    $('qBookingTravelersInput').value=String(travelers);
+    $('qTravelers').dispatchEvent(new Event('input',{bubbles:true}));
+  }
   $('qBookingSource')?.addEventListener('change',async()=>{
+    const sequence=++qBookingSelectionSequence;
     const b=bookingMap.get($('qBookingSource').value);
-    if(!b){quoteBookingMode(false);$('qBookingPreview').textContent='Selecciona una reserva para cargar los datos.';return;}
+    if(!b){qSelectedBookingId='';quoteBookingMode(false);$('qBookingPreview').textContent='Selecciona una reserva para cargar los datos.';return;}
+    qSelectedBookingId=b.id;
     quoteBookingMode(true);
     const contact=b.customer;
     const amount=Number(b.travelers)*Number(b.unit_price_mxn);
-    $('qBookingPreview').textContent='Cliente: '+b.name+' | Expedición: '+b.expName+' | Viajeros: '+(b.travelers??'No registrado')+' | Monto reservado: '+(Number.isFinite(amount)?fmt(amount):'No disponible')+' | Teléfono: '+(contact?.phone||'No registrado')+' | Correo: '+(contact?.email||'No registrado')+'.';
-    // Desbloquea controles antes de seleccionar expedición; algunas fichas de prospecto los bloquean.
-    const q=$('qExpedition');const person=$('qProspect');
-    if(q){q.disabled=false;q.value=b.expedition_id;q.dispatchEvent(new Event('change',{bubbles:true}));}
-    if(person){person.disabled=false;person.value=b.prospect_id||'';person.dispatchEvent(new Event('change',{bubbles:true}));}
-    const travelers=Number(b.travelers);
-    if(Number.isInteger(travelers)&&travelers>0){
-      $('qTravelers').value=String(travelers);
-      $('qBookingTravelersInput').value=String(travelers);
-      $('qTravelers').dispatchEvent(new Event('input',{bubbles:true}));
-    }else{$('qBookingTravelersInput').value='';$('qBookingPreview').textContent+=' Atención: falta una cantidad válida de viajeros en esta reserva.';}
+    $('qBookingPreview').textContent='Cliente: '+b.name+' | Expedición: '+b.expName+' | Viajeros de la reserva: '+(b.travelers??'No registrado')+' | Monto reservado: '+(Number.isFinite(amount)?fmt(amount):'No disponible')+' | Teléfono: '+(contact?.phone||'No registrado')+' | Correo: '+(contact?.email||'No registrado')+'.';
+    // El selector de expedición recarga costos de manera asíncrona. Esperamos su finalización
+    // y luego aplicamos los viajeros, evitando que el cotizador vuelva al valor inicial 1.
+    const expedition=$('qExpedition'),person=$('qProspect');
+    if(expedition){
+      expedition.disabled=false;
+      expedition.value=b.expedition_id;
+      expedition.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    if(sequence!==qBookingSelectionSequence||$('qBookingSource').value!==b.id)return;
+    if(person){
+      person.disabled=false;
+      person.value=b.prospect_id||'';
+      person.dispatchEvent(new Event('change',{bubbles:true}));
+    }
+    // Aplicar viajeros de la reserva, no el valor por defecto del formulario.
+    applyBookingTravelers(b);
+    $('qBookingTravelersEdit').hidden=false;
+    $('qBookingTravelersInput').focus({preventScroll:true});
   });
   $('qBookingTravelersInput')?.addEventListener('input',()=>{
     const value=$('qBookingTravelersInput').value;
